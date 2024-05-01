@@ -175,13 +175,15 @@ void drawExampleUI(AppContext *app)
     static bool show_another_window = false;
     static bool show_quit_dialog = false;
 
-    int width, height;
+    int width, height, bbwidth, bbheight;
     SDL_GetWindowSize(app->window, &width, &height);
+    SDL_GetWindowSizeInPixels(app->window, &bbwidth, &bbheight);
 
     static float f = 0.0f;
     ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
     ImGui::ColorEdit3("clear color", static_cast<float *>(&app->bacgkround_color[0]));
-    ImGui::Text("width: %d, height: %d", width, height);
+    ImGui::Text(
+        "width: %d, height: %d, dpi: %.1f\n", width, height, float(width) / float(bbwidth));
     ImGui::Text("NOTE: programmatic quit isn't supported on mobile");
     if (ImGui::Button("Hard Quit"))
     {
@@ -417,6 +419,9 @@ int SDL_AppEvent(void *appstate, const SDL_Event *event)
         break;
     case SDL_EVENT_MOUSE_BUTTON_UP:
         io.AddMouseButtonEvent(0, false);
+        break;
+    case SDL_EVENT_MOUSE_WHEEL:
+        io.AddMouseWheelEvent(event->wheel.x, event->wheel.y);
         break;
     default:
         break;
