@@ -411,10 +411,13 @@ int SDL_AppEvent(void *appstate, const SDL_Event *event)
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
         app->reset_swapchain = SDL_TRUE;
+        break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
         io.AddMouseButtonEvent(0, true);
+        break;
     case SDL_EVENT_MOUSE_BUTTON_UP:
         io.AddMouseButtonEvent(0, false);
+        break;
     default:
         break;
     }
