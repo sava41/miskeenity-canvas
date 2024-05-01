@@ -1,0 +1,63 @@
+name: Build Sample
+on: [push, pull_request]
+
+jobs:
+    build-win:
+        name: Build for Windows
+        runs-on: windows-latest
+        strategy:
+          fail-fast: false
+          matrix:
+              arch: [x64, ARM64]
+              target: [Windows]
+
+        steps:
+          - uses: actions/checkout@v4
+            with:
+                submodules: true
+          - name: Configure
+            run: | 
+                mkdir build && cd build
+                cmake -DCMAKE_SYSTEM_NAME=${{ matrix.target }} -DCMAKE_SYSTEM_VERSION="10.0" -A${{ matrix.arch }} ..
+          - name: Build
+            run: cmake --build build --target miskeenity-canvas --config Release
+          - name: Upload Build
+            uses: actions/upload-artifact@v4
+            with: 
+                name: miskeenity-canvas-${{ matrix.target }}-${{ matrix.arch }}
+                path: |
+                    build/Release/*.exe
+                    build/Release/*.dll
+
+    build-mac:
+        name: Build for Apple
+        runs-on: macos-14
+        strategy:
+          fail-fast: false
+          matrix:
+              target: [iOS, tvOS, visionOS, '']
+
+        steps:
+          - uses: actions/checkout@v4
+            with:
+                submodules: true
+          - name: Setup Xcode version
+            uses: maxim-lobanov/setup-xcode@v1.6.0
+            with:
+                xcode-version: "15.2"
+          - name: Configure
+            run: | 
+                mkdir build && cd build
+                cmake -G "Xcode" -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO -DCMAKE_SYSTEM_NAME=${{ matrix.target }} -DSDL_STATIC=ON -DSDL_SHARED=OFF ..
+          - name: Build
+            run: cmake --build build --target miskeenity-canvas --config Release
+
+          - name: Create DMG
+            run: | 
+                cd build
+                hdiutil create -size 2g -srcfolder release -volname miskeenity_canvas_apple_${{ matrix.target }} miskeenity_canvas_apple_${{ matrix.target }}.dmg
+          - name: Upload Build
+            uses: actions/upload-artifact@v4
+            with: 
+                name: miskeenity-canvas-apple-${{ matrix.target }}
+                path: build/*.dmg
