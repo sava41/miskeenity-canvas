@@ -30,7 +30,7 @@ https://emscripten.org/docs/getting_started/downloads.html#installation-instruct
 > ./emsdk activate latest
 > cd ..
 
-> emsdk/upstream/emscripten/emcmake cmake . -B build -DCMAKE_BUILD_TYPE=<type>
-> cmake --build build
+> emsdk/upstream/emscripten/emcmake cmake . -B embuild -DCMAKE_BUILD_TYPE=<type>
+> cmake --build embuild
 ```
 

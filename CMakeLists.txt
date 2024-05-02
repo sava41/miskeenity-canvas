@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.28)
 project(miskeenity-canvas LANGUAGES C CXX)
 
-find_package(Python REQUIRED Interpreter Development)
+if (NOT CMAKE_SYSTEM_NAME STREQUAL Emscripten)
+find_package(Python COMPONENTS Interpreter Development REQUIRED)
+endif()
 
 include(FetchContent)
 set(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/third_party)
