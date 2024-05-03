@@ -99,16 +99,20 @@ WGPUSurface SDL_GetWGPUSurface(WGPUInstance instance, SDL_Window* window) {
         });
     }
 #elif defined(SDL_PLATFORM_EMSCRIPTEN)
-        
-        return wgpuInstanceCreateSurface(
-            instance,
-            &(WGPUSurfaceDescriptor){
+
+    return wgpuInstanceCreateSurface(
+        instance,
+        &(WGPUSurfaceDescriptor){
             .label = NULL,
             .nextInChain =
-                (const WGPUChainedStruct*)&(
-                    WGPUSurfaceDescriptorFromCanvasHTMLSelector) {
-                .selector = "#webgpu-canvas",
-            },
+                (const WGPUChainedStruct *)&(WGPUSurfaceDescriptorFromCanvasHTMLSelector){
+                    .chain =
+                        (WGPUChainedStruct){
+                            .next = NULL,
+                            .sType = WGPUSType_SurfaceDescriptorFromCanvasHTMLSelector,
+                        },
+                    .selector = "canvas",
+                },
         });
 #endif
 }

@@ -39,10 +39,10 @@ target_compile_definitions(miskeenity-canvas PRIVATE SDL_MAIN_USE_CALLBACKS)
 # Emscripten-specific linker options
 if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
-    # use our own minimal shell.html
+    # use minimal shell.html
     target_link_options(miskeenity-canvas PRIVATE --shell-file ${PROJECT_SOURCE_DIR}/resources/shell/shell.html)
     # wasm options
-    target_link_options(miskeenity-canvas PRIVATE -sUSE_WEBGPU=1 -sALLOW_MEMORY_GROWTH=1)
+    target_link_options(miskeenity-canvas PRIVATE -sUSE_WEBGPU=1 -sALLOW_MEMORY_GROWTH=1 -sASYNCIFY)
     # WASM+JS size optimizations
     #target_link_options(miskeenity-canvas PRIVATE -sNO_FILESYSTEM=1 -sASSERTIONS=0 -sMALLOC=emmalloc --closure=1)
 endif()
