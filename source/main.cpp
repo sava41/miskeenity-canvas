@@ -22,6 +22,7 @@ struct AppContext {
     SDL_Window *window;
     WGPUInstance wgpu_instance;
     WGPUSurface wgpu_surface;
+    WGPUTextureFormat colorFormat;
     WGPUDevice wgpu_device;
     WGPUAdapter wgpu_adapter;
     WGPUQueue wgpu_queue;
@@ -84,7 +85,6 @@ void initCanvasPipeline(AppContext *app)
     pipelineDesc.primitive.topology = WGPUPrimitiveTopology_TriangleList;
     pipelineDesc.primitive.stripIndexFormat = WGPUIndexFormat_Undefined;
     pipelineDesc.primitive.frontFace = WGPUFrontFace_CCW;
-    pipelineDesc.primitive.frontFace = WGPUFrontFace_CCW;
 
     WGPUFragmentState fragmentState = {};
     fragmentState.nextInChain = nullptr;
@@ -106,7 +106,7 @@ void initCanvasPipeline(AppContext *app)
 
     WGPUColorTargetState colorTarget = {};
     colorTarget.nextInChain = nullptr;
-    colorTarget.format = WGPUTextureFormat_BGRA8Unorm;
+    colorTarget.format = app->colorFormat;
     colorTarget.blend = &blendState;
     colorTarget.writeMask = WGPUColorWriteMask_All;
 
@@ -361,13 +361,19 @@ bool initSwapChain(AppContext *app) {
     int width, height;
     SDL_GetWindowSize(app->window, &width, &height);
 
+#if defined(SDL_PLATFORM_EMSCRIPTEN)
+    app->colorFormat = wgpuSurfaceGetPreferredFormat(app->wgpu_surface, app->wgpu_adapter);
+#else()
+    app->colorFormat = WGPUTextureFormat_BGRA8Unorm;
+#endif()
+
     WGPUSwapChainDescriptor swapChainDesc = {};
 
     swapChainDesc.width = static_cast<uint32_t>(width);
     swapChainDesc.height = static_cast<uint32_t>(height);
 
     swapChainDesc.usage = WGPUTextureUsage_RenderAttachment;
-    swapChainDesc.format = WGPUTextureFormat_BGRA8Unorm;
+    swapChainDesc.format = app->colorFormat;
     swapChainDesc.presentMode = WGPUPresentMode_Fifo;
     WGPUSwapChain swapchain = wgpuDeviceCreateSwapChain(app->wgpu_device, app->wgpu_surface, &swapChainDesc);
 
@@ -533,7 +539,7 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
 
     ImGui_ImplWGPU_InitInfo imguiWgpuInfo{};
     imguiWgpuInfo.Device = app->wgpu_device;
-    imguiWgpuInfo.RenderTargetFormat = WGPUTextureFormat_BGRA8Unorm;
+    imguiWgpuInfo.RenderTargetFormat = app->colorFormat;
     ImGui_ImplWGPU_Init(&imguiWgpuInfo);
 
     initCanvasPipeline(app);
@@ -625,6 +631,9 @@ int SDL_AppIterate(void *appstate)
                                                         app->bacgkround_color[2], 
                                                         app->bacgkround_color[3] 
                                                     };
+#if defined(SDL_PLATFORM_EMSCRIPTEN)
+    renderPassColorAttachment.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
+#endif();
 
     WGPURenderPassDescriptor renderPassDesc = {};
     renderPassDesc.colorAttachmentCount = 1;
