@@ -3,10 +3,11 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
-#include <webgpu/webgpu.h>
-#include <imgui.h>
-#include <backends/imgui_impl_wgpu.h>
 #include <backends/imgui_impl_sdl3.h>
+#include <backends/imgui_impl_wgpu.h>
+#include <imgui.h>
+#include <webgpu/webgpu.h>
+#include <webgpu/webgpu_cpp.h>
 
 #if defined(SDL_PLATFORM_EMSCRIPTEN)
 #include <emscripten/emscripten.h>
@@ -20,6 +21,7 @@
 
 struct AppContext {
     SDL_Window *window;
+    wgpu::Surface surface;
     WGPUInstance wgpu_instance;
     WGPUSurface wgpu_surface;
     WGPUTextureFormat colorFormat;
@@ -362,7 +364,7 @@ bool initSwapChain(AppContext *app) {
     SDL_GetWindowSize(app->window, &width, &height);
 
 #if defined(SDL_PLATFORM_EMSCRIPTEN)
-    app->colorFormat = wgpuSurfaceGetPreferredFormat(app->wgpu_surface, app->wgpu_adapter);
+    app->colorFormat = wgpuSurfaceGetPreferredFormat(app->surface.Get(), app->wgpu_adapter);
 #else()
     app->colorFormat = WGPUTextureFormat_BGRA8Unorm;
 #endif()
@@ -375,7 +377,8 @@ bool initSwapChain(AppContext *app) {
     swapChainDesc.usage = WGPUTextureUsage_RenderAttachment;
     swapChainDesc.format = app->colorFormat;
     swapChainDesc.presentMode = WGPUPresentMode_Fifo;
-    WGPUSwapChain swapchain = wgpuDeviceCreateSwapChain(app->wgpu_device, app->wgpu_surface, &swapChainDesc);
+    WGPUSwapChain swapchain =
+        wgpuDeviceCreateSwapChain(app->wgpu_device, app->surface.Get(), &swapChainDesc);
 
     if(!swapchain){
         return false;
@@ -475,14 +478,14 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
         return SDL_Fail();
     }
 
-    app->wgpu_surface = SDL_GetWGPUSurface(app->wgpu_instance, app->window);
-    if (!app->wgpu_surface) {
+    app->surface = SDL_GetWGPUSurface(wgpu::Instance(app->wgpu_instance), app->window);
+    if (!app->surface.Get()) {
         return SDL_Fail();
     }
 
     WGPURequestAdapterOptions adapterOpts = {};
     adapterOpts.nextInChain = nullptr;
-    adapterOpts.compatibleSurface = app->wgpu_surface;
+    adapterOpts.compatibleSurface = app->surface.Get();
 
     app->wgpu_adapter = requestAdapter(app->wgpu_instance, &adapterOpts);
     if (!app->wgpu_adapter) {
@@ -524,7 +527,7 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
     WGPUDeviceDescriptor deviceDesc = {};
     deviceDesc.nextInChain = nullptr;
     deviceDesc.label = "Device";
-    deviceDesc.requiredLimits = &requiredLimits;
+    // deviceDesc.requiredLimits = &requiredLimits;
     deviceDesc.defaultQueue.nextInChain = nullptr;
     deviceDesc.defaultQueue.label = "Main Queue";
     app->wgpu_device = requestDevice(app->wgpu_adapter, &deviceDesc);
@@ -647,8 +650,8 @@ int SDL_AppIterate(void *appstate)
     WGPURenderPassEncoder renderPass =
         wgpuCommandEncoderBeginRenderPass(encoder, &renderPassDesc);
 
-    wgpuRenderPassEncoderSetPipeline(renderPass, app->canvas_pipeline);
-    wgpuRenderPassEncoderDraw(renderPass, 3, 1, 0, 0);
+    // wgpuRenderPassEncoderSetPipeline(renderPass, app->canvas_pipeline);
+    // wgpuRenderPassEncoderDraw(renderPass, 3, 1, 0, 0);
 
     drawUI(app, renderPass);
 
@@ -666,11 +669,7 @@ int SDL_AppIterate(void *appstate)
     wgpuCommandBufferRelease(command);
 
 #if !defined(SDL_PLATFORM_EMSCRIPTEN)
-    // We can tell the swap chain to present the next texture.
     wgpuSwapChainPresent(app->wgpu_swapchain);
-#endif
-
-#if defined(WEBGPU_BACKEND_DAWN)
     wgpuDeviceTick(app->wgpu_device);
 #endif
 

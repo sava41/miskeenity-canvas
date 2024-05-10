@@ -26,5 +26,9 @@ if(NOT imgui_POPULATED)
   )
   
   target_include_directories(imgui PUBLIC ${IMGUI_INCLUDE_DIR})
-  target_link_libraries(imgui PUBLIC SDL3::SDL3 webgpu)
+  target_link_libraries(imgui PUBLIC SDL3::SDL3)
+
+  if (NOT CMAKE_SYSTEM_NAME STREQUAL Emscripten)
+    target_link_libraries(imgui PUBLIC webgpu_dawn)
+  endif()
 endif()
