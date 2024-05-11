@@ -21,7 +21,13 @@
 
 struct AppContext {
     SDL_Window *window;
+    wgpu::Instance instance;
     wgpu::Surface surface;
+    wgpu::Device device;
+    wgpu::Adapter adapter;
+    wgpu::Queue queue;
+    wgpu::SwapChain swapchain;
+    wgpu::RenderPipeline mainPipeline;
     WGPUInstance wgpu_instance;
     WGPUSurface wgpu_surface;
     WGPUTextureFormat colorFormat;
@@ -36,7 +42,7 @@ struct AppContext {
     float bacgkround_color[4] = {0.949f, 0.929f, 0.898f, 1.0f};
 };
 
-void initCanvasPipeline(AppContext *app)
+void initMainPipeline(AppContext *app)
 {
     const char *shaderSource = R"(
         @vertex
@@ -73,7 +79,7 @@ void initCanvasPipeline(AppContext *app)
     shaderCodeDesc.code = shaderSource;
 
     WGPUShaderModule shaderModule =
-        wgpuDeviceCreateShaderModule(app->wgpu_device, &shaderDesc);
+        wgpuDeviceCreateShaderModule(app->device.Get(), &shaderDesc);
     WGPURenderPipelineDescriptor pipelineDesc = {};
     pipelineDesc.nextInChain = nullptr;
     pipelineDesc.vertex.bufferCount = 0;
@@ -120,7 +126,7 @@ void initCanvasPipeline(AppContext *app)
     pipelineDesc.multisample.alphaToCoverageEnabled = false;
     pipelineDesc.layout = nullptr;
 
-    app->canvas_pipeline = wgpuDeviceCreateRenderPipeline(app->wgpu_device, &pipelineDesc);
+    app->canvas_pipeline = wgpuDeviceCreateRenderPipeline(app->device.Get(), &pipelineDesc);
 }
 
 void initUI(AppContext *app)
@@ -364,7 +370,7 @@ bool initSwapChain(AppContext *app) {
     SDL_GetWindowSize(app->window, &width, &height);
 
 #if defined(SDL_PLATFORM_EMSCRIPTEN)
-    app->colorFormat = wgpuSurfaceGetPreferredFormat(app->surface.Get(), app->wgpu_adapter);
+    app->colorFormat = wgpuSurfaceGetPreferredFormat(app->surface.Get(), app->adapter.Get());
 #else()
     app->colorFormat = WGPUTextureFormat_BGRA8Unorm;
 #endif()
@@ -378,7 +384,7 @@ bool initSwapChain(AppContext *app) {
     swapChainDesc.format = app->colorFormat;
     swapChainDesc.presentMode = WGPUPresentMode_Fifo;
     WGPUSwapChain swapchain =
-        wgpuDeviceCreateSwapChain(app->wgpu_device, app->surface.Get(), &swapChainDesc);
+        wgpuDeviceCreateSwapChain(app->device.Get(), app->surface.Get(), &swapChainDesc);
 
     if(!swapchain){
         return false;
@@ -389,10 +395,11 @@ bool initSwapChain(AppContext *app) {
     return true;
 }
 
-WGPUDevice requestDevice(WGPUAdapter adapter, WGPUDeviceDescriptor const *descriptor)
+wgpu::Device requestDevice(const wgpu::Adapter &adapter,
+                           const wgpu::DeviceDescriptor *descriptor)
 {
     struct UserData {
-        WGPUDevice device = nullptr;
+        wgpu::Device device;
         bool requestEnded = false;
     };
     UserData userData;
@@ -403,15 +410,15 @@ WGPUDevice requestDevice(WGPUAdapter adapter, WGPUDeviceDescriptor const *descri
                                    void *pUserData) {
         UserData &userData = *reinterpret_cast<UserData *>(pUserData);
         if (status == WGPURequestDeviceStatus_Success) {
-            userData.device = device;
+            userData.device = wgpu::Device::Acquire(device);
         } else {
             SDL_Log("Could not get WebGPU device: %s", message);
         }
         userData.requestEnded = true;
     };
 
-    wgpuAdapterRequestDevice(
-        adapter, descriptor, onDeviceRequestEnded, reinterpret_cast<void *>(&userData));
+    adapter.RequestDevice(
+        descriptor, onDeviceRequestEnded, reinterpret_cast<void *>(&userData));
 
     // request device is async on web so hacky solution for now is to sleep
 #if defined(SDL_PLATFORM_EMSCRIPTEN)
@@ -421,10 +428,11 @@ WGPUDevice requestDevice(WGPUAdapter adapter, WGPUDeviceDescriptor const *descri
     return userData.device;
 }
 
-WGPUAdapter requestAdapter(WGPUInstance instance, WGPURequestAdapterOptions const *options)
+wgpu::Adapter requestAdapter(const wgpu::Instance &instance,
+                             const wgpu::RequestAdapterOptions *options)
 {
     struct UserData {
-        WGPUAdapter adapter = nullptr;
+        wgpu::Adapter adapter;
         bool requestEnded = false;
     };
     UserData userData;
@@ -435,14 +443,14 @@ WGPUAdapter requestAdapter(WGPUInstance instance, WGPURequestAdapterOptions cons
                                     void *pUserData) {
         UserData &userData = *reinterpret_cast<UserData *>(pUserData);
         if (status == WGPURequestAdapterStatus_Success) {
-            userData.adapter = adapter;
+            userData.adapter = wgpu::Adapter::Acquire(adapter);
         } else {
             SDL_Log("Could not get WebGPU adapter %s", message);
         }
         userData.requestEnded = true;
     };
 
-    wgpuInstanceRequestAdapter(instance, options, onAdapterRequestEnded, (void *)&userData);
+    instance.RequestAdapter(options, onAdapterRequestEnded, (void *)&userData);
 
     // request adapter is async on web so hacky solution for now is to sleep
 #if defined(SDL_PLATFORM_EMSCRIPTEN)
@@ -473,22 +481,21 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
         return SDL_Fail();
     }
 
-    app->wgpu_instance = wgpuCreateInstance(nullptr);
+    app->instance = wgpu::CreateInstance();
     if (!app->wgpu_instance) {
         return SDL_Fail();
     }
 
-    app->surface = SDL_GetWGPUSurface(wgpu::Instance(app->wgpu_instance), app->window);
+    app->surface = SDL_GetWGPUSurface(app->instance, app->window);
     if (!app->surface.Get()) {
         return SDL_Fail();
     }
 
-    WGPURequestAdapterOptions adapterOpts = {};
-    adapterOpts.nextInChain = nullptr;
-    adapterOpts.compatibleSurface = app->surface.Get();
+    wgpu::RequestAdapterOptions adapterOpts;
+    adapterOpts.compatibleSurface = app->surface;
 
-    app->wgpu_adapter = requestAdapter(app->wgpu_instance, &adapterOpts);
-    if (!app->wgpu_adapter) {
+    app->adapter = requestAdapter(app->instance, &adapterOpts);
+    if (!app->adapter) {
         return SDL_Fail();
     }
 
@@ -500,7 +507,7 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
     supportedLimits.limits.minStorageBufferOffsetAlignment = 256;
     supportedLimits.limits.minUniformBufferOffsetAlignment = 256;
 #else
-    wgpuAdapterGetLimits(app->wgpu_adapter, &supportedLimits);
+    wgpuAdapterGetLimits(app->adapter.Get(), &supportedLimits);
 #endif
 
     WGPURequiredLimits requiredLimits = {};
@@ -524,15 +531,13 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
     requiredLimits.limits.maxSampledTexturesPerShaderStage = 1;
     requiredLimits.limits.maxSamplersPerShaderStage = 1;
 
-    WGPUDeviceDescriptor deviceDesc = {};
-    deviceDesc.nextInChain = nullptr;
+    wgpu::DeviceDescriptor deviceDesc;
     deviceDesc.label = "Device";
     // deviceDesc.requiredLimits = &requiredLimits;
-    deviceDesc.defaultQueue.nextInChain = nullptr;
     deviceDesc.defaultQueue.label = "Main Queue";
-    app->wgpu_device = requestDevice(app->wgpu_adapter, &deviceDesc);
+    app->device = requestDevice(app->adapter, &deviceDesc);
 
-    app->wgpu_queue = wgpuDeviceGetQueue(app->wgpu_device);
+    app->wgpu_queue = wgpuDeviceGetQueue(app->device.Get());
 
     initSwapChain(app); 
 
@@ -541,11 +546,11 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
     ImGui_ImplSDL3_InitForOther(app->window);
 
     ImGui_ImplWGPU_InitInfo imguiWgpuInfo{};
-    imguiWgpuInfo.Device = app->wgpu_device;
+    imguiWgpuInfo.Device = app->device.Get();
     imguiWgpuInfo.RenderTargetFormat = app->colorFormat;
     ImGui_ImplWGPU_Init(&imguiWgpuInfo);
 
-    initCanvasPipeline(app);
+    initMainPipeline(app);
 
     // print some information about the window
     SDL_ShowWindow(app->window);
@@ -622,7 +627,7 @@ int SDL_AppIterate(void *appstate)
     commandEncoderDesc.nextInChain = nullptr;
     commandEncoderDesc.label = "Casper";
     WGPUCommandEncoder encoder =
-        wgpuDeviceCreateCommandEncoder(app->wgpu_device, &commandEncoderDesc);
+        wgpuDeviceCreateCommandEncoder(app->device.Get(), &commandEncoderDesc);
 
     WGPURenderPassColorAttachment renderPassColorAttachment = {};
     renderPassColorAttachment.view = nextTexture;
@@ -650,8 +655,8 @@ int SDL_AppIterate(void *appstate)
     WGPURenderPassEncoder renderPass =
         wgpuCommandEncoderBeginRenderPass(encoder, &renderPassDesc);
 
-    // wgpuRenderPassEncoderSetPipeline(renderPass, app->canvas_pipeline);
-    // wgpuRenderPassEncoderDraw(renderPass, 3, 1, 0, 0);
+    wgpuRenderPassEncoderSetPipeline(renderPass, app->canvas_pipeline);
+    wgpuRenderPassEncoderDraw(renderPass, 3, 1, 0, 0);
 
     drawUI(app, renderPass);
 
@@ -670,7 +675,7 @@ int SDL_AppIterate(void *appstate)
 
 #if !defined(SDL_PLATFORM_EMSCRIPTEN)
     wgpuSwapChainPresent(app->wgpu_swapchain);
-    wgpuDeviceTick(app->wgpu_device);
+    wgpuDeviceTick(app->device.Get());
 #endif
 
     return app->app_quit;
