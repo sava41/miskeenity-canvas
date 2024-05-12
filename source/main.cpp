@@ -21,21 +21,21 @@
 
 struct AppContext {
     SDL_Window *window;
+
+    int width;
+    int height;
+    int bbwidth;
+    int bbheight;
+
     wgpu::Instance instance;
     wgpu::Surface surface;
     wgpu::Device device;
     wgpu::Adapter adapter;
-    wgpu::Queue queue;
     wgpu::SwapChain swapchain;
     wgpu::RenderPipeline mainPipeline;
-    WGPUInstance wgpu_instance;
-    WGPUSurface wgpu_surface;
-    WGPUTextureFormat colorFormat;
-    WGPUDevice wgpu_device;
-    WGPUAdapter wgpu_adapter;
-    WGPUQueue wgpu_queue;
-    WGPUSwapChain wgpu_swapchain;
-    WGPURenderPipeline canvas_pipeline;
+    wgpu::TextureFormat colorFormat;
+    wgpu::RenderPipeline canvas_pipeline;
+
     SDL_bool app_quit = SDL_FALSE;
     SDL_bool reset_swapchain = SDL_FALSE;
 
@@ -64,69 +64,52 @@ void initMainPipeline(AppContext *app)
         }
         )";
 
-    WGPUShaderModuleDescriptor shaderDesc = {};
-    shaderDesc.nextInChain = nullptr;
-
-    // Use the extension mechanism to load a WGSL shader source code
-    WGPUShaderModuleWGSLDescriptor shaderCodeDesc = {};
-    // Set the chained struct's header
-    shaderCodeDesc.chain.next = nullptr;
-    shaderCodeDesc.chain.sType = WGPUSType_ShaderModuleWGSLDescriptor;
-    // Connect the chain
-    shaderDesc.nextInChain = &shaderCodeDesc.chain;
-
-    // Setup the actual payload of the shader code descriptor
+    wgpu::ShaderModuleWGSLDescriptor shaderCodeDesc;
     shaderCodeDesc.code = shaderSource;
 
-    WGPUShaderModule shaderModule =
-        wgpuDeviceCreateShaderModule(app->device.Get(), &shaderDesc);
-    WGPURenderPipelineDescriptor pipelineDesc = {};
-    pipelineDesc.nextInChain = nullptr;
+    wgpu::ShaderModuleDescriptor shaderDesc;
+    shaderDesc.nextInChain = &shaderCodeDesc;
+
+    wgpu::ShaderModule shaderModule = app->device.CreateShaderModule(&shaderDesc);
+    wgpu::RenderPipelineDescriptor pipelineDesc;
     pipelineDesc.vertex.bufferCount = 0;
-    pipelineDesc.vertex.buffers = nullptr;
 
     pipelineDesc.vertex.module = shaderModule;
     pipelineDesc.vertex.entryPoint = "vs_main";
     pipelineDesc.vertex.constantCount = 0;
-    pipelineDesc.vertex.constants = nullptr;
 
-    pipelineDesc.primitive.topology = WGPUPrimitiveTopology_TriangleList;
-    pipelineDesc.primitive.stripIndexFormat = WGPUIndexFormat_Undefined;
-    pipelineDesc.primitive.frontFace = WGPUFrontFace_CCW;
+    pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleList;
+    pipelineDesc.primitive.stripIndexFormat = wgpu::IndexFormat::Undefined;
+    pipelineDesc.primitive.frontFace = wgpu::FrontFace::CCW;
 
-    WGPUFragmentState fragmentState = {};
-    fragmentState.nextInChain = nullptr;
+    wgpu::FragmentState fragmentState;
     pipelineDesc.fragment = &fragmentState;
     fragmentState.module = shaderModule;
     fragmentState.entryPoint = "fs_main";
     fragmentState.constantCount = 0;
-    fragmentState.constants = nullptr;
 
-    WGPUBlendState blendState;
+    wgpu::BlendState blendState;
     // Usual alpha blending for the color:
-    blendState.color.srcFactor = WGPUBlendFactor_SrcAlpha;
-    blendState.color.dstFactor = WGPUBlendFactor_OneMinusSrcAlpha;
-    blendState.color.operation = WGPUBlendOperation_Add;
+    blendState.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
+    blendState.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
+    blendState.color.operation = wgpu::BlendOperation::Add;
     // We leave the target alpha untouched:
-    blendState.alpha.srcFactor = WGPUBlendFactor_Zero;
-    blendState.alpha.dstFactor = WGPUBlendFactor_One;
-    blendState.alpha.operation = WGPUBlendOperation_Add;
+    blendState.alpha.srcFactor = wgpu::BlendFactor::Zero;
+    blendState.alpha.dstFactor = wgpu::BlendFactor::One;
+    blendState.alpha.operation = wgpu::BlendOperation::Add;
 
-    WGPUColorTargetState colorTarget = {};
-    colorTarget.nextInChain = nullptr;
+    wgpu::ColorTargetState colorTarget;
     colorTarget.format = app->colorFormat;
     colorTarget.blend = &blendState;
-    colorTarget.writeMask = WGPUColorWriteMask_All;
+    colorTarget.writeMask = wgpu::ColorWriteMask::All;
 
     fragmentState.targetCount = 1;
     fragmentState.targets = &colorTarget;
-    pipelineDesc.depthStencil = nullptr;
     pipelineDesc.multisample.count = 1;
     pipelineDesc.multisample.mask = ~0u;
     pipelineDesc.multisample.alphaToCoverageEnabled = false;
-    pipelineDesc.layout = nullptr;
 
-    app->canvas_pipeline = wgpuDeviceCreateRenderPipeline(app->device.Get(), &pipelineDesc);
+    app->canvas_pipeline = app->device.CreateRenderPipeline(&pipelineDesc);
 }
 
 void initUI(AppContext *app)
@@ -272,16 +255,12 @@ void initUI(AppContext *app)
     style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.196078434586525f, 0.1764705926179886f, 0.5450980663299561f, 0.501960813999176f);
 }
 
-void drawUI(AppContext *app, WGPURenderPassEncoder renderPass)
+void drawUI(AppContext *app, const wgpu::RenderPassEncoder &renderPass)
 {
     static bool show_test_window = true;
     static bool show_another_window = false;
     static bool show_quit_dialog = false;
     static float f = 0.0f;
-
-    int width, height, bbwidth, bbheight;
-    SDL_GetWindowSize(app->window, &width, &height);
-    SDL_GetWindowSizeInPixels(app->window, &bbwidth, &bbheight);
 
     ImGui_ImplWGPU_NewFrame();
     ImGui_ImplSDL3_NewFrame();
@@ -290,8 +269,10 @@ void drawUI(AppContext *app, WGPURenderPassEncoder renderPass)
 
     ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
     ImGui::ColorEdit3("clear color", static_cast<float *>(&app->bacgkround_color[0]));
-    ImGui::Text(
-        "width: %d, height: %d, dpi: %.1f\n", width, height, float(width) / float(bbwidth));
+    ImGui::Text("width: %d, height: %d, dpi: %.1f\n",
+                app->width,
+                app->height,
+                static_cast<float>(app->width) / static_cast<float>(app->bbwidth));
     ImGui::Text("NOTE: programmatic quit isn't supported on mobile");
     if (ImGui::Button("Hard Quit"))
     {
@@ -361,36 +342,22 @@ void drawUI(AppContext *app, WGPURenderPassEncoder renderPass)
 
     ImGui::Render();
 
-    ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), renderPass);
+    ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), renderPass.Get());
 }
 
 bool initSwapChain(AppContext *app) {
+    SDL_GetWindowSize(app->window, &app->width, &app->height);
+    SDL_GetWindowSizeInPixels(app->window, &app->bbwidth, &app->bbheight);
 
-    int width, height;
-    SDL_GetWindowSize(app->window, &width, &height);
+    wgpu::SwapChainDescriptor swapChainDesc;
+    swapChainDesc.width = static_cast<uint32_t>(app->width);
+    swapChainDesc.height = static_cast<uint32_t>(app->height);
 
-#if defined(SDL_PLATFORM_EMSCRIPTEN)
-    app->colorFormat = wgpuSurfaceGetPreferredFormat(app->surface.Get(), app->adapter.Get());
-#else()
-    app->colorFormat = WGPUTextureFormat_BGRA8Unorm;
-#endif()
-
-    WGPUSwapChainDescriptor swapChainDesc = {};
-
-    swapChainDesc.width = static_cast<uint32_t>(width);
-    swapChainDesc.height = static_cast<uint32_t>(height);
-
-    swapChainDesc.usage = WGPUTextureUsage_RenderAttachment;
+    swapChainDesc.usage = wgpu::TextureUsage::RenderAttachment,
     swapChainDesc.format = app->colorFormat;
-    swapChainDesc.presentMode = WGPUPresentMode_Fifo;
-    WGPUSwapChain swapchain =
-        wgpuDeviceCreateSwapChain(app->device.Get(), app->surface.Get(), &swapChainDesc);
+    swapChainDesc.presentMode = wgpu::PresentMode::Fifo;
 
-    if(!swapchain){
-        return false;
-    }
-
-    app->wgpu_swapchain = swapchain;
+    app->swapchain = app->device.CreateSwapChain(app->surface, &swapChainDesc);
 
     return true;
 }
@@ -422,10 +389,10 @@ wgpu::Device requestDevice(const wgpu::Adapter &adapter,
 
     // request device is async on web so hacky solution for now is to sleep
 #if defined(SDL_PLATFORM_EMSCRIPTEN)
-    emscripten_sleep(300);
+    emscripten_sleep(100);
 #endif
 
-    return userData.device;
+    return std::move(userData.device);
 }
 
 wgpu::Adapter requestAdapter(const wgpu::Instance &instance,
@@ -457,7 +424,7 @@ wgpu::Adapter requestAdapter(const wgpu::Instance &instance,
     emscripten_sleep(100);
 #endif
 
-    return userData.adapter;
+    return std::move(userData.adapter);
 }
 
 int SDL_Fail()
@@ -482,7 +449,7 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
     }
 
     app->instance = wgpu::CreateInstance();
-    if (!app->wgpu_instance) {
+    if (!app->instance) {
         return SDL_Fail();
     }
 
@@ -499,7 +466,7 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
         return SDL_Fail();
     }
 
-    WGPUSupportedLimits supportedLimits;
+    wgpu::SupportedLimits supportedLimits;
 #if defined(SDL_PLATFORM_EMSCRIPTEN)
     // Error in Chrome: Aborted(TODO: wgpuAdapterGetLimits unimplemented)
     // (as of September 4, 2023), so we hardcode values:
@@ -507,10 +474,10 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
     supportedLimits.limits.minStorageBufferOffsetAlignment = 256;
     supportedLimits.limits.minUniformBufferOffsetAlignment = 256;
 #else
-    wgpuAdapterGetLimits(app->adapter.Get(), &supportedLimits);
+    app->adapter.GetLimits(&supportedLimits);
 #endif
 
-    WGPURequiredLimits requiredLimits = {};
+    wgpu::RequiredLimits requiredLimits;
     requiredLimits.limits.maxVertexAttributes = 4;
     requiredLimits.limits.maxVertexBuffers = 1;
     // requiredLimits.limits.maxBufferSize = 150000 * sizeof(WGPUVertexAttributes);
@@ -537,7 +504,11 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
     deviceDesc.defaultQueue.label = "Main Queue";
     app->device = requestDevice(app->adapter, &deviceDesc);
 
-    app->wgpu_queue = wgpuDeviceGetQueue(app->device.Get());
+#if defined(SDL_PLATFORM_EMSCRIPTEN)
+    app->colorFormat = app->surface.GetPreferredFormat(app->adapter);
+#else()
+    app->colorFormat = wgpu::TextureFormat::BGRA8Unorm;
+#endif()
 
     initSwapChain(app); 
 
@@ -547,7 +518,7 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
 
     ImGui_ImplWGPU_InitInfo imguiWgpuInfo{};
     imguiWgpuInfo.Device = app->device.Get();
-    imguiWgpuInfo.RenderTargetFormat = app->colorFormat;
+    imguiWgpuInfo.RenderTargetFormat = static_cast<WGPUTextureFormat>(app->colorFormat);
     ImGui_ImplWGPU_Init(&imguiWgpuInfo);
 
     initMainPipeline(app);
@@ -605,9 +576,7 @@ int SDL_AppIterate(void *appstate)
 {
     AppContext *app = (AppContext *)appstate;
 
-    if (app->reset_swapchain || !app->wgpu_swapchain) {
-        wgpuSwapChainRelease(app->wgpu_swapchain);
-
+    if (app->reset_swapchain) {
         if (!initSwapChain(app)) {
             return SDL_FALSE;
         }
@@ -615,7 +584,7 @@ int SDL_AppIterate(void *appstate)
         app->reset_swapchain = SDL_FALSE;
     }
 
-    WGPUTextureView nextTexture = wgpuSwapChainGetCurrentTextureView(app->wgpu_swapchain);
+    wgpu::TextureView nextTexture = app->swapchain.GetCurrentTextureView();
     // Getting the texture may fail, in particular if the window has been resized
     // and thus the target surface changed.
     if (!nextTexture) {
@@ -623,59 +592,44 @@ int SDL_AppIterate(void *appstate)
         return SDL_FALSE;
     }
 
-    WGPUCommandEncoderDescriptor commandEncoderDesc = {};
-    commandEncoderDesc.nextInChain = nullptr;
+    wgpu::CommandEncoderDescriptor commandEncoderDesc;
     commandEncoderDesc.label = "Casper";
-    WGPUCommandEncoder encoder =
-        wgpuDeviceCreateCommandEncoder(app->device.Get(), &commandEncoderDesc);
 
-    WGPURenderPassColorAttachment renderPassColorAttachment = {};
-    renderPassColorAttachment.view = nextTexture;
-    renderPassColorAttachment.resolveTarget = nullptr;
-    renderPassColorAttachment.loadOp = WGPULoadOp_Clear;
-    renderPassColorAttachment.storeOp = WGPUStoreOp_Store;
-    renderPassColorAttachment.clearValue = WGPUColor{   app->bacgkround_color[0], 
-                                                        app->bacgkround_color[1], 
-                                                        app->bacgkround_color[2], 
-                                                        app->bacgkround_color[3] 
-                                                    };
-#if defined(SDL_PLATFORM_EMSCRIPTEN)
-    renderPassColorAttachment.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
-#endif();
+    wgpu::CommandEncoder encoder = app->device.CreateCommandEncoder(&commandEncoderDesc);
 
-    WGPURenderPassDescriptor renderPassDesc = {};
+    wgpu::RenderPassColorAttachment renderPassColorAttachment;
+    renderPassColorAttachment.view = nextTexture,
+    renderPassColorAttachment.loadOp = wgpu::LoadOp::Clear,
+    renderPassColorAttachment.storeOp = wgpu::StoreOp::Store,
+    renderPassColorAttachment.clearValue = wgpu::Color{app->bacgkround_color[0],
+                                                       app->bacgkround_color[1],
+                                                       app->bacgkround_color[2],
+                                                       app->bacgkround_color[3]};
+
+    wgpu::RenderPassDescriptor renderPassDesc;
     renderPassDesc.colorAttachmentCount = 1;
     renderPassDesc.colorAttachments = &renderPassColorAttachment;
-    renderPassDesc.depthStencilAttachment = nullptr;
-    renderPassDesc.timestampWrites = nullptr;
-    renderPassDesc.nextInChain = nullptr;
 
     // Create a render pass. We end it immediately because we use its built-in
     // mechanism for clearing the screen when it begins (see descriptor).
-    WGPURenderPassEncoder renderPass =
-        wgpuCommandEncoderBeginRenderPass(encoder, &renderPassDesc);
+    wgpu::RenderPassEncoder renderPass = encoder.BeginRenderPass(&renderPassDesc);
 
-    wgpuRenderPassEncoderSetPipeline(renderPass, app->canvas_pipeline);
-    wgpuRenderPassEncoderDraw(renderPass, 3, 1, 0, 0);
+    renderPass.SetPipeline(app->canvas_pipeline);
+    renderPass.Draw(3, 1, 0, 0);
 
     drawUI(app, renderPass);
 
-    wgpuRenderPassEncoderEnd(renderPass);
-    wgpuRenderPassEncoderRelease(renderPass);
+    renderPass.End();
 
-    wgpuTextureViewRelease(nextTexture);
-
-    WGPUCommandBufferDescriptor cmdBufferDescriptor = {};
-    cmdBufferDescriptor.nextInChain = nullptr;
+    wgpu::CommandBufferDescriptor cmdBufferDescriptor;
     cmdBufferDescriptor.label = "Melchior";
-    WGPUCommandBuffer command = wgpuCommandEncoderFinish(encoder, &cmdBufferDescriptor);
-    wgpuCommandEncoderRelease(encoder);
-    wgpuQueueSubmit(app->wgpu_queue, 1, &command);
-    wgpuCommandBufferRelease(command);
+    wgpu::CommandBuffer command = encoder.Finish(&cmdBufferDescriptor);
+
+    app->device.GetQueue().Submit(1, &command);
 
 #if !defined(SDL_PLATFORM_EMSCRIPTEN)
-    wgpuSwapChainPresent(app->wgpu_swapchain);
-    wgpuDeviceTick(app->device.Get());
+    app->swapchain.Present();
+    app->device.Tick();
 #endif
 
     return app->app_quit;
@@ -689,12 +643,6 @@ void SDL_AppQuit(void *appstate)
 
     auto *app = (AppContext *)appstate;
     if (app) {
-        wgpuQueueRelease(app->wgpu_queue);
-        wgpuSwapChainRelease(app->wgpu_swapchain);
-        wgpuDeviceRelease(app->wgpu_device);
-        wgpuAdapterRelease(app->wgpu_adapter);
-        wgpuInstanceRelease(app->wgpu_instance);
-        wgpuSurfaceRelease(app->wgpu_surface);
         SDL_DestroyWindow(app->window);
         delete app;
     }
