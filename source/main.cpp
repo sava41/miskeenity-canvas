@@ -36,8 +36,8 @@ struct AppContext {
     wgpu::TextureFormat colorFormat;
     wgpu::RenderPipeline canvas_pipeline;
 
-    SDL_bool app_quit = SDL_FALSE;
-    SDL_bool reset_swapchain = SDL_FALSE;
+    bool app_quit = false;
+    bool reset_swapchain = false;
 
     float bacgkround_color[4] = {0.949f, 0.929f, 0.898f, 1.0f};
 };
@@ -276,7 +276,7 @@ void drawUI(AppContext *app, const wgpu::RenderPassEncoder &renderPass)
     ImGui::Text("NOTE: programmatic quit isn't supported on mobile");
     if (ImGui::Button("Hard Quit"))
     {
-        app->app_quit = SDL_TRUE;
+        app->app_quit = true;
     }
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
@@ -303,7 +303,7 @@ void drawUI(AppContext *app, const wgpu::RenderPassEncoder &renderPass)
         ImGui::Separator();
         if (ImGui::Button("OK", ImVec2(120, 0)))
         {
-            app->app_quit = SDL_TRUE;
+            app->app_quit = true;
             ImGui::CloseCurrentPopup();
         }
         ImGui::SetItemDefaultFocus();
@@ -550,11 +550,11 @@ int SDL_AppEvent(void *appstate, const SDL_Event *event)
 
     switch (event->type) {
     case SDL_EVENT_QUIT:
-        app->app_quit = SDL_TRUE;
+        app->app_quit = true;
         break;
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-        app->reset_swapchain = SDL_TRUE;
+        app->reset_swapchain = true;
         break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
         io.AddMouseButtonEvent(0, true);
@@ -578,10 +578,10 @@ int SDL_AppIterate(void *appstate)
 
     if (app->reset_swapchain) {
         if (!initSwapChain(app)) {
-            return SDL_FALSE;
+            return false;
         }
 
-        app->reset_swapchain = SDL_FALSE;
+        app->reset_swapchain = false;
     }
 
     wgpu::TextureView nextTexture = app->swapchain.GetCurrentTextureView();
@@ -589,7 +589,7 @@ int SDL_AppIterate(void *appstate)
     // and thus the target surface changed.
     if (!nextTexture) {
         SDL_Log("Cannot acquire next swap chain texture");
-        return SDL_FALSE;
+        return false;
     }
 
     wgpu::CommandEncoderDescriptor commandEncoderDesc;
