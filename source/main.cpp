@@ -8,6 +8,7 @@
 #include <imgui.h>
 #include <webgpu/webgpu.h>
 #include <webgpu/webgpu_cpp.h>
+#include <glm/glm.hpp>
 
 #if defined(SDL_PLATFORM_EMSCRIPTEN)
 #include <emscripten/emscripten.h>
@@ -15,9 +16,12 @@
 #include <emscripten/html5_webgpu.h>
 #endif
 
-#include "webgpu_surface.h"
-#include "lucide.h"
 #include "embedded_files.h"
+#include "layers.h"
+#include "lucide.h"
+#include "webgpu_surface.h"
+
+enum State { Cursor, Pan, Paint };
 
 struct AppContext {
     SDL_Window *window;
@@ -31,38 +35,79 @@ struct AppContext {
     wgpu::Surface surface;
     wgpu::Device device;
     wgpu::Adapter adapter;
+
     wgpu::SwapChain swapchain;
-    wgpu::RenderPipeline mainPipeline;
     wgpu::TextureFormat colorFormat;
-    wgpu::RenderPipeline canvas_pipeline;
+
+    wgpu::RenderPipeline mainPipeline;
+    wgpu::Buffer vertexBuf;
+    wgpu::Buffer viewParamBuf;
+    wgpu::BindGroup bindGroup;
 
     bool app_quit = false;
     bool reset_swapchain = false;
 
     float bacgkround_color[4] = {0.949f, 0.929f, 0.898f, 1.0f};
+
+    State state = Cursor;
+
+    glm::vec2 prevMouse = glm::vec2(0.0);
+    glm::vec2 dragStart = glm::vec2(0.0);
 };
 
 void initMainPipeline(AppContext *app)
 {
+    // we have two vertext attributes, uv and 2d position
+    std::array<wgpu::VertexAttribute, 2> vertexAttr;
+    vertexAttr[0].format = wgpu::VertexFormat::Float32x2;
+    vertexAttr[0].offset = 0;
+    vertexAttr[0].shaderLocation = 0;
+
+    vertexAttr[1].format = wgpu::VertexFormat::Float32x2;
+    vertexAttr[1].offset = 2 * sizeof(float);
+    vertexAttr[1].shaderLocation = 1;
+
+    wgpu::VertexBufferLayout vertexBufLayout;
+    vertexBufLayout.arrayStride = 4 * sizeof(float);
+    vertexBufLayout.attributeCount = static_cast<uint32_t>(vertexAttr.size());
+    vertexBufLayout.attributes = vertexAttr.data();
+
+    // Create main uber shader
     const char *shaderSource = R"(
+
+        struct VertexInput {
+            @location(0) position: vec2f,
+            @location(1) uv: vec2f,
+        };
+
+        struct VertexOutput {
+            @builtin(position) position: vec4f,
+            @location(0) uv: vec2f,
+        };
+
+        struct ViewParams {
+            offset: vec2f,
+            scale: f32,
+            aspect: f32
+        };
+
+        @group(0) @binding(0)
+        var<uniform> view_params: ViewParams;
+
         @vertex
-        fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4<f32> {
-            var p = vec2f(0.0, 0.0);
-            if (in_vertex_index == 0u) {
-                p = vec2f(-0.5, -0.5);
-            } else if (in_vertex_index == 1u) {
-                p = vec2f(0.5, -0.5);
-            } else {
-                p = vec2f(0.0, 0.5);
-            }
-            return vec4f(p, 0.0, 1.0);
+        fn vs_main(in: VertexInput) -> VertexOutput {
+            var out: VertexOutput;
+            out.position = vec4f(in.position.x, in.position.y, 0.0, 1.0);
+            out.uv = in.uv;
+
+            return out;
         }
 
         @fragment
-        fn fs_main() -> @location(0) vec4f {
+        fn fs_main(in: VertexOutput) -> @location(0) vec4f {
             return vec4f(0.0, 0.4, 1.0, 1.0);
         }
-        )";
+    )";
 
     wgpu::ShaderModuleWGSLDescriptor shaderCodeDesc;
     shaderCodeDesc.code = shaderSource;
@@ -71,22 +116,6 @@ void initMainPipeline(AppContext *app)
     shaderDesc.nextInChain = &shaderCodeDesc;
 
     wgpu::ShaderModule shaderModule = app->device.CreateShaderModule(&shaderDesc);
-    wgpu::RenderPipelineDescriptor pipelineDesc;
-    pipelineDesc.vertex.bufferCount = 0;
-
-    pipelineDesc.vertex.module = shaderModule;
-    pipelineDesc.vertex.entryPoint = "vs_main";
-    pipelineDesc.vertex.constantCount = 0;
-
-    pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleList;
-    pipelineDesc.primitive.stripIndexFormat = wgpu::IndexFormat::Undefined;
-    pipelineDesc.primitive.frontFace = wgpu::FrontFace::CCW;
-
-    wgpu::FragmentState fragmentState;
-    pipelineDesc.fragment = &fragmentState;
-    fragmentState.module = shaderModule;
-    fragmentState.entryPoint = "fs_main";
-    fragmentState.constantCount = 0;
 
     wgpu::BlendState blendState;
     // Usual alpha blending for the color:
@@ -103,13 +132,82 @@ void initMainPipeline(AppContext *app)
     colorTarget.blend = &blendState;
     colorTarget.writeMask = wgpu::ColorWriteMask::All;
 
+    wgpu::FragmentState fragmentState;
+    fragmentState.module = shaderModule;
+    fragmentState.entryPoint = "fs_main";
+    fragmentState.constantCount = 0;
     fragmentState.targetCount = 1;
     fragmentState.targets = &colorTarget;
-    pipelineDesc.multisample.count = 1;
-    pipelineDesc.multisample.mask = ~0u;
-    pipelineDesc.multisample.alphaToCoverageEnabled = false;
 
-    app->canvas_pipeline = app->device.CreateRenderPipeline(&pipelineDesc);
+    wgpu::VertexState vertexState;
+    vertexState.module = shaderModule;
+    vertexState.entryPoint = "vs_main";
+    vertexState.bufferCount = 1;
+    vertexState.constantCount = 0;
+    vertexState.buffers = &vertexBufLayout;
+
+    // Create main bind group
+    wgpu::BindGroupLayoutEntry viewParamLayoutEntry;
+    viewParamLayoutEntry.binding = 0;
+    viewParamLayoutEntry.buffer.hasDynamicOffset = false;
+    viewParamLayoutEntry.buffer.type = wgpu::BufferBindingType::Uniform;
+    viewParamLayoutEntry.visibility = wgpu::ShaderStage::Vertex;
+
+    wgpu::BindGroupLayoutDescriptor viewParamsLayoutDesc;
+    viewParamsLayoutDesc.entryCount = 1;
+    viewParamsLayoutDesc.entries = &viewParamLayoutEntry;
+
+    wgpu::BindGroupLayout viewParamsLayout =
+        app->device.CreateBindGroupLayout(&viewParamsLayoutDesc);
+
+    // Create main pipeline
+    wgpu::PipelineLayoutDescriptor pipelineLayoutDesc;
+    pipelineLayoutDesc.bindGroupLayoutCount = 1;
+    pipelineLayoutDesc.bindGroupLayouts = &viewParamsLayout;
+
+    wgpu::PipelineLayout pipelineLayout =
+        app->device.CreatePipelineLayout(&pipelineLayoutDesc);
+
+    wgpu::RenderPipelineDescriptor renderPipelineDesc;
+    renderPipelineDesc.vertex = vertexState;
+    renderPipelineDesc.fragment = &fragmentState;
+    renderPipelineDesc.layout = pipelineLayout;
+    renderPipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleList;
+    renderPipelineDesc.primitive.stripIndexFormat = wgpu::IndexFormat::Undefined;
+    renderPipelineDesc.primitive.frontFace = wgpu::FrontFace::CCW;
+    renderPipelineDesc.multisample.count = 1;
+    renderPipelineDesc.multisample.mask = ~0u;
+    renderPipelineDesc.multisample.alphaToCoverageEnabled = false;
+
+    app->mainPipeline = app->device.CreateRenderPipeline(&renderPipelineDesc);
+
+    // Create the UBO for our bind group
+    wgpu::BufferDescriptor uboBufDesc;
+    uboBufDesc.mappedAtCreation = false;
+    uboBufDesc.size = 4 * sizeof(float);
+    uboBufDesc.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
+    app->viewParamBuf = app->device.CreateBuffer(&uboBufDesc);
+
+    wgpu::BindGroupEntry viewParamEntry;
+    viewParamEntry.binding = 0;
+    viewParamEntry.buffer = app->viewParamBuf;
+    viewParamEntry.size = uboBufDesc.size;
+
+    wgpu::BindGroupDescriptor bind_group_desc;
+    bind_group_desc.layout = viewParamsLayout;
+    bind_group_desc.entryCount = 1;
+    bind_group_desc.entries = &viewParamEntry;
+
+    app->bindGroup = app->device.CreateBindGroup(&bind_group_desc);
+
+    // Create main canvas quad vertex buffer
+    wgpu::BufferDescriptor bufferDesc;
+    bufferDesc.mappedAtCreation = true;
+    bufferDesc.size = mc::VertexData.size() * sizeof(float);
+    bufferDesc.usage = wgpu::BufferUsage::Vertex;
+    app->vertexBuf = app->device.CreateBuffer(&bufferDesc);
+    std::memcpy(app->vertexBuf.GetMappedRange(), mc::VertexData.data(), bufferDesc.size);
+    app->vertexBuf.Unmap();
 }
 
 void initUI(AppContext *app)
@@ -510,6 +608,13 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
     app->colorFormat = wgpu::TextureFormat::BGRA8Unorm;
 #endif()
 
+    app->device.SetUncapturedErrorCallback(
+        [](WGPUErrorType type, char const *message, void *userData) {
+            SDL_Log("Device error type: %d\n", type);
+            SDL_Log("Device error message: %s\n", message);
+        },
+        nullptr);
+
     initSwapChain(app); 
 
     initUI(app);
@@ -612,14 +717,16 @@ int SDL_AppIterate(void *appstate)
 
     // Create a render pass. We end it immediately because we use its built-in
     // mechanism for clearing the screen when it begins (see descriptor).
-    wgpu::RenderPassEncoder renderPass = encoder.BeginRenderPass(&renderPassDesc);
+    wgpu::RenderPassEncoder renderPassEnc = encoder.BeginRenderPass(&renderPassDesc);
 
-    renderPass.SetPipeline(app->canvas_pipeline);
-    renderPass.Draw(3, 1, 0, 0);
+    renderPassEnc.SetPipeline(app->mainPipeline);
+    renderPassEnc.SetVertexBuffer(0, app->vertexBuf);
+    renderPassEnc.SetBindGroup(0, app->bindGroup);
+    renderPassEnc.Draw(6, 1, 0, 0);
 
-    drawUI(app, renderPass);
+    drawUI(app, renderPassEnc);
 
-    renderPass.End();
+    renderPassEnc.End();
 
     wgpu::CommandBufferDescriptor cmdBufferDescriptor;
     cmdBufferDescriptor.label = "Melchior";
