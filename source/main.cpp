@@ -21,6 +21,9 @@
 #include "lucide.h"
 #include "webgpu_surface.h"
 
+constexpr float ZoomScaleFactor = 0.5;
+constexpr size_t NumLayers = 2048;
+
 enum State { Cursor, Pan, Paint };
 
 #pragma pack(push)
@@ -35,8 +38,6 @@ struct Uniforms {
 // Have the compiler check byte alignment
 // Total size must be a multiple of the alignment size of its largest field
 static_assert(sizeof(Uniforms) % sizeof(glm::mat4) == 0);
-
-constexpr float ZoomScaleFactor = 0.5;
 
 struct AppContext {
     SDL_Window *window;
@@ -61,13 +62,10 @@ struct AppContext {
 
     Uniforms viewParams;
 
-    bool app_quit = false;
-    bool reset_swapchain = false;
-
-    float bacgkround_color[4] = {0.949f, 0.929f, 0.898f, 1.0f};
-
     State state = Cursor;
     bool updateView = false;
+    bool appQuit = false;
+    bool resetSwapchain = false;
 
     // Input variables
     glm::vec2 mouseWindowPos = glm::vec2(0.0);
@@ -75,6 +73,8 @@ struct AppContext {
     glm::vec2 mouseDelta = glm::vec2(0.0);
     glm::vec2 scrollDelta = glm::vec2(0.0);
     bool mouseDown = false;
+
+    mc::Layers layers = mc::Layers(NumLayers);
 };
 
 void initMainPipeline(AppContext *app)
@@ -396,8 +396,6 @@ void drawUI(AppContext *app, const wgpu::RenderPassEncoder &renderPass)
 
     ImGui::NewFrame();
 
-    ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
-    ImGui::ColorEdit3("clear color", static_cast<float *>(&app->bacgkround_color[0]));
     ImGui::Text("width: %d, height: %d, dpi: %.1f scale:%.1f\n pos x:%.1f\n pos y:%.1f\n",
                 app->width,
                 app->height,
@@ -408,7 +406,7 @@ void drawUI(AppContext *app, const wgpu::RenderPassEncoder &renderPass)
     ImGui::Text("NOTE: programmatic quit isn't supported on mobile");
     if (ImGui::Button("Hard Quit"))
     {
-        app->app_quit = true;
+        app->appQuit = true;
     }
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
@@ -435,7 +433,7 @@ void drawUI(AppContext *app, const wgpu::RenderPassEncoder &renderPass)
         ImGui::Separator();
         if (ImGui::Button("OK", ImVec2(120, 0)))
         {
-            app->app_quit = true;
+            app->appQuit = true;
             ImGui::CloseCurrentPopup();
         }
         ImGui::SetItemDefaultFocus();
@@ -650,7 +648,7 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
             SDL_Log("Device error message: %s\n", message);
 
             AppContext *app = static_cast<AppContext *>(userData);
-            app->app_quit = true;
+            app->appQuit = true;
         },
         app);
 
@@ -698,11 +696,11 @@ int SDL_AppEvent(void *appstate, const SDL_Event *event)
 
     switch (event->type) {
     case SDL_EVENT_QUIT:
-        app->app_quit = true;
+        app->appQuit = true;
         break;
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-        app->reset_swapchain = true;
+        app->resetSwapchain = true;
         break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
         io.AddMouseButtonEvent(0, true);
@@ -747,12 +745,12 @@ int SDL_AppIterate(void *appstate)
 {
     AppContext *app = (AppContext *)appstate;
 
-    if (app->reset_swapchain) {
+    if (app->resetSwapchain) {
         if (!initSwapChain(app)) {
             return false;
         }
 
-        app->reset_swapchain = false;
+        app->resetSwapchain = false;
     }
 
     // Update canvas offset
@@ -806,10 +804,7 @@ int SDL_AppIterate(void *appstate)
     renderPassColorAttachment.view = nextTexture,
     renderPassColorAttachment.loadOp = wgpu::LoadOp::Clear,
     renderPassColorAttachment.storeOp = wgpu::StoreOp::Store,
-    renderPassColorAttachment.clearValue = wgpu::Color{app->bacgkround_color[0],
-                                                       app->bacgkround_color[1],
-                                                       app->bacgkround_color[2],
-                                                       app->bacgkround_color[3]};
+    renderPassColorAttachment.clearValue = wgpu::Color{0.949f, 0.929f, 0.898f, 1.0f};
 
     wgpu::RenderPassDescriptor renderPassDesc;
     renderPassDesc.colorAttachmentCount = 1;
@@ -842,7 +837,7 @@ int SDL_AppIterate(void *appstate)
     app->scrollDelta = glm::vec2(0.0);
     app->updateView = false;
 
-    return app->app_quit;
+    return app->appQuit;
 }
 
 void SDL_AppQuit(void *appstate)

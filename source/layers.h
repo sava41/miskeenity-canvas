@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_precision.hpp>
@@ -36,4 +37,22 @@ const std::vector<float> VertexData {
     -0.5, +0.5, 1.0 , 0.0,
 };
 
+class Layers {
+public:
+    Layers(size_t maxLayers);
+    ~Layers() = default;
+
+    bool add(const Layer &layer);
+    bool move(int to, int from);
+    bool remove(int index);
+
+    size_t currLength() const;
+    Layer *data() const;
+
+private:
+    size_t m_maxLength;
+    size_t m_curLength;
+
+    std::unique_ptr<Layer[]> m_array;
+};
 }
