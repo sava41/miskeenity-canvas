@@ -718,7 +718,7 @@ int SDL_AppEvent(void *appstate, const SDL_Event *event)
         app->mouseDown = false;
         break;
     case SDL_EVENT_MOUSE_MOTION:
-
+        io.AddMousePosEvent(event->motion.x, event->motion.y);
         app->mouseWindowPos = glm::vec2(event->motion.x, event->motion.y);
         app->mouseDelta += glm::vec2(event->motion.xrel, event->motion.yrel);
 
@@ -728,7 +728,6 @@ int SDL_AppEvent(void *appstate, const SDL_Event *event)
         }
         break;
     case SDL_EVENT_MOUSE_WHEEL:
-
         io.AddMouseWheelEvent(event->wheel.x, event->wheel.y);
         app->scrollDelta += glm::vec2(event->wheel.x, event->wheel.y);
 
