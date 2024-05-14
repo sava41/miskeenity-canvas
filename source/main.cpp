@@ -23,6 +23,20 @@
 
 enum State { Cursor, Pan, Paint };
 
+#pragma pack(push)
+struct Uniforms {
+    glm::mat4 mvp;
+    glm::vec2 mousePos;
+    glm::vec2 dragStart;
+    float _pad[12];
+};
+#pragma pack(pop)
+// Have the compiler check byte alignment
+// Total size must be a multiple of the alignment size of its largest field
+static_assert(sizeof(Uniforms) % sizeof(glm::mat4) == 0);
+
+constexpr float ZoomScaleFactor = 0.5;
+
 struct AppContext {
     SDL_Window *window;
 
@@ -30,6 +44,10 @@ struct AppContext {
     int height;
     int bbwidth;
     int bbheight;
+
+    glm::vec2 position = glm::vec2(0.0);
+    float scale = 1.0;
+    bool mvpDirty = false;
 
     wgpu::Instance instance;
     wgpu::Surface surface;
@@ -44,6 +62,8 @@ struct AppContext {
     wgpu::Buffer viewParamBuf;
     wgpu::BindGroup bindGroup;
 
+    Uniforms viewParams;
+
     bool app_quit = false;
     bool reset_swapchain = false;
 
@@ -51,8 +71,8 @@ struct AppContext {
 
     State state = Cursor;
 
-    glm::vec2 prevMouse = glm::vec2(0.0);
-    glm::vec2 dragStart = glm::vec2(0.0);
+    glm::vec2 mouseWindowPos = glm::vec2(0.0);
+    bool mouseDown = false;
 };
 
 void initMainPipeline(AppContext *app)
@@ -85,19 +105,20 @@ void initMainPipeline(AppContext *app)
             @location(0) uv: vec2f,
         };
 
-        struct ViewParams {
-            offset: vec2f,
-            scale: f32,
-            aspect: f32
+        struct Uniforms {
+            mvp: mat4x4<f32>,
+            mousePos: vec2f,
+            dragStart: vec2f,
         };
 
         @group(0) @binding(0)
-        var<uniform> view_params: ViewParams;
+        var<uniform> uniforms: Uniforms;
 
         @vertex
         fn vs_main(in: VertexInput) -> VertexOutput {
             var out: VertexOutput;
-            out.position = vec4f(in.position.x, in.position.y, 0.0, 1.0);
+
+            out.position = vec4f(in.position * 100, 0.0, 1.0) * uniforms.mvp;
             out.uv = in.uv;
 
             return out;
@@ -105,7 +126,7 @@ void initMainPipeline(AppContext *app)
 
         @fragment
         fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-            return vec4f(0.0, 0.4, 1.0, 1.0);
+            return vec4f(in.uv.x, in.uv.y, 0.0, 1.0);
         }
     )";
 
@@ -149,9 +170,10 @@ void initMainPipeline(AppContext *app)
     // Create main bind group
     wgpu::BindGroupLayoutEntry viewParamLayoutEntry;
     viewParamLayoutEntry.binding = 0;
+    viewParamLayoutEntry.visibility = wgpu::ShaderStage::Vertex;
     viewParamLayoutEntry.buffer.hasDynamicOffset = false;
     viewParamLayoutEntry.buffer.type = wgpu::BufferBindingType::Uniform;
-    viewParamLayoutEntry.visibility = wgpu::ShaderStage::Vertex;
+    viewParamLayoutEntry.buffer.minBindingSize = sizeof(Uniforms);
 
     wgpu::BindGroupLayoutDescriptor viewParamsLayoutDesc;
     viewParamsLayoutDesc.entryCount = 1;
@@ -184,7 +206,7 @@ void initMainPipeline(AppContext *app)
     // Create the UBO for our bind group
     wgpu::BufferDescriptor uboBufDesc;
     uboBufDesc.mappedAtCreation = false;
-    uboBufDesc.size = 4 * sizeof(float);
+    uboBufDesc.size = sizeof(Uniforms);
     uboBufDesc.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
     app->viewParamBuf = app->device.CreateBuffer(&uboBufDesc);
 
@@ -193,12 +215,12 @@ void initMainPipeline(AppContext *app)
     viewParamEntry.buffer = app->viewParamBuf;
     viewParamEntry.size = uboBufDesc.size;
 
-    wgpu::BindGroupDescriptor bind_group_desc;
-    bind_group_desc.layout = viewParamsLayout;
-    bind_group_desc.entryCount = 1;
-    bind_group_desc.entries = &viewParamEntry;
+    wgpu::BindGroupDescriptor bindGroupDesc;
+    bindGroupDesc.layout = viewParamsLayout;
+    bindGroupDesc.entryCount = viewParamsLayoutDesc.entryCount;
+    bindGroupDesc.entries = &viewParamEntry;
 
-    app->bindGroup = app->device.CreateBindGroup(&bind_group_desc);
+    app->bindGroup = app->device.CreateBindGroup(&bindGroupDesc);
 
     // Create main canvas quad vertex buffer
     wgpu::BufferDescriptor bufferDesc;
@@ -214,10 +236,11 @@ void initUI(AppContext *app)
 {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-    
+    ImGuiIO &io = ImGui::GetIO();
+    (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;   // Enable Gamepad Controls
+
     // configure fonts
     ImFontConfig configRoboto;
     configRoboto.FontDataOwnedByAtlas = false;
@@ -225,18 +248,20 @@ void initUI(AppContext *app)
     configRoboto.OversampleV = 2;
     configRoboto.RasterizerMultiply = 1.5f;
     configRoboto.GlyphExtraSpacing = ImVec2(1.0f, 0);
-    io.Fonts->AddFontFromMemoryTTF(const_cast<uint8_t*>(Roboto_ttf), Roboto_ttf_size, 18.0f, &configRoboto);
+    io.Fonts->AddFontFromMemoryTTF(
+        const_cast<uint8_t *>(Roboto_ttf), Roboto_ttf_size, 18.0f, &configRoboto);
 
     ImFontConfig configLucide;
     configLucide.FontDataOwnedByAtlas = false;
     configLucide.OversampleH = 2;
     configLucide.OversampleV = 2;
     configLucide.MergeMode = true;
-    configLucide.GlyphMinAdvanceX = 24.0f; // Use if you want to make the icon monospaced
+    configLucide.GlyphMinAdvanceX = 24.0f;  // Use if you want to make the icon monospaced
     configLucide.GlyphOffset = ImVec2(0.0f, 5.0f);
 
     // Specify which icons we use
-    // Need to specify or texture atlas will be too large and fail to upload to gpu on lower systems
+    // Need to specify or texture atlas will be too large and fail to upload to gpu on
+    // lower systems
     ImFontGlyphRangesBuilder builder;
     builder.AddText(ICON_LC_GITHUB);
     builder.AddText(ICON_LC_IMAGE_UP);
@@ -260,7 +285,11 @@ void initUI(AppContext *app)
     ImVector<ImWchar> iconRanges;
     builder.BuildRanges(&iconRanges);
 
-    io.Fonts->AddFontFromMemoryTTF(const_cast<uint8_t*>( Lucide_ttf), Lucide_ttf_size, 24.0f, &configLucide, iconRanges.Data);
+    io.Fonts->AddFontFromMemoryTTF(const_cast<uint8_t *>(Lucide_ttf),
+                                   Lucide_ttf_size,
+                                   24.0f,
+                                   &configLucide,
+                                   iconRanges.Data);
 
     io.Fonts->Build();
 
@@ -367,10 +396,13 @@ void drawUI(AppContext *app, const wgpu::RenderPassEncoder &renderPass)
 
     ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
     ImGui::ColorEdit3("clear color", static_cast<float *>(&app->bacgkround_color[0]));
-    ImGui::Text("width: %d, height: %d, dpi: %.1f\n",
+    ImGui::Text("width: %d, height: %d, dpi: %.1f scale:%.1f\n pos x:%.1f\n pos y:%.1f\n",
                 app->width,
                 app->height,
-                static_cast<float>(app->width) / static_cast<float>(app->bbwidth));
+                static_cast<float>(app->width) / static_cast<float>(app->bbwidth),
+                app->scale,
+                app->viewParams.mousePos.x,
+                app->viewParams.mousePos.y);
     ImGui::Text("NOTE: programmatic quit isn't supported on mobile");
     if (ImGui::Button("Hard Quit"))
     {
@@ -456,6 +488,8 @@ bool initSwapChain(AppContext *app) {
     swapChainDesc.presentMode = wgpu::PresentMode::Fifo;
 
     app->swapchain = app->device.CreateSwapChain(app->surface, &swapChainDesc);
+
+    app->mvpDirty = true;
 
     return true;
 }
@@ -641,6 +675,10 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
         }
     }
 
+    app->mvpDirty = true;
+    app->position.x = app->width / 2.0;
+    app->position.y = app->height / 2.0;
+
     *appstate = app;
 
     SDL_Log("Application started successfully!");
@@ -663,12 +701,42 @@ int SDL_AppEvent(void *appstate, const SDL_Event *event)
         break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
         io.AddMouseButtonEvent(0, true);
+        
+        if(!io.WantCaptureMouse)
+        {
+            app->viewParams.dragStart = app->viewParams.mousePos;
+            app->mouseDown = true;
+        }
         break;
     case SDL_EVENT_MOUSE_BUTTON_UP:
         io.AddMouseButtonEvent(0, false);
+        app->mouseDown = false;
+        break;
+    case SDL_EVENT_MOUSE_MOTION:
+
+        app->mouseWindowPos = glm::vec2(event->motion.x, event->motion.y);
+        app->viewParams.mousePos = -app->position + app->mouseWindowPos / app->scale;
+        
+        if(app->mouseDown && !io.WantCaptureMouse)
+        {
+            app->position += glm::vec2(event->motion.xrel, event->motion.yrel);
+            app->mvpDirty = true;
+        }
         break;
     case SDL_EVENT_MOUSE_WHEEL:
+
         io.AddMouseWheelEvent(event->wheel.x, event->wheel.y);
+        
+        //we want to center the zoom around the mouse position
+        if(!io.WantCaptureMouse)
+        {
+            const float newScale = std::max<float>(1.0, event->wheel.y * ZoomScaleFactor + app->scale);
+            const float deltaScale = newScale - app->scale;
+            app->position -= app->viewParams.mousePos * deltaScale;
+            //app->position -= (-app->position + app->mouseWindowPos / app->scale) * deltaScale;
+            app->scale = newScale;
+            app->mvpDirty = true;
+        }
         break;
     default:
         break;
@@ -688,6 +756,22 @@ int SDL_AppIterate(void *appstate)
 
         app->reset_swapchain = false;
     }
+
+    if (app->mvpDirty) {
+        float l = -app->position.x * 1.0 / app->scale;
+        float r = (app->width - app->position.x) * 1.0 / app->scale;
+        float t = -app->position.y * 1.0 / app->scale;
+        float b = (app->height - app->position.y) * 1.0 / app->scale;
+
+        app->viewParams.mvp = glm::mat4(2.0/(r-l),      0.0,            0.0, (r+l)/(l-r),
+                                        0.0,            2.0/(t-b),      0.0, (t+b)/(b-t),
+                                        0.0,            0.0,            0.5, 0.5,
+                                        0.0,            0.0,            0.0, 1.0);
+        app->mvpDirty = false;
+    }
+
+    app->device.GetQueue().WriteBuffer(
+        app->viewParamBuf, 0, &app->viewParams, sizeof(Uniforms));
 
     wgpu::TextureView nextTexture = app->swapchain.GetCurrentTextureView();
     // Getting the texture may fail, in particular if the window has been resized
