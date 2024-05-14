@@ -648,8 +648,11 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
         [](WGPUErrorType type, char const *message, void *userData) {
             SDL_Log("Device error type: %d\n", type);
             SDL_Log("Device error message: %s\n", message);
+
+            AppContext *app = static_cast<AppContext *>(userData);
+            app->app_quit = true;
         },
-        nullptr);
+        app);
 
     initSwapChain(app); 
 
@@ -765,14 +768,14 @@ int SDL_AppIterate(void *appstate)
     // Update zoom level
     // For zoom, we want to center it around the mouse position
     if (app->scrollDelta.y != 0.0 && app->updateView) {
-        const float newScale =
+        float newScale =
             std::max<float>(1.0, app->scrollDelta.y * ZoomScaleFactor + app->viewParams.scale);
-        const float deltaScale = newScale - app->viewParams.scale;
+        float deltaScale = newScale - app->viewParams.scale;
         app->viewParams.scale = newScale;
         app->viewParams.canvasPos -= app->viewParams.mousePos * deltaScale;
     }
 
-    if (app->updateView || app->mouseDelta.length() > 0.0 || app->scrollDelta.y > 0.0) {
+    if (app->updateView) {
         float l = -app->viewParams.canvasPos.x * 1.0 / app->viewParams.scale;
         float r = (app->width - app->viewParams.canvasPos.x) * 1.0 / app->viewParams.scale;
         float t = -app->viewParams.canvasPos.y * 1.0 / app->viewParams.scale;
@@ -813,8 +816,6 @@ int SDL_AppIterate(void *appstate)
     renderPassDesc.colorAttachmentCount = 1;
     renderPassDesc.colorAttachments = &renderPassColorAttachment;
 
-    // Create a render pass. We end it immediately because we use its built-in
-    // mechanism for clearing the screen when it begins (see descriptor).
     wgpu::RenderPassEncoder renderPassEnc = encoder.BeginRenderPass(&renderPassDesc);
 
     renderPassEnc.SetPipeline(app->mainPipeline);
