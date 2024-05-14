@@ -26,9 +26,10 @@ enum State { Cursor, Pan, Paint };
 #pragma pack(push)
 struct Uniforms {
     glm::mat4 mvp;
-    glm::vec2 mousePos;
-    glm::vec2 dragStart;
-    float _pad[12];
+    glm::vec2 mousePos = glm::vec2(0.0);
+    glm::vec2 canvasPos = glm::vec2(0.0);
+    float scale = 1.0;
+    float _pad[11];
 };
 #pragma pack(pop)
 // Have the compiler check byte alignment
@@ -44,10 +45,6 @@ struct AppContext {
     int height;
     int bbwidth;
     int bbheight;
-
-    glm::vec2 position = glm::vec2(0.0);
-    float scale = 1.0;
-    bool mvpDirty = false;
 
     wgpu::Instance instance;
     wgpu::Surface surface;
@@ -70,8 +67,13 @@ struct AppContext {
     float bacgkround_color[4] = {0.949f, 0.929f, 0.898f, 1.0f};
 
     State state = Cursor;
+    bool updateView = false;
 
+    // Input variables
     glm::vec2 mouseWindowPos = glm::vec2(0.0);
+    glm::vec2 mouseDragStart = glm::vec2(0.0);
+    glm::vec2 mouseDelta = glm::vec2(0.0);
+    glm::vec2 scrollDelta = glm::vec2(0.0);
     bool mouseDown = false;
 };
 
@@ -400,7 +402,7 @@ void drawUI(AppContext *app, const wgpu::RenderPassEncoder &renderPass)
                 app->width,
                 app->height,
                 static_cast<float>(app->width) / static_cast<float>(app->bbwidth),
-                app->scale,
+                app->viewParams.scale,
                 app->viewParams.mousePos.x,
                 app->viewParams.mousePos.y);
     ImGui::Text("NOTE: programmatic quit isn't supported on mobile");
@@ -489,7 +491,7 @@ bool initSwapChain(AppContext *app) {
 
     app->swapchain = app->device.CreateSwapChain(app->surface, &swapChainDesc);
 
-    app->mvpDirty = true;
+    app->updateView = true;
 
     return true;
 }
@@ -675,9 +677,9 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
         }
     }
 
-    app->mvpDirty = true;
-    app->position.x = app->width / 2.0;
-    app->position.y = app->height / 2.0;
+    app->updateView = true;
+    app->viewParams.canvasPos.x = app->width / 2.0;
+    app->viewParams.canvasPos.y = app->height / 2.0;
 
     *appstate = app;
 
@@ -704,7 +706,7 @@ int SDL_AppEvent(void *appstate, const SDL_Event *event)
         
         if(!io.WantCaptureMouse)
         {
-            app->viewParams.dragStart = app->viewParams.mousePos;
+            app->mouseDragStart = app->mouseWindowPos;
             app->mouseDown = true;
         }
         break;
@@ -715,27 +717,21 @@ int SDL_AppEvent(void *appstate, const SDL_Event *event)
     case SDL_EVENT_MOUSE_MOTION:
 
         app->mouseWindowPos = glm::vec2(event->motion.x, event->motion.y);
-        app->viewParams.mousePos = -app->position + app->mouseWindowPos / app->scale;
-        
+        app->mouseDelta += glm::vec2(event->motion.xrel, event->motion.yrel);
+
         if(app->mouseDown && !io.WantCaptureMouse)
         {
-            app->position += glm::vec2(event->motion.xrel, event->motion.yrel);
-            app->mvpDirty = true;
+            app->updateView = true;
         }
         break;
     case SDL_EVENT_MOUSE_WHEEL:
 
         io.AddMouseWheelEvent(event->wheel.x, event->wheel.y);
-        
-        //we want to center the zoom around the mouse position
+        app->scrollDelta += glm::vec2(event->wheel.x, event->wheel.y);
+
         if(!io.WantCaptureMouse)
         {
-            const float newScale = std::max<float>(1.0, event->wheel.y * ZoomScaleFactor + app->scale);
-            const float deltaScale = newScale - app->scale;
-            app->position -= app->viewParams.mousePos * deltaScale;
-            //app->position -= (-app->position + app->mouseWindowPos / app->scale) * deltaScale;
-            app->scale = newScale;
-            app->mvpDirty = true;
+            app->updateView = true;
         }
         break;
     default:
@@ -757,17 +753,35 @@ int SDL_AppIterate(void *appstate)
         app->reset_swapchain = false;
     }
 
-    if (app->mvpDirty) {
-        float l = -app->position.x * 1.0 / app->scale;
-        float r = (app->width - app->position.x) * 1.0 / app->scale;
-        float t = -app->position.y * 1.0 / app->scale;
-        float b = (app->height - app->position.y) * 1.0 / app->scale;
+    // Update canvas offset
+    if (app->mouseDelta.length() > 0.0 && app->mouseDown && app->updateView) {
+        app->viewParams.canvasPos += app->mouseDelta;
+    }
+
+    // Update mouse position in canvas coordinate space
+    app->viewParams.mousePos =
+        (app->mouseWindowPos - app->viewParams.canvasPos) / app->viewParams.scale;
+
+    // Update zoom level
+    // For zoom, we want to center it around the mouse position
+    if (app->scrollDelta.y != 0.0 && app->updateView) {
+        const float newScale =
+            std::max<float>(1.0, app->scrollDelta.y * ZoomScaleFactor + app->viewParams.scale);
+        const float deltaScale = newScale - app->viewParams.scale;
+        app->viewParams.scale = newScale;
+        app->viewParams.canvasPos -= app->viewParams.mousePos * deltaScale;
+    }
+
+    if (app->updateView || app->mouseDelta.length() > 0.0 || app->scrollDelta.y > 0.0) {
+        float l = -app->viewParams.canvasPos.x * 1.0 / app->viewParams.scale;
+        float r = (app->width - app->viewParams.canvasPos.x) * 1.0 / app->viewParams.scale;
+        float t = -app->viewParams.canvasPos.y * 1.0 / app->viewParams.scale;
+        float b = (app->height - app->viewParams.canvasPos.y) * 1.0 / app->viewParams.scale;
 
         app->viewParams.mvp = glm::mat4(2.0/(r-l),      0.0,            0.0, (r+l)/(l-r),
                                         0.0,            2.0/(t-b),      0.0, (t+b)/(b-t),
                                         0.0,            0.0,            0.5, 0.5,
                                         0.0,            0.0,            0.0, 1.0);
-        app->mvpDirty = false;
     }
 
     app->device.GetQueue().WriteBuffer(
@@ -822,6 +836,11 @@ int SDL_AppIterate(void *appstate)
     app->swapchain.Present();
     app->device.Tick();
 #endif
+
+    // reset input deltas
+    app->mouseDelta = glm::vec2(0.0);
+    app->scrollDelta = glm::vec2(0.0);
+    app->updateView = false;
 
     return app->app_quit;
 }
