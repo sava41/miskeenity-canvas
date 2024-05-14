@@ -14,8 +14,6 @@ Cross platform image editor based on [dingboard.com](https://dingboard.com/).
 > cmake --build build
 ```
 
-NOTE: on Linux you'll also need to install the 'usual' dev-packages needed for X11+GL development.
-
 ## Build and Run WASM/HTML version via Emscripten (Linux, macOS)
 
 Setup the emscripten SDK as described here:
