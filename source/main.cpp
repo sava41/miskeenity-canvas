@@ -24,7 +24,7 @@
 constexpr float ZoomScaleFactor = 0.5;
 constexpr size_t NumLayers = 2048;
 
-enum State { Cursor, Pan, Paint };
+enum State { Cursor, Pan, Paint, Text, Other };
 
 #pragma pack(push)
 struct Uniforms {
@@ -66,6 +66,7 @@ struct AppContext {
     State state = Cursor;
     bool updateView = false;
     bool layersModified = true;
+    bool addLayer = false;
     bool appQuit = false;
     bool resetSwapchain = false;
 
@@ -520,13 +521,29 @@ void drawUI(AppContext *app, const wgpu::RenderPassEncoder &renderPass)
         ImGui::SetWindowPos(ImVec2(10, 10));
         ImGui::SetWindowSize(ImVec2(80, 300));
 
-        std::array<std::string, 5> tools = {ICON_LC_IMAGE_UP, ICON_LC_BRUSH, ICON_LC_TYPE, ICON_LC_HAND, ICON_LC_MOUSE_POINTER};
+        ImGui::PushID("Upload Image Button");
+        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_Button]);
+        if (ImGui::Button(ICON_LC_IMAGE_UP, ImVec2(50, 50))) {
+            // upload image code goes goes here
+        }
+        ImGui::PopStyleColor(1);
+        ImGui::PopID();
 
-        for (size_t i = 0; i < tools.size(); i++)
-        {
+        std::array<std::string, 4> tools = {
+            ICON_LC_MOUSE_POINTER, ICON_LC_BRUSH, ICON_LC_TYPE, ICON_LC_HAND};
+        std::array<State, 4> states = {Cursor, Paint, Text, Pan};
+
+        for (size_t i = 0; i < tools.size(); i++) {
             ImGui::PushID(i);
-            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_Button]);
-            ImGui::Button(tools[i].c_str(), ImVec2(50, 50));
+            ImVec4 color = ImGui::GetStyle().Colors[ImGuiCol_Button];
+            if (app->state == states[i]) {
+                color = ImGui::GetStyle().Colors[ImGuiCol_ButtonActive];
+            }
+
+            ImGui::PushStyleColor(ImGuiCol_Button, color);
+            if (ImGui::Button(tools[i].c_str(), ImVec2(50, 50)) && states[i] != Other) {
+                app->state = states[i];
+            }
             ImGui::PopStyleColor(1);
             ImGui::PopID();
         }
@@ -779,27 +796,7 @@ int SDL_AppEvent(void *appstate, const SDL_Event *event)
 
         // we want to place a sprite on click
         if (app->mouseWindowPos == app->mouseDragStart) {
-            // temporary generate random color
-            const uint32_t a = 1664525;
-            const uint32_t c = 1013904223;
-
-            const uint32_t color = a * app->layers.length() + c;
-            const uint8_t red = static_cast<uint8_t>((color >> 16) & 0xFF);
-            const uint8_t green = static_cast<uint8_t>((color >> 8) & 0xFF);
-            const uint8_t blue = static_cast<uint8_t>(color & 0xFF);
-
-            app->layers.add(
-                {(app->mouseWindowPos - app->viewParams.canvasPos) / app->viewParams.scale,
-                 glm::vec2(100, 0),
-                 glm::vec2(0, 100),
-                 glm::u16vec2(0),
-                 glm::u16vec2(0),
-                 0,
-                 0,
-                 glm::u8vec3(red, green, blue),
-                 0});
-
-            app->layersModified = true;
+            app->addLayer = true;
         }
         app->mouseDown = false;
         break;
@@ -842,7 +839,8 @@ int SDL_AppIterate(void *appstate)
     }
 
     // Update canvas offset
-    if (app->mouseDelta.length() > 0.0 && app->mouseDown && app->updateView) {
+    if (app->mouseDelta.length() > 0.0 && app->mouseDown && app->updateView &&
+        app->state == Pan) {
         app->viewParams.canvasPos += app->mouseDelta;
     }
 
@@ -874,6 +872,30 @@ int SDL_AppIterate(void *appstate)
 
     app->device.GetQueue().WriteBuffer(
         app->viewParamBuf, 0, &app->viewParams, sizeof(Uniforms));
+
+    if (app->addLayer && app->state == Cursor) {
+        // temporary generate random color
+        const uint32_t a = 1664525;
+        const uint32_t c = 1013904223;
+
+        const uint32_t color = a * app->layers.length() + c;
+        const uint8_t red = static_cast<uint8_t>((color >> 16) & 0xFF);
+        const uint8_t green = static_cast<uint8_t>((color >> 8) & 0xFF);
+        const uint8_t blue = static_cast<uint8_t>(color & 0xFF);
+
+        app->layers.add(
+            {(app->mouseWindowPos - app->viewParams.canvasPos) / app->viewParams.scale,
+             glm::vec2(100, 0),
+             glm::vec2(0, 100),
+             glm::u16vec2(0),
+             glm::u16vec2(0),
+             0,
+             0,
+             glm::u8vec3(red, green, blue),
+             0});
+
+        app->layersModified = true;
+    }
 
     if (app->layersModified) {
         app->device.GetQueue().WriteBuffer(
@@ -931,6 +953,7 @@ int SDL_AppIterate(void *appstate)
     app->scrollDelta = glm::vec2(0.0);
     app->updateView = false;
     app->layersModified = false;
+    app->addLayer = false;
 
     return app->appQuit;
 }
