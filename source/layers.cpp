@@ -56,7 +56,7 @@ bool Layers::remove(int index)
     return true;
 }
 
-size_t Layers::currLength() const
+size_t Layers::length() const
 {
     return m_curLength;
 }

@@ -57,6 +57,7 @@ struct AppContext {
 
     wgpu::RenderPipeline mainPipeline;
     wgpu::Buffer vertexBuf;
+    wgpu::Buffer layerBuf;
     wgpu::Buffer viewParamBuf;
     wgpu::BindGroup bindGroup;
 
@@ -64,6 +65,7 @@ struct AppContext {
 
     State state = Cursor;
     bool updateView = false;
+    bool layersModified = true;
     bool appQuit = false;
     bool resetSwapchain = false;
 
@@ -79,7 +81,10 @@ struct AppContext {
 
 void initMainPipeline(AppContext *app)
 {
-    // we have two vertext attributes, uv and 2d position
+    // we have two vertex buffers, our one for verticies and the other for instances
+    std::array<wgpu::VertexBufferLayout, 2> vertexBufLayout;
+
+    // we have two vertex attributes, uv and 2d position
     std::array<wgpu::VertexAttribute, 2> vertexAttr;
     vertexAttr[0].format = wgpu::VertexFormat::Float32x2;
     vertexAttr[0].offset = 0;
@@ -89,10 +94,45 @@ void initMainPipeline(AppContext *app)
     vertexAttr[1].offset = 2 * sizeof(float);
     vertexAttr[1].shaderLocation = 1;
 
-    wgpu::VertexBufferLayout vertexBufLayout;
-    vertexBufLayout.arrayStride = 4 * sizeof(float);
-    vertexBufLayout.attributeCount = static_cast<uint32_t>(vertexAttr.size());
-    vertexBufLayout.attributes = vertexAttr.data();
+    vertexBufLayout[0].arrayStride = 4 * sizeof(float);
+    vertexBufLayout[0].attributeCount = static_cast<uint32_t>(vertexAttr.size());
+    vertexBufLayout[0].attributes = vertexAttr.data();
+
+    // we have 9 instance attributes as defined the in mc::Layer struct
+    // we combine some of them to form 7 vertex attributes
+    std::array<wgpu::VertexAttribute, 7> instanceAttr;
+    instanceAttr[0].format = wgpu::VertexFormat::Float32x2;
+    instanceAttr[0].offset = 0;
+    instanceAttr[0].shaderLocation = 2;
+
+    instanceAttr[1].format = wgpu::VertexFormat::Float32x2;
+    instanceAttr[1].offset = 2 * sizeof(float);
+    instanceAttr[1].shaderLocation = 3;
+
+    instanceAttr[2].format = wgpu::VertexFormat::Float32x2;
+    instanceAttr[2].offset = 4 * sizeof(float);
+    instanceAttr[2].shaderLocation = 4;
+
+    instanceAttr[3].format = wgpu::VertexFormat::Uint16x2;
+    instanceAttr[3].offset = 6 * sizeof(float);
+    instanceAttr[3].shaderLocation = 5;
+
+    instanceAttr[4].format = wgpu::VertexFormat::Uint16x2;
+    instanceAttr[4].offset = 6 * sizeof(float) + 2 * sizeof(uint16_t);
+    instanceAttr[4].shaderLocation = 6;
+
+    instanceAttr[5].format = wgpu::VertexFormat::Uint16x2;
+    instanceAttr[5].offset = 6 * sizeof(float) + 4 * sizeof(uint16_t);
+    instanceAttr[5].shaderLocation = 7;
+
+    instanceAttr[6].format = wgpu::VertexFormat::Uint8x4;
+    instanceAttr[6].offset = 6 * sizeof(float) + 6 * sizeof(uint16_t);
+    instanceAttr[6].shaderLocation = 8;
+
+    vertexBufLayout[1].stepMode = wgpu::VertexStepMode::Instance;
+    vertexBufLayout[1].arrayStride = sizeof(mc::Layer);
+    vertexBufLayout[1].attributeCount = static_cast<uint32_t>(instanceAttr.size());
+    vertexBufLayout[1].attributes = instanceAttr.data();
 
     // Create main uber shader
     const char *shaderSource = R"(
@@ -102,9 +142,20 @@ void initMainPipeline(AppContext *app)
             @location(1) uv: vec2f,
         };
 
+        struct InstanceInput {
+            @location(2) offset: vec2f,
+            @location(3) basis_a: vec2f,
+            @location(4) basis_b: vec2f,
+            @location(5) uv_top: vec2u,
+            @location(6) uv_bot: vec2u,
+            @location(7) texture_mask: vec2u,
+            @location(8) color_type: vec4u,
+        };
+
         struct VertexOutput {
             @builtin(position) position: vec4f,
             @location(0) uv: vec2f,
+            @location(1) color: vec4f,
         };
 
         struct Uniforms {
@@ -117,18 +168,20 @@ void initMainPipeline(AppContext *app)
         var<uniform> uniforms: Uniforms;
 
         @vertex
-        fn vs_main(in: VertexInput) -> VertexOutput {
+        fn vs_main(vert: VertexInput, inst: InstanceInput) -> VertexOutput {
             var out: VertexOutput;
 
-            out.position = vec4f(in.position * 100, 0.0, 1.0) * uniforms.mvp;
-            out.uv = in.uv;
+            out.position = vec4f(vert.position * 100 + inst.offset, 0.0, 1.0) * uniforms.mvp;
+            out.uv = vert.uv;
+
+            out.color = vec4f(f32(inst.color_type.r) / 255.0, f32(inst.color_type.g) / 255.0, f32(inst.color_type.b) / 255.0, 1.0);
 
             return out;
         }
 
         @fragment
         fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-            return vec4f(in.uv.x, in.uv.y, 0.0, 1.0);
+            return in.color;
         }
     )";
 
@@ -165,9 +218,9 @@ void initMainPipeline(AppContext *app)
     wgpu::VertexState vertexState;
     vertexState.module = shaderModule;
     vertexState.entryPoint = "vs_main";
-    vertexState.bufferCount = 1;
+    vertexState.bufferCount = static_cast<uint32_t>(vertexBufLayout.size());
     vertexState.constantCount = 0;
-    vertexState.buffers = &vertexBufLayout;
+    vertexState.buffers = vertexBufLayout.data();
 
     // Create main bind group
     wgpu::BindGroupLayoutEntry viewParamLayoutEntry;
@@ -232,6 +285,13 @@ void initMainPipeline(AppContext *app)
     app->vertexBuf = app->device.CreateBuffer(&bufferDesc);
     std::memcpy(app->vertexBuf.GetMappedRange(), mc::VertexData.data(), bufferDesc.size);
     app->vertexBuf.Unmap();
+
+    // Create main canvas quad instance buffer
+    bufferDesc.mappedAtCreation = false;
+    bufferDesc.size = NumLayers * sizeof(mc::Layer);
+    bufferDesc.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
+    app->layerBuf = app->device.CreateBuffer(&bufferDesc);
+    app->layerBuf.Unmap();
 }
 
 void initUI(AppContext *app)
@@ -611,7 +671,7 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
 
     wgpu::RequiredLimits requiredLimits;
     requiredLimits.limits.maxVertexAttributes = 4;
-    requiredLimits.limits.maxVertexBuffers = 1;
+    requiredLimits.limits.maxVertexBuffers = 2;
     // requiredLimits.limits.maxBufferSize = 150000 * sizeof(WGPUVertexAttributes);
     // requiredLimits.limits.maxVertexBufferArrayStride = sizeof(WGPUVertexAttributes);
     requiredLimits.limits.minStorageBufferOffsetAlignment =
@@ -681,6 +741,25 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
     app->updateView = true;
     app->viewParams.canvasPos.x = app->width / 2.0;
     app->viewParams.canvasPos.y = app->height / 2.0;
+
+    app->layers.add({glm::vec2(200, 200),
+                     glm::vec2(100, 0),
+                     glm::vec2(0, 100),
+                     glm::u16vec2(0),
+                     glm::u16vec2(0),
+                     0,
+                     0,
+                     glm::u8vec3(255, 0, 0),
+                     0});
+    app->layers.add({glm::vec2(300, 600),
+                     glm::vec2(200, 0),
+                     glm::vec2(0, 200),
+                     glm::u16vec2(0),
+                     glm::u16vec2(0),
+                     0,
+                     0,
+                     glm::u8vec3(0, 255, 0),
+                     0});
 
     *appstate = app;
 
@@ -787,6 +866,11 @@ int SDL_AppIterate(void *appstate)
     app->device.GetQueue().WriteBuffer(
         app->viewParamBuf, 0, &app->viewParams, sizeof(Uniforms));
 
+    if (app->layersModified) {
+        app->device.GetQueue().WriteBuffer(
+            app->layerBuf, 0, app->layers.data(), app->layers.length() * sizeof(mc::Layer));
+    }
+
     wgpu::TextureView nextTexture = app->swapchain.GetCurrentTextureView();
     // Getting the texture may fail, in particular if the window has been resized
     // and thus the target surface changed.
@@ -814,8 +898,9 @@ int SDL_AppIterate(void *appstate)
 
     renderPassEnc.SetPipeline(app->mainPipeline);
     renderPassEnc.SetVertexBuffer(0, app->vertexBuf);
+    renderPassEnc.SetVertexBuffer(1, app->layerBuf);
     renderPassEnc.SetBindGroup(0, app->bindGroup);
-    renderPassEnc.Draw(6, 1, 0, 0);
+    renderPassEnc.Draw(6, app->layers.length(), 0, 0);
 
     drawUI(app, renderPassEnc);
 
@@ -836,6 +921,7 @@ int SDL_AppIterate(void *appstate)
     app->mouseDelta = glm::vec2(0.0);
     app->scrollDelta = glm::vec2(0.0);
     app->updateView = false;
+    app->layersModified = false;
 
     return app->appQuit;
 }
