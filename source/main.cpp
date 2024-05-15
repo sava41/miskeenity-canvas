@@ -551,13 +551,13 @@ void drawUI(AppContext *app, const wgpu::RenderPassEncoder &renderPass)
     ImGui::End();
 
     if (app->state == Cursor && app->mouseDown && app->mouseDragStart != app->mouseWindowPos) {
-        ImDrawList *draw_list = ImGui::GetForegroundDrawList();
-        draw_list->AddRect(ImVec2(app->mouseDragStart.x, app->mouseDragStart.y),
-                           ImVec2(app->mouseWindowPos.x, app->mouseWindowPos.y),
-                           ImGui::GetColorU32(IM_COL32(0, 130, 216, 255)));
-        draw_list->AddRectFilled(ImVec2(app->mouseDragStart.x, app->mouseDragStart.y),
-                                 ImVec2(app->mouseWindowPos.x, app->mouseWindowPos.y),
-                                 ImGui::GetColorU32(IM_COL32(0, 130, 216, 50)));
+        ImDrawList *drawList = ImGui::GetForegroundDrawList();
+        drawList->AddRect(ImVec2(app->mouseDragStart.x, app->mouseDragStart.y),
+                          ImVec2(app->mouseWindowPos.x, app->mouseWindowPos.y),
+                          ImGui::GetColorU32(IM_COL32(0, 130, 216, 255)));
+        drawList->AddRectFilled(ImVec2(app->mouseDragStart.x, app->mouseDragStart.y),
+                                ImVec2(app->mouseWindowPos.x, app->mouseWindowPos.y),
+                                ImGui::GetColorU32(IM_COL32(0, 130, 216, 50)));
     }
 
     ImGui::EndFrame();
