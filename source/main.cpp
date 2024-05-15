@@ -28,7 +28,7 @@ enum State { Cursor, Pan, Paint };
 
 #pragma pack(push)
 struct Uniforms {
-    glm::mat4 mvp;
+    glm::mat4 proj;
     glm::vec2 mousePos = glm::vec2(0.0);
     glm::vec2 canvasPos = glm::vec2(0.0);
     float scale = 1.0;
@@ -148,7 +148,7 @@ void initMainPipeline(AppContext *app)
             @location(4) basis_b: vec2f,
             @location(5) uv_top: vec2u,
             @location(6) uv_bot: vec2u,
-            @location(7) texture_mask: vec2u,
+            @location(7) image_mask_ids: vec2u,
             @location(8) color_type: vec4u,
         };
 
@@ -159,7 +159,7 @@ void initMainPipeline(AppContext *app)
         };
 
         struct Uniforms {
-            mvp: mat4x4<f32>,
+            proj: mat4x4<f32>,
             mousePos: vec2f,
             dragStart: vec2f,
         };
@@ -171,7 +171,12 @@ void initMainPipeline(AppContext *app)
         fn vs_main(vert: VertexInput, inst: InstanceInput) -> VertexOutput {
             var out: VertexOutput;
 
-            out.position = vec4f(vert.position * 100 + inst.offset, 0.0, 1.0) * uniforms.mvp;
+            let model = mat4x4<f32>(inst.basis_a.x, inst.basis_b.x, 0.0, inst.offset.x,
+                                    inst.basis_a.y, inst.basis_b.y, 0.0, inst.offset.y,
+                                    0.0,            0.0,            1.0, 0.0,
+                                    0.0,            0.0,            0.0, 1.0);
+
+            out.position = vec4f(vert.position, 0.0, 1.0) * model * uniforms.proj ;
             out.uv = vert.uv;
 
             out.color = vec4f(f32(inst.color_type.r) / 255.0, f32(inst.color_type.g) / 255.0, f32(inst.color_type.b) / 255.0, 1.0);
@@ -739,8 +744,6 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
     }
 
     app->updateView = true;
-    app->viewParams.canvasPos.x = app->width / 2.0;
-    app->viewParams.canvasPos.y = app->height / 2.0;
 
     app->layers.add({glm::vec2(200, 200),
                      glm::vec2(100, 0),
