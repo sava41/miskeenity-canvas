@@ -745,25 +745,6 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
 
     app->updateView = true;
 
-    app->layers.add({glm::vec2(200, 200),
-                     glm::vec2(100, 0),
-                     glm::vec2(0, 100),
-                     glm::u16vec2(0),
-                     glm::u16vec2(0),
-                     0,
-                     0,
-                     glm::u8vec3(255, 0, 0),
-                     0});
-    app->layers.add({glm::vec2(300, 600),
-                     glm::vec2(200, 0),
-                     glm::vec2(0, 200),
-                     glm::u16vec2(0),
-                     glm::u16vec2(0),
-                     0,
-                     0,
-                     glm::u8vec3(0, 255, 0),
-                     0});
-
     *appstate = app;
 
     SDL_Log("Application started successfully!");
@@ -795,6 +776,31 @@ int SDL_AppEvent(void *appstate, const SDL_Event *event)
         break;
     case SDL_EVENT_MOUSE_BUTTON_UP:
         io.AddMouseButtonEvent(0, false);
+
+        // we want to place a sprite on click
+        if (app->mouseWindowPos == app->mouseDragStart) {
+            // temporary generate random color
+            const uint32_t a = 1664525;
+            const uint32_t c = 1013904223;
+
+            const uint32_t color = a * app->layers.length() + c;
+            const uint8_t red = static_cast<uint8_t>((color >> 16) & 0xFF);
+            const uint8_t green = static_cast<uint8_t>((color >> 8) & 0xFF);
+            const uint8_t blue = static_cast<uint8_t>(color & 0xFF);
+
+            app->layers.add(
+                {(app->mouseWindowPos - app->viewParams.canvasPos) / app->viewParams.scale,
+                 glm::vec2(100, 0),
+                 glm::vec2(0, 100),
+                 glm::u16vec2(0),
+                 glm::u16vec2(0),
+                 0,
+                 0,
+                 glm::u8vec3(red, green, blue),
+                 0});
+
+            app->layersModified = true;
+        }
         app->mouseDown = false;
         break;
     case SDL_EVENT_MOUSE_MOTION:
@@ -860,10 +866,10 @@ int SDL_AppIterate(void *appstate)
         float t = -app->viewParams.canvasPos.y * 1.0 / app->viewParams.scale;
         float b = (app->height - app->viewParams.canvasPos.y) * 1.0 / app->viewParams.scale;
 
-        app->viewParams.mvp = glm::mat4(2.0/(r-l),      0.0,            0.0, (r+l)/(l-r),
-                                        0.0,            2.0/(t-b),      0.0, (t+b)/(b-t),
-                                        0.0,            0.0,            0.5, 0.5,
-                                        0.0,            0.0,            0.0, 1.0);
+        app->viewParams.proj = glm::mat4(   2.0/(r-l),  0.0,        0.0, (r+l)/(l-r),
+                                            0.0,        2.0/(t-b),  0.0, (t+b)/(b-t),
+                                            0.0,        0.0,        0.5, 0.5,
+                                            0.0,        0.0,        0.0, 1.0);
     }
 
     app->device.GetQueue().WriteBuffer(
