@@ -23,7 +23,7 @@
 
 constexpr float ZoomScaleFactor = 0.5;
 constexpr size_t NumLayers = 2048;
-constexpr size_t WorkGroupSize = 32;
+constexpr size_t WorkGroupSize = 16;
 
 enum State { Cursor, Pan, Paint, Text, Other };
 
@@ -311,21 +311,22 @@ void initMainPipeline(AppContext *app)
 
     // Set up compute shader used to compute selection
     const std::string computeShaderSource = R"(
-        // struct Uniforms {
-        //     proj: mat4x4<f32>,
-        //     mousePos: vec2f,
-        //     dragStart: vec2f,
-        // };
-
-        // @group(0) @binding(0)
-        // var<uniform> uniforms: Uniforms;
+        struct Uniforms {
+            proj: mat4x4<f32>,
+            mousePos: vec2f,
+            dragStart: vec2f,
+        };
 
         @group(0) @binding(0)
+        var<uniform> uniforms: Uniforms;
+
+        @group(1) @binding(0)
         var<storage,read_write> outBuffer: array<u32>;
 
-        @compute @workgroup_size(32)
-        fn cs_main(@builtin(global_invocation_id) id : vec3<u32>) {
-            outBuffer[id.z] = id.z;
+        @compute @workgroup_size(16, 16, 1)
+        fn cs_main(@builtin(global_invocation_id) id_global : vec3<u32>, @builtin(local_invocation_id) id_local : vec3<u32>) {
+            let layer = u32(id_global.z);
+            outBuffer[layer] = layer;
         }
 
     )";
@@ -349,10 +350,11 @@ void initMainPipeline(AppContext *app)
     computeBindGroupLayoutDesc.entryCount = 1;
     computeBindGroupLayoutDesc.entries = &computeBinding;
 
-    std::array<wgpu::BindGroupLayout, 1> computeBindGroupLayouts;
-    // computeBindGroupLayouts[0] = app->device.CreateBindGroupLayout(&viewParamsLayoutDesc);
-    computeBindGroupLayouts[0] =
+    wgpu::BindGroupLayout computeLayout =
         app->device.CreateBindGroupLayout(&computeBindGroupLayoutDesc);
+
+    std::array<wgpu::BindGroupLayout, 2> computeBindGroupLayouts = {viewParamsLayout,
+                                                                    computeLayout};
 
     wgpu::PipelineLayoutDescriptor computePipelineLayoutDesc;
     computePipelineLayoutDesc.bindGroupLayoutCount =
@@ -379,22 +381,17 @@ void initMainPipeline(AppContext *app)
     selectionOutputBufDesc.usage = wgpu::BufferUsage::MapRead | wgpu::BufferUsage::CopyDst;
     app->selectionMapBuf = app->device.CreateBuffer(&selectionOutputBufDesc);
 
-    std::array<wgpu::BindGroupEntry, 1> computeEntries;
+    std::array<wgpu::BindGroupEntry, 1> computeGroupEntries;
 
-    // computeEntries[0].binding = 0;
-    // computeEntries[0].buffer = app->viewParamBuf;
-    // computeEntries[0].offset = 0;
-    // computeEntries[0].size = uboBufDesc.size;
-
-    computeEntries[0].binding = 0;
-    computeEntries[0].buffer = app->selectionBuf;
-    computeEntries[0].offset = 0;
-    computeEntries[0].size = selectionOutputBufDesc.size;
+    computeGroupEntries[0].binding = 0;
+    computeGroupEntries[0].buffer = app->selectionBuf;
+    computeGroupEntries[0].offset = 0;
+    computeGroupEntries[0].size = selectionOutputBufDesc.size;
 
     wgpu::BindGroupDescriptor computeBindGroupDesc;
-    computeBindGroupDesc.layout = computeBindGroupLayouts[0];
-    computeBindGroupDesc.entryCount = static_cast<uint32_t>(computeEntries.size());
-    computeBindGroupDesc.entries = computeEntries.data();
+    computeBindGroupDesc.layout = computeBindGroupLayouts[1];
+    computeBindGroupDesc.entryCount = static_cast<uint32_t>(computeGroupEntries.size());
+    computeBindGroupDesc.entries = computeGroupEntries.data();
 
     app->selectionBindGroup = app->device.CreateBindGroup(&computeBindGroupDesc);
 }
@@ -882,7 +879,7 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
 
 int SDL_AppEvent(void *appstate, const SDL_Event *event)
 {
-    AppContext *app = (AppContext *)appstate;
+    AppContext *app = reinterpret_cast<AppContext *>(appstate);
     ImGuiIO& io = ImGui::GetIO();
 
     switch (event->type) {
@@ -939,7 +936,7 @@ int SDL_AppEvent(void *appstate, const SDL_Event *event)
 
 int SDL_AppIterate(void *appstate)
 {
-    AppContext *app = (AppContext *)appstate;
+    AppContext *app = reinterpret_cast<AppContext *>(appstate);
 
     if (app->resetSwapchain) {
         if (!initSwapChain(app)) {
@@ -1060,8 +1057,14 @@ int SDL_AppIterate(void *appstate)
         wgpu::ComputePassEncoder computePass = encoder.BeginComputePass();
         computePass.SetPipeline(app->selectionPipeline);
         // figure out which things to bind;
-        computePass.SetBindGroup(0, app->selectionBindGroup);
-        computePass.DispatchWorkgroups(1, 1, NumLayers / WorkGroupSize);
+        computePass.SetBindGroup(0, app->bindGroup);
+        computePass.SetBindGroup(1, app->selectionBindGroup);
+
+        // we want to match the workgroup resolution approximaely to the window resolution but
+        // it doesnt have to be exact
+        uint32_t computeResX = app->width / WorkGroupSize;
+        uint32_t computeResY = app->height / WorkGroupSize;
+        computePass.DispatchWorkgroups(computeResX, computeResY, app->layers.length());
         computePass.End();
 
         encoder.CopyBufferToBuffer(
@@ -1079,7 +1082,7 @@ int SDL_AppIterate(void *appstate)
         wgpu::BufferMapCallback callback = [](WGPUBufferMapAsyncStatus status,
                                               void *userdata) {
             if (status == WGPUBufferMapAsyncStatus_Success) {
-                auto *app = (AppContext *)userdata;
+                AppContext *app = reinterpret_cast<AppContext *>(userdata);
                 const uint32_t *output =
                     (const uint32_t *)app->selectionMapBuf.GetConstMappedRange(
                         0, sizeof(float) * NumLayers);
@@ -1116,7 +1119,7 @@ void SDL_AppQuit(void *appstate)
     ImGui_ImplSDL3_Shutdown();  
     ImGui::DestroyContext();
 
-    auto *app = (AppContext *)appstate;
+    AppContext *app = reinterpret_cast<AppContext *>(appstate);
     if (app) {
         SDL_DestroyWindow(app->window);
         delete app;
