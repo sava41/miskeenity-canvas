@@ -1060,7 +1060,7 @@ int SDL_AppIterate(void *appstate)
         computePass.SetBindGroup(0, app->bindGroup);
         computePass.SetBindGroup(1, app->selectionBindGroup);
 
-        // we want to match the workgroup resolution approximaely to the window resolution but
+        // we want to match the workgroup resolution approximately to the window resolution but
         // it doesnt have to be exact
         uint32_t computeResX = app->width / WorkGroupSize;
         uint32_t computeResY = app->height / WorkGroupSize;
