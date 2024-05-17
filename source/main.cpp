@@ -23,6 +23,7 @@
 
 constexpr float ZoomScaleFactor = 0.5;
 constexpr size_t NumLayers = 2048;
+constexpr size_t WorkGroupSize = 32;
 
 enum State { Cursor, Pan, Paint, Text, Other };
 
@@ -56,19 +57,27 @@ struct AppContext {
     wgpu::TextureFormat colorFormat;
 
     wgpu::RenderPipeline mainPipeline;
+    wgpu::ComputePipeline selectionPipeline;
     wgpu::Buffer vertexBuf;
     wgpu::Buffer layerBuf;
     wgpu::Buffer viewParamBuf;
+    wgpu::Buffer selectionBuf;
+    wgpu::Buffer selectionMapBuf;
     wgpu::BindGroup bindGroup;
+    wgpu::BindGroup selectionBindGroup;
 
     Uniforms viewParams;
 
     State state = Cursor;
     bool updateView = false;
+    bool selectionRequested = false;
+    bool selectionReady = true;
     bool layersModified = true;
     bool addLayer = false;
     bool appQuit = false;
     bool resetSwapchain = false;
+
+    std::array<uint32_t, NumLayers> selectedLayers;
 
     // Input variables
     glm::vec2 mouseWindowPos = glm::vec2(0.0);
@@ -136,7 +145,7 @@ void initMainPipeline(AppContext *app)
     vertexBufLayout[1].attributes = instanceAttr.data();
 
     // Create main uber shader
-    const char *shaderSource = R"(
+    const std::string shaderSource = R"(
 
         struct VertexInput {
             @location(0) position: vec2f,
@@ -192,7 +201,7 @@ void initMainPipeline(AppContext *app)
     )";
 
     wgpu::ShaderModuleWGSLDescriptor shaderCodeDesc;
-    shaderCodeDesc.code = shaderSource;
+    shaderCodeDesc.code = shaderSource.c_str();
 
     wgpu::ShaderModuleDescriptor shaderDesc;
     shaderDesc.nextInChain = &shaderCodeDesc;
@@ -228,10 +237,10 @@ void initMainPipeline(AppContext *app)
     vertexState.constantCount = 0;
     vertexState.buffers = vertexBufLayout.data();
 
-    // Create main bind group
+    // Create main bind group layout
     wgpu::BindGroupLayoutEntry viewParamLayoutEntry;
     viewParamLayoutEntry.binding = 0;
-    viewParamLayoutEntry.visibility = wgpu::ShaderStage::Vertex;
+    viewParamLayoutEntry.visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Compute;
     viewParamLayoutEntry.buffer.hasDynamicOffset = false;
     viewParamLayoutEntry.buffer.type = wgpu::BufferBindingType::Uniform;
     viewParamLayoutEntry.buffer.minBindingSize = sizeof(Uniforms);
@@ -252,6 +261,7 @@ void initMainPipeline(AppContext *app)
         app->device.CreatePipelineLayout(&pipelineLayoutDesc);
 
     wgpu::RenderPipelineDescriptor renderPipelineDesc;
+    renderPipelineDesc.label = "Canvas";
     renderPipelineDesc.vertex = vertexState;
     renderPipelineDesc.fragment = &fragmentState;
     renderPipelineDesc.layout = pipelineLayout;
@@ -264,7 +274,7 @@ void initMainPipeline(AppContext *app)
 
     app->mainPipeline = app->device.CreateRenderPipeline(&renderPipelineDesc);
 
-    // Create the UBO for our bind group
+    // Create the bind group for the uniform
     wgpu::BufferDescriptor uboBufDesc;
     uboBufDesc.mappedAtCreation = false;
     uboBufDesc.size = sizeof(Uniforms);
@@ -298,6 +308,95 @@ void initMainPipeline(AppContext *app)
     bufferDesc.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
     app->layerBuf = app->device.CreateBuffer(&bufferDesc);
     app->layerBuf.Unmap();
+
+    // Set up compute shader used to compute selection
+    const std::string computeShaderSource = R"(
+        // struct Uniforms {
+        //     proj: mat4x4<f32>,
+        //     mousePos: vec2f,
+        //     dragStart: vec2f,
+        // };
+
+        // @group(0) @binding(0)
+        // var<uniform> uniforms: Uniforms;
+
+        @group(0) @binding(0)
+        var<storage,read_write> outBuffer: array<u32>;
+
+        @compute @workgroup_size(32)
+        fn cs_main(@builtin(global_invocation_id) id : vec3<u32>) {
+            outBuffer[id.z] = id.z;
+        }
+
+    )";
+
+    wgpu::ShaderModuleWGSLDescriptor computeShaderCodeDesc;
+    computeShaderCodeDesc.code = computeShaderSource.c_str();
+
+    wgpu::ShaderModuleDescriptor computeShaderModuleDesc;
+    computeShaderModuleDesc.nextInChain = &computeShaderCodeDesc;
+
+    wgpu::ShaderModule computeShaderModule =
+        app->device.CreateShaderModule(&computeShaderModuleDesc);
+
+    wgpu::BindGroupLayoutEntry computeBinding;
+    computeBinding.binding = 0;
+    computeBinding.visibility = wgpu::ShaderStage::Compute;
+    viewParamLayoutEntry.buffer.hasDynamicOffset = false;
+    computeBinding.buffer.type = wgpu::BufferBindingType::Storage;
+
+    wgpu::BindGroupLayoutDescriptor computeBindGroupLayoutDesc;
+    computeBindGroupLayoutDesc.entryCount = 1;
+    computeBindGroupLayoutDesc.entries = &computeBinding;
+
+    std::array<wgpu::BindGroupLayout, 1> computeBindGroupLayouts;
+    // computeBindGroupLayouts[0] = app->device.CreateBindGroupLayout(&viewParamsLayoutDesc);
+    computeBindGroupLayouts[0] =
+        app->device.CreateBindGroupLayout(&computeBindGroupLayoutDesc);
+
+    wgpu::PipelineLayoutDescriptor computePipelineLayoutDesc;
+    computePipelineLayoutDesc.bindGroupLayoutCount =
+        static_cast<uint32_t>(computeBindGroupLayouts.size());
+    computePipelineLayoutDesc.bindGroupLayouts = computeBindGroupLayouts.data();
+
+    wgpu::PipelineLayout computePipelineLayout =
+        app->device.CreatePipelineLayout(&computePipelineLayoutDesc);
+
+    wgpu::ComputePipelineDescriptor computePipelineDesc;
+    computePipelineDesc.label = "Canvas Selection";
+    computePipelineDesc.layout = computePipelineLayout;
+    computePipelineDesc.compute.module = computeShaderModule;
+    computePipelineDesc.compute.entryPoint = "cs_main";
+
+    app->selectionPipeline = app->device.CreateComputePipeline(&computePipelineDesc);
+
+    wgpu::BufferDescriptor selectionOutputBufDesc;
+    selectionOutputBufDesc.mappedAtCreation = false;
+    selectionOutputBufDesc.size = sizeof(float) * NumLayers;
+    selectionOutputBufDesc.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc;
+    app->selectionBuf = app->device.CreateBuffer(&selectionOutputBufDesc);
+
+    selectionOutputBufDesc.usage = wgpu::BufferUsage::MapRead | wgpu::BufferUsage::CopyDst;
+    app->selectionMapBuf = app->device.CreateBuffer(&selectionOutputBufDesc);
+
+    std::array<wgpu::BindGroupEntry, 1> computeEntries;
+
+    // computeEntries[0].binding = 0;
+    // computeEntries[0].buffer = app->viewParamBuf;
+    // computeEntries[0].offset = 0;
+    // computeEntries[0].size = uboBufDesc.size;
+
+    computeEntries[0].binding = 0;
+    computeEntries[0].buffer = app->selectionBuf;
+    computeEntries[0].offset = 0;
+    computeEntries[0].size = selectionOutputBufDesc.size;
+
+    wgpu::BindGroupDescriptor computeBindGroupDesc;
+    computeBindGroupDesc.layout = computeBindGroupLayouts[0];
+    computeBindGroupDesc.entryCount = static_cast<uint32_t>(computeEntries.size());
+    computeBindGroupDesc.entries = computeEntries.data();
+
+    app->selectionBindGroup = app->device.CreateBindGroup(&computeBindGroupDesc);
 }
 
 void initUI(AppContext *app)
@@ -551,7 +650,7 @@ void drawUI(AppContext *app, const wgpu::RenderPassEncoder &renderPass)
     ImGui::End();
 
     if (app->state == Cursor && app->mouseDown && app->mouseDragStart != app->mouseWindowPos) {
-        ImDrawList *drawList = ImGui::GetForegroundDrawList();
+        ImDrawList *drawList = ImGui::GetBackgroundDrawList();
         drawList->AddRect(ImVec2(app->mouseDragStart.x, app->mouseDragStart.y),
                           ImVec2(app->mouseWindowPos.x, app->mouseWindowPos.y),
                           ImGui::GetColorU32(IM_COL32(0, 130, 216, 255)));
@@ -711,8 +810,7 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
     requiredLimits.limits.minUniformBufferOffsetAlignment =
         supportedLimits.limits.minUniformBufferOffsetAlignment;
     requiredLimits.limits.maxInterStageShaderComponents = 8;
-    requiredLimits.limits.maxBindGroups = 2;
-    //                                    ^ This was a 1
+    requiredLimits.limits.maxBindGroups = 4;
     requiredLimits.limits.maxUniformBuffersPerShaderStage = 1;
     requiredLimits.limits.maxUniformBufferBindingSize = 16 * 4 * sizeof(float);
     // Allow textures up to 2K
@@ -721,6 +819,9 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
     requiredLimits.limits.maxTextureArrayLayers = 1;
     requiredLimits.limits.maxSampledTexturesPerShaderStage = 1;
     requiredLimits.limits.maxSamplersPerShaderStage = 1;
+    requiredLimits.limits.maxComputeWorkgroupSizeX = WorkGroupSize;
+    requiredLimits.limits.maxComputeWorkgroupSizeY = WorkGroupSize;
+    requiredLimits.limits.maxComputeWorkgroupSizeZ = WorkGroupSize;
 
     wgpu::DeviceDescriptor deviceDesc;
     deviceDesc.label = "Device";
@@ -880,6 +981,10 @@ int SDL_AppIterate(void *appstate)
                                             0.0,        0.0,        0.0, 1.0);
     }
 
+    if (app->state == Cursor && app->mouseDown && app->mouseDragStart != app->mouseWindowPos) {
+        app->selectionRequested = true;
+    }
+
     app->device.GetQueue().WriteBuffer(
         app->viewParamBuf, 0, &app->viewParams, sizeof(Uniforms));
 
@@ -937,15 +1042,31 @@ int SDL_AppIterate(void *appstate)
 
     wgpu::RenderPassEncoder renderPassEnc = encoder.BeginRenderPass(&renderPassDesc);
 
-    renderPassEnc.SetPipeline(app->mainPipeline);
-    renderPassEnc.SetVertexBuffer(0, app->vertexBuf);
-    renderPassEnc.SetVertexBuffer(1, app->layerBuf);
-    renderPassEnc.SetBindGroup(0, app->bindGroup);
-    renderPassEnc.Draw(6, app->layers.length(), 0, 0);
+    if (app->layers.length() > 0) {
+        renderPassEnc.SetPipeline(app->mainPipeline);
+        renderPassEnc.SetVertexBuffer(0, app->vertexBuf);
+        renderPassEnc.SetVertexBuffer(1, app->layerBuf);
+        renderPassEnc.SetBindGroup(0, app->bindGroup);
+        renderPassEnc.Draw(6, app->layers.length(), 0, 0);
+    }
 
     drawUI(app, renderPassEnc);
 
     renderPassEnc.End();
+
+    // We only want to recompute the selection array if a selection is requested and any
+    // previously requested computations have completed aka selection ready
+    if (app->selectionRequested && app->selectionReady) {
+        wgpu::ComputePassEncoder computePass = encoder.BeginComputePass();
+        computePass.SetPipeline(app->selectionPipeline);
+        // figure out which things to bind;
+        computePass.SetBindGroup(0, app->selectionBindGroup);
+        computePass.DispatchWorkgroups(1, 1, NumLayers / WorkGroupSize);
+        computePass.End();
+
+        encoder.CopyBufferToBuffer(
+            app->selectionBuf, 0, app->selectionMapBuf, 0, sizeof(float) * NumLayers);
+    }
 
     wgpu::CommandBufferDescriptor cmdBufferDescriptor;
     cmdBufferDescriptor.label = "Melchior";
@@ -953,17 +1074,38 @@ int SDL_AppIterate(void *appstate)
 
     app->device.GetQueue().Submit(1, &command);
 
+    if (app->selectionRequested && app->selectionReady) {
+        app->selectionReady = false;
+        wgpu::BufferMapCallback callback = [](WGPUBufferMapAsyncStatus status,
+                                              void *userdata) {
+            if (status == WGPUBufferMapAsyncStatus_Success) {
+                auto *app = (AppContext *)userdata;
+                const uint32_t *output =
+                    (const uint32_t *)app->selectionMapBuf.GetConstMappedRange(
+                        0, sizeof(float) * NumLayers);
+                for (int i = 0; i < NumLayers; ++i) {
+                    SDL_Log("%d: %d", i, output[i]);
+                }
+                app->selectionMapBuf.Unmap();
+                app->selectionReady = true;
+            }
+        };
+        app->selectionMapBuf.MapAsync(
+            wgpu::MapMode::Read, 0, sizeof(float) * NumLayers, callback, app);
+    }
+
 #if !defined(SDL_PLATFORM_EMSCRIPTEN)
     app->swapchain.Present();
     app->device.Tick();
 #endif
 
-    // reset input deltas
+    // Reset
     app->mouseDelta = glm::vec2(0.0);
     app->scrollDelta = glm::vec2(0.0);
     app->updateView = false;
     app->layersModified = false;
     app->addLayer = false;
+    app->selectionRequested = false;
 
     return app->appQuit;
 }
