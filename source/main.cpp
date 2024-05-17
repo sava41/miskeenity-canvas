@@ -1085,8 +1085,8 @@ int SDL_AppIterate(void *appstate)
                 AppContext *app = reinterpret_cast<AppContext *>(userdata);
                 const uint32_t *output =
                     (const uint32_t *)app->selectionMapBuf.GetConstMappedRange(
-                        0, sizeof(float) * NumLayers);
-                for (int i = 0; i < NumLayers; ++i) {
+                        0, sizeof(float) * app->layers.length());
+                for (int i = 0; i < app->layers.length(); ++i) {
                     SDL_Log("%d: %d", i, output[i]);
                 }
                 app->selectionMapBuf.Unmap();
