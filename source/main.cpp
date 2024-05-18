@@ -1130,7 +1130,7 @@ int SDL_AppIterate(void *appstate)
 void SDL_AppQuit(void *appstate)
 {
     ImGui_ImplWGPU_Shutdown();
-    ImGui_ImplSDL3_Shutdown();  
+    ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
 
     AppContext *app = reinterpret_cast<AppContext *>(appstate);
