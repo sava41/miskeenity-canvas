@@ -32,8 +32,10 @@ struct Uniforms {
     glm::mat4 proj;
     glm::vec2 mousePos = glm::vec2(0.0);
     glm::vec2 canvasPos = glm::vec2(0.0);
+    uint32_t width;
+    uint32_t height;
     float scale = 1.0;
-    float _pad[11];
+    float _pad[9];
 };
 #pragma pack(pop)
 // Have the compiler check byte alignment
@@ -172,6 +174,8 @@ void initMainPipeline(AppContext *app)
             proj: mat4x4<f32>,
             mousePos: vec2<f32>,
             dragStart: vec2<f32>,
+            windowSize: vec2<u32>,
+            scale: f32,
         };
 
         @group(0) @binding(0)
@@ -317,6 +321,8 @@ void initMainPipeline(AppContext *app)
             proj: mat4x4<f32>,
             mousePos: vec2<f32>,
             dragStart: vec2<f32>,
+            windowSize: vec2<u32>,
+            scale: f32,
         };
 
         struct InstanceInput {
@@ -337,10 +343,31 @@ void initMainPipeline(AppContext *app)
         @group(1) @binding(1)
         var<storage, read> instanceBuffer: array<InstanceInput>;
 
-        @compute @workgroup_size(16, 16, 1)
+        // From: https://github.com/ssloy/tinyrenderer/wiki/Lesson-2:-Triangle-rasterization-and-back-face-culling
+        fn barycentric(v1: vec3<f32>, v2: vec3<f32>, v3: vec3<f32>, p: vec2<f32>) -> vec3<f32> {
+            let u = cross(
+                vec3<f32>(v3.x - v1.x, v2.x - v1.x, v1.x - p.x), 
+                vec3<f32>(v3.y - v1.y, v2.y - v1.y, v1.y - p.y)
+            );
+
+            if (abs(u.z) < 1.0) {
+                return vec3<f32>(-1.0, 1.0, 1.0);
+            }
+
+            return vec3<f32>(1.0 - (u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
+        }
+
+        @compute @workgroup_size(256, 1)
         fn cs_main(@builtin(global_invocation_id) id_global : vec3<u32>, @builtin(local_invocation_id) id_local : vec3<u32>) {
-            let layer = u32(id_global.z);
-            atomicStore(&outBuffer[layer], instanceBuffer[layer].color_type & 0xFF);
+            let layer = u32(id_global.x);
+            
+            let verts = array<vec2<f32>, 4>(
+            vec2<f32>( -0.5,  -0.5),
+            vec2<f32>(  0.5,  -0.5),
+            vec2<f32>(  0.5,   0.5),
+            vec2<f32>( -0.5,   0.5));
+
+            atomicMax(&outBuffer[layer], layer);
         }
 
     )";
@@ -1089,11 +1116,7 @@ int SDL_AppIterate(void *appstate)
         computePass.SetBindGroup(0, app->bindGroup);
         computePass.SetBindGroup(1, app->selectionBindGroup);
 
-        // we want to match the workgroup resolution approximately to the window resolution but
-        // it doesnt have to be exact
-        uint32_t computeResX = app->width / WorkGroupSize;
-        uint32_t computeResY = app->height / WorkGroupSize;
-        computePass.DispatchWorkgroups(computeResX, computeResY, app->layers.length());
+        computePass.DispatchWorkgroups((app->layers.length() + 256 - 1) / 256, 1, 1);
         computePass.End();
 
         encoder.CopyBufferToBuffer(
