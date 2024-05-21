@@ -1020,6 +1020,9 @@ int SDL_AppIterate(void *appstate)
     }
 
     if (app->updateView) {
+        app->viewParams.width = app->width;
+        app->viewParams.height = app->height;
+
         float l = -app->viewParams.canvasPos.x * 1.0 / app->viewParams.scale;
         float r = (app->width - app->viewParams.canvasPos.x) * 1.0 / app->viewParams.scale;
         float t = -app->viewParams.canvasPos.y * 1.0 / app->viewParams.scale;
