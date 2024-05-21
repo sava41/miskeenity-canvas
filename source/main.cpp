@@ -148,30 +148,30 @@ void initMainPipeline(AppContext *app)
     const std::string shaderSource = R"(
 
         struct VertexInput {
-            @location(0) position: vec2f,
-            @location(1) uv: vec2f,
+            @location(0) position: vec2<f32>,
+            @location(1) uv: vec2<f32>,
         };
 
         struct InstanceInput {
-            @location(2) offset: vec2f,
-            @location(3) basis_a: vec2f,
-            @location(4) basis_b: vec2f,
-            @location(5) uv_top: vec2u,
-            @location(6) uv_bot: vec2u,
-            @location(7) image_mask_ids: vec2u,
-            @location(8) color_type: vec4u,
+            @location(2) offset: vec2<f32>,
+            @location(3) basis_a: vec2<f32>,
+            @location(4) basis_b: vec2<f32>,
+            @location(5) uv_top: vec2<u32>,
+            @location(6) uv_bot: vec2<u32>,
+            @location(7) image_mask_ids: vec2<u32>,
+            @location(8) color_type: vec4<u32>,
         };
 
         struct VertexOutput {
-            @builtin(position) position: vec4f,
-            @location(0) uv: vec2f,
-            @location(1) color: vec4f,
+            @builtin(position) position: vec4<f32>,
+            @location(0) uv: vec2<f32>,
+            @location(1) color: vec4<f32>,
         };
 
         struct Uniforms {
             proj: mat4x4<f32>,
-            mousePos: vec2f,
-            dragStart: vec2f,
+            mousePos: vec2<f32>,
+            dragStart: vec2<f32>,
         };
 
         @group(0) @binding(0)
@@ -186,16 +186,16 @@ void initMainPipeline(AppContext *app)
                                     0.0,            0.0,            1.0, 0.0,
                                     0.0,            0.0,            0.0, 1.0);
 
-            out.position = vec4f(vert.position, 0.0, 1.0) * model * uniforms.proj ;
+            out.position = vec4<f32>(vert.position, 0.0, 1.0) * model * uniforms.proj ;
             out.uv = vert.uv;
 
-            out.color = vec4f(f32(inst.color_type.r) / 255.0, f32(inst.color_type.g) / 255.0, f32(inst.color_type.b) / 255.0, 1.0);
+            out.color = vec4<f32>(f32(inst.color_type.r) / 255.0, f32(inst.color_type.g) / 255.0, f32(inst.color_type.b) / 255.0, 1.0);
 
             return out;
         }
 
         @fragment
-        fn fs_main(in: VertexOutput) -> @location(0) vec4f {
+        fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             return in.color;
         }
     )";
@@ -315,20 +315,32 @@ void initMainPipeline(AppContext *app)
     const std::string computeShaderSource = R"(
         struct Uniforms {
             proj: mat4x4<f32>,
-            mousePos: vec2f,
-            dragStart: vec2f,
+            mousePos: vec2<f32>,
+            dragStart: vec2<f32>,
+        };
+
+        struct InstanceInput {
+            offset: vec2<f32>,
+            basis_a: vec2<f32>,
+            basis_b: vec2<f32>,
+            uv_top: u32,
+            uv_bot: u32,
+            image_mask_ids: u32,
+            color_type: u32,
         };
 
         @group(0) @binding(0)
         var<uniform> uniforms: Uniforms;
 
         @group(1) @binding(0)
-        var<storage,read_write> outBuffer: array<u32>;
+        var<storage,read_write> outBuffer: array<atomic<u32>>;
+        @group(1) @binding(1)
+        var<storage, read> instanceBuffer: array<InstanceInput>;
 
         @compute @workgroup_size(16, 16, 1)
         fn cs_main(@builtin(global_invocation_id) id_global : vec3<u32>, @builtin(local_invocation_id) id_local : vec3<u32>) {
             let layer = u32(id_global.z);
-            outBuffer[layer] = layer;
+            atomicStore(&outBuffer[layer], instanceBuffer[layer].color_type & 0xFF);
         }
 
     )";
@@ -351,7 +363,7 @@ void initMainPipeline(AppContext *app)
     computeGroupLayoutEntries[1].binding = 1;
     computeGroupLayoutEntries[1].visibility = wgpu::ShaderStage::Compute;
     computeGroupLayoutEntries[1].buffer.hasDynamicOffset = false;
-    computeGroupLayoutEntries[1].buffer.type = wgpu::BufferBindingType::Storage;
+    computeGroupLayoutEntries[1].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
     computeGroupLayoutEntries[1].buffer.minBindingSize = sizeof(mc::Layer);
 
     wgpu::BindGroupLayoutDescriptor computeBindGroupLayoutDesc;
@@ -384,7 +396,7 @@ void initMainPipeline(AppContext *app)
     wgpu::BufferDescriptor selectionOutputBufDesc;
     selectionOutputBufDesc.mappedAtCreation = false;
     selectionOutputBufDesc.size = sizeof(float) * NumLayers;
-    selectionOutputBufDesc.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc;
+    selectionOutputBufDesc.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc | wgpu::BufferUsage::CopyDst;
     app->selectionBuf = app->device.CreateBuffer(&selectionOutputBufDesc);
 
     selectionOutputBufDesc.usage = wgpu::BufferUsage::MapRead | wgpu::BufferUsage::CopyDst;
@@ -777,7 +789,7 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
 
     SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
 
-    app->window = SDL_CreateWindow("Miskeenity Canvas", 640, 480, SDL_WINDOW_RESIZABLE);
+    app->window = SDL_CreateWindow("Miskeenity Canvas", 640, 480, SDL_WINDOW_RESIZABLE | SDL_WINDOW_MAXIMIZED);
     if (!app->window) {
         return SDL_Fail();
     }
@@ -856,7 +868,7 @@ int SDL_AppInit(void **appstate, int argc, char *argv[])
         },
         app);
 
-    initSwapChain(app); 
+    initSwapChain(app);
 
     initUI(app);
 
@@ -1009,6 +1021,8 @@ int SDL_AppIterate(void *appstate)
         const uint8_t green = static_cast<uint8_t>((color >> 8) & 0xFF);
         const uint8_t blue = static_cast<uint8_t>(color & 0xFF);
 
+        SDL_Log("layer %d color: r:%d, g:%d, b:%d\n", app->layers.length(), red, green, blue);
+
         app->layers.add(
             {(app->mouseWindowPos - app->viewParams.canvasPos) / app->viewParams.scale,
              glm::vec2(100, 0),
@@ -1067,7 +1081,8 @@ int SDL_AppIterate(void *appstate)
 
     // We only want to recompute the selection array if a selection is requested and any
     // previously requested computations have completed aka selection ready
-    if (app->selectionRequested && app->selectionReady) {
+    if (app->selectionRequested && app->selectionReady && app->layers.length() > 0) {
+        encoder.ClearBuffer(app->selectionBuf, 0, app->layers.length() * sizeof(uint32_t));
         wgpu::ComputePassEncoder computePass = encoder.BeginComputePass();
         computePass.SetPipeline(app->selectionPipeline);
         // figure out which things to bind;
