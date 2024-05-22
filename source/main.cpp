@@ -79,7 +79,7 @@ struct AppContext {
     bool appQuit = false;
     bool resetSwapchain = false;
 
-    std::array<uint32_t, NumLayers> selectedLayers;
+    uint32_t *selectionFlags = nullptr;
 
     // Input variables
     glm::vec2 mouseWindowPos = glm::vec2(0.0);
@@ -150,6 +150,8 @@ void initMainPipeline(AppContext *app)
     const std::string shaderSource = R"(
 
         struct VertexInput {
+            @builtin(vertex_index) vertexId: u32,
+            @builtin(instance_index) instanceId: u32,
             @location(0) position: vec2<f32>,
             @location(1) uv: vec2<f32>,
         };
@@ -168,6 +170,7 @@ void initMainPipeline(AppContext *app)
             @builtin(position) position: vec4<f32>,
             @location(0) uv: vec2<f32>,
             @location(1) color: vec4<f32>,
+            @location(2) @interpolate(flat) inst: u32,
         };
 
         struct Uniforms {
@@ -180,6 +183,8 @@ void initMainPipeline(AppContext *app)
 
         @group(0) @binding(0)
         var<uniform> uniforms: Uniforms;
+        @group(0) @binding(1)
+        var<storage,read_write> selectionFlags: array<u32>;
 
         @vertex
         fn vs_main(vert: VertexInput, inst: InstanceInput) -> VertexOutput {
@@ -192,6 +197,7 @@ void initMainPipeline(AppContext *app)
 
             out.position = vec4<f32>(vert.position, 0.0, 1.0) * model * uniforms.proj ;
             out.uv = vert.uv;
+            out.inst = vert.instanceId;
 
             out.color = vec4<f32>(f32(inst.color_type.r) / 255.0, f32(inst.color_type.g) / 255.0, f32(inst.color_type.b) / 255.0, 1.0);
 
@@ -200,7 +206,7 @@ void initMainPipeline(AppContext *app)
 
         @fragment
         fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-            return in.color;
+            return in.color + (vec4<f32>(in.uv, 1.0, 1.0) * 0.3 - 0.15) * f32(selectionFlags[in.inst] == 1);
         }
     )";
 
@@ -242,13 +248,19 @@ void initMainPipeline(AppContext *app)
     vertexState.buffers = vertexBufLayout.data();
 
     // Create global bind group layout
-    std::array<wgpu::BindGroupLayoutEntry, 1> globalGroupLayoutEntries;
+    std::array<wgpu::BindGroupLayoutEntry, 2> globalGroupLayoutEntries;
     globalGroupLayoutEntries[0].binding = 0;
     globalGroupLayoutEntries[0].visibility =
         wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Compute;
     globalGroupLayoutEntries[0].buffer.hasDynamicOffset = false;
     globalGroupLayoutEntries[0].buffer.type = wgpu::BufferBindingType::Uniform;
     globalGroupLayoutEntries[0].buffer.minBindingSize = sizeof(Uniforms);
+
+    globalGroupLayoutEntries[1].binding = 1;
+    globalGroupLayoutEntries[1].visibility =
+        wgpu::ShaderStage::Fragment | wgpu::ShaderStage::Compute;
+    globalGroupLayoutEntries[1].buffer.hasDynamicOffset = false;
+    globalGroupLayoutEntries[1].buffer.type = wgpu::BufferBindingType::Storage;
 
     wgpu::BindGroupLayoutDescriptor globalGroupLayoutDesc;
     globalGroupLayoutDesc.entryCount = static_cast<uint32_t>(globalGroupLayoutEntries.size());
@@ -279,7 +291,7 @@ void initMainPipeline(AppContext *app)
 
     app->mainPipeline = app->device.CreateRenderPipeline(&renderPipelineDesc);
 
-    // Create gloabl buffers
+    // Create buffers
     wgpu::BufferDescriptor uboBufDesc;
     uboBufDesc.mappedAtCreation = false;
     uboBufDesc.size = sizeof(Uniforms);
@@ -293,11 +305,26 @@ void initMainPipeline(AppContext *app)
         wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Storage;
     app->layerBuf = app->device.CreateBuffer(&layerBufDesc);
 
+    wgpu::BufferDescriptor selectionOutputBufDesc;
+    selectionOutputBufDesc.mappedAtCreation = false;
+    selectionOutputBufDesc.size = sizeof(float) * NumLayers;
+    selectionOutputBufDesc.usage =
+        wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc | wgpu::BufferUsage::CopyDst;
+    app->selectionBuf = app->device.CreateBuffer(&selectionOutputBufDesc);
+
+    selectionOutputBufDesc.usage = wgpu::BufferUsage::MapRead | wgpu::BufferUsage::CopyDst;
+    app->selectionMapBuf = app->device.CreateBuffer(&selectionOutputBufDesc);
+
     // Create the bind group for the uniform and shared buffers
-    std::array<wgpu::BindGroupEntry, 1> globalGroupEntries;
+    std::array<wgpu::BindGroupEntry, 2> globalGroupEntries;
     globalGroupEntries[0].binding = 0;
     globalGroupEntries[0].buffer = app->viewParamBuf;
     globalGroupEntries[0].size = uboBufDesc.size;
+
+    globalGroupEntries[1].binding = 1;
+    globalGroupEntries[1].buffer = app->selectionBuf;
+    globalGroupEntries[1].offset = 0;
+    globalGroupEntries[1].size = selectionOutputBufDesc.size;
 
     wgpu::BindGroupDescriptor bindGroupDesc;
     bindGroupDesc.layout = globalGroupLayout;
@@ -337,13 +364,12 @@ void initMainPipeline(AppContext *app)
 
         @group(0) @binding(0)
         var<uniform> uniforms: Uniforms;
-
+        @group(0) @binding(1)
+        var<storage,read_write> outBuffer: array<u32>;
+        
         @group(1) @binding(0)
-        var<storage,read_write> outBuffer: array<atomic<u32>>;
-        @group(1) @binding(1)
         var<storage, read> instanceBuffer: array<InstanceInput>;
 
-        // From: https://github.com/ssloy/tinyrenderer/wiki/Lesson-2:-Triangle-rasterization-and-back-face-culling
         fn barycentric(v1: vec3<f32>, v2: vec3<f32>, v3: vec3<f32>, p: vec2<f32>) -> vec3<f32> {
             let u = cross(
                 vec3<f32>(v3.x - v1.x, v2.x - v1.x, v1.x - p.x), 
@@ -361,13 +387,44 @@ void initMainPipeline(AppContext *app)
         fn cs_main(@builtin(global_invocation_id) id_global : vec3<u32>, @builtin(local_invocation_id) id_local : vec3<u32>) {
             let layer = u32(id_global.x);
             
-            let verts = array<vec2<f32>, 4>(
-            vec2<f32>( -0.5,  -0.5),
-            vec2<f32>(  0.5,  -0.5),
-            vec2<f32>(  0.5,   0.5),
-            vec2<f32>( -0.5,   0.5));
+            let verts = array<vec4<f32>, 4>(
+            vec4<f32>( -0.5,  -0.5, 0.0, 1.0),
+            vec4<f32>(  0.5,  -0.5, 0.0, 1.0),
+            vec4<f32>(  0.5,   0.5, 0.0, 1.0),
+            vec4<f32>( -0.5,   0.5, 0.0, 1.0));
 
-            atomicMax(&outBuffer[layer], layer);
+            let minX = min(uniforms.mousePos.x, uniforms.dragStart.x);
+            let minY = min(uniforms.mousePos.y, uniforms.dragStart.y);
+            let maxX = max(uniforms.mousePos.x, uniforms.dragStart.x);
+            let maxY = max(uniforms.mousePos.y, uniforms.dragStart.y);
+
+            let model = mat4x4<f32>(instanceBuffer[layer].basis_a.x,
+                                    instanceBuffer[layer].basis_b.x, 0.0,
+                                    instanceBuffer[layer].offset.x,
+                                    instanceBuffer[layer].basis_a.y,
+                                    instanceBuffer[layer].basis_b.y, 0.0,
+                                    instanceBuffer[layer].offset.y,
+                                    0.0, 0.0, 1.0, 0.0,
+                                    0.0, 0.0, 0.0, 1.0);
+
+            // We have 3 possible scenarios:
+            // Ractangle is fully inside selection box
+            // Rectangle is fully outside selection box
+            // Rectangle is partially inside selection box in which case we need to rasterize
+
+            var flags = u32(0);
+
+            for (var i: u32 = 0; i < 4; i = i + 1u) {
+                let pos = verts[i] * model;
+                
+                if(minX < pos.x && pos.x < maxX && minY < pos.y && pos.y < maxY) {
+                    flags = flags | 1;
+                } else {
+                    flags = flags | 2;
+                }
+            }
+
+            outBuffer[layer] = flags;
         }
 
     )";
@@ -381,17 +438,13 @@ void initMainPipeline(AppContext *app)
     wgpu::ShaderModule computeShaderModule =
         app->device.CreateShaderModule(&computeShaderModuleDesc);
 
-    std::array<wgpu::BindGroupLayoutEntry, 2> computeGroupLayoutEntries;
+    std::array<wgpu::BindGroupLayoutEntry, 1> computeGroupLayoutEntries;
+
     computeGroupLayoutEntries[0].binding = 0;
     computeGroupLayoutEntries[0].visibility = wgpu::ShaderStage::Compute;
     computeGroupLayoutEntries[0].buffer.hasDynamicOffset = false;
-    computeGroupLayoutEntries[0].buffer.type = wgpu::BufferBindingType::Storage;
-
-    computeGroupLayoutEntries[1].binding = 1;
-    computeGroupLayoutEntries[1].visibility = wgpu::ShaderStage::Compute;
-    computeGroupLayoutEntries[1].buffer.hasDynamicOffset = false;
-    computeGroupLayoutEntries[1].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
-    computeGroupLayoutEntries[1].buffer.minBindingSize = sizeof(mc::Layer);
+    computeGroupLayoutEntries[0].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
+    computeGroupLayoutEntries[0].buffer.minBindingSize = sizeof(mc::Layer);
 
     wgpu::BindGroupLayoutDescriptor computeBindGroupLayoutDesc;
     computeBindGroupLayoutDesc.entryCount =
@@ -420,26 +473,12 @@ void initMainPipeline(AppContext *app)
 
     app->selectionPipeline = app->device.CreateComputePipeline(&computePipelineDesc);
 
-    wgpu::BufferDescriptor selectionOutputBufDesc;
-    selectionOutputBufDesc.mappedAtCreation = false;
-    selectionOutputBufDesc.size = sizeof(float) * NumLayers;
-    selectionOutputBufDesc.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc | wgpu::BufferUsage::CopyDst;
-    app->selectionBuf = app->device.CreateBuffer(&selectionOutputBufDesc);
-
-    selectionOutputBufDesc.usage = wgpu::BufferUsage::MapRead | wgpu::BufferUsage::CopyDst;
-    app->selectionMapBuf = app->device.CreateBuffer(&selectionOutputBufDesc);
-
-    std::array<wgpu::BindGroupEntry, 2> computeGroupEntries;
+    std::array<wgpu::BindGroupEntry, 1> computeGroupEntries;
 
     computeGroupEntries[0].binding = 0;
-    computeGroupEntries[0].buffer = app->selectionBuf;
+    computeGroupEntries[0].buffer = app->layerBuf;
     computeGroupEntries[0].offset = 0;
-    computeGroupEntries[0].size = selectionOutputBufDesc.size;
-
-    computeGroupEntries[1].binding = 1;
-    computeGroupEntries[1].buffer = app->layerBuf;
-    computeGroupEntries[1].offset = 0;
-    computeGroupEntries[1].size = layerBufDesc.size;
+    computeGroupEntries[0].size = layerBufDesc.size;
 
     wgpu::BindGroupDescriptor computeBindGroupDesc;
     computeBindGroupDesc.layout = computeGroupLayout;
@@ -1051,8 +1090,6 @@ int SDL_AppIterate(void *appstate)
         const uint8_t green = static_cast<uint8_t>((color >> 8) & 0xFF);
         const uint8_t blue = static_cast<uint8_t>(color & 0xFF);
 
-        SDL_Log("layer %d color: r:%d, g:%d, b:%d\n", app->layers.length(), red, green, blue);
-
         app->layers.add(
             {(app->mouseWindowPos - app->viewParams.canvasPos) / app->viewParams.scale,
              glm::vec2(100, 0),
@@ -1122,6 +1159,9 @@ int SDL_AppIterate(void *appstate)
         computePass.DispatchWorkgroups((app->layers.length() + 256 - 1) / 256, 1, 1);
         computePass.End();
 
+        app->selectionMapBuf.Unmap();
+        app->selectionFlags = nullptr;
+
         encoder.CopyBufferToBuffer(
             app->selectionBuf, 0, app->selectionMapBuf, 0, sizeof(float) * NumLayers);
     }
@@ -1138,13 +1178,9 @@ int SDL_AppIterate(void *appstate)
                                               void *userdata) {
             if (status == WGPUBufferMapAsyncStatus_Success) {
                 AppContext *app = reinterpret_cast<AppContext *>(userdata);
-                const uint32_t *output =
-                    (const uint32_t *)app->selectionMapBuf.GetConstMappedRange(
-                        0, sizeof(float) * app->layers.length());
-                for (int i = 0; i < app->layers.length(); ++i) {
-                    SDL_Log("%d: %d", i, output[i]);
-                }
-                app->selectionMapBuf.Unmap();
+                app->selectionFlags = reinterpret_cast<uint32_t *>(
+                    const_cast<void *>((app->selectionMapBuf.GetConstMappedRange(
+                        0, sizeof(float) * app->layers.length()))));
                 app->selectionReady = true;
             }
         };
