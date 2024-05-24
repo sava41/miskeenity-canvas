@@ -32,7 +32,7 @@ add_subdirectory(third_party/glm)
 embed_files(embedded_files ./resources/fonts/Lucide.ttf ./resources/fonts/Roboto.ttf)
 
 # Setup executable
-add_executable(miskeenity-canvas source/main.cpp source/webgpu_surface.cpp source/layers.cpp)
+add_executable(miskeenity-canvas source/main.cpp source/webgpu_surface.cpp source/layers.cpp source/ui.cpp)
 
 add_dependencies(miskeenity-canvas SDL3::SDL3 imgui glm::glm icon-font-headers embedded_files)
 target_link_libraries(miskeenity-canvas PRIVATE SDL3::SDL3 imgui glm::glm icon-font-headers embedded_files)

@@ -1,8 +1,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <array>
-#include <backends/imgui_impl_sdl3.h>
-#include <backends/imgui_impl_wgpu.h>
 #include <glm/glm.hpp>
 #include <imgui.h>
 #include <string>
@@ -15,92 +13,13 @@
 #include <emscripten/html5_webgpu.h>
 #endif
 
+#include "app.h"
 #include "embedded_files.h"
 #include "layers.h"
-#include "lucide.h"
+#include "ui.h"
 #include "webgpu_surface.h"
 
-constexpr float ZoomScaleFactor = 0.5;
-constexpr size_t NumLayers      = 2048;
-constexpr size_t WorkGroupSize  = 16;
-
-enum State
-{
-    Cursor,
-    Pan,
-    Paint,
-    Text,
-    Other
-};
-
-#pragma pack( push )
-struct Uniforms
-{
-    glm::mat4 proj;
-    glm::vec2 canvasPos      = glm::vec2( 0.0 );
-    glm::vec2 mousePos       = glm::vec2( 0.0 );
-    glm::vec2 mouseSelectPos = glm::vec2( 0.0 );
-    uint32_t width;
-    uint32_t height;
-    float scale = 1.0;
-    float _pad[7];
-};
-#pragma pack( pop )
-// Have the compiler check byte alignment
-// Total size must be a multiple of the alignment size of its largest field
-static_assert( sizeof( Uniforms ) % sizeof( glm::mat4 ) == 0 );
-
-struct AppContext
-{
-    SDL_Window* window;
-
-    int width;
-    int height;
-    int bbwidth;
-    int bbheight;
-
-    wgpu::Instance instance;
-    wgpu::Surface surface;
-    wgpu::Device device;
-    wgpu::Adapter adapter;
-
-    wgpu::SwapChain swapchain;
-    wgpu::TextureFormat colorFormat;
-
-    wgpu::RenderPipeline mainPipeline;
-    wgpu::ComputePipeline selectionPipeline;
-    wgpu::Buffer vertexBuf;
-    wgpu::Buffer layerBuf;
-    wgpu::Buffer viewParamBuf;
-    wgpu::Buffer selectionBuf;
-    wgpu::Buffer selectionMapBuf;
-    wgpu::BindGroup bindGroup;
-    wgpu::BindGroup selectionBindGroup;
-
-    Uniforms viewParams;
-
-    State state             = Cursor;
-    bool updateView         = false;
-    bool selectionRequested = false;
-    bool selectionReady     = true;
-    bool layersModified     = true;
-    bool addLayer           = false;
-    bool appQuit            = false;
-    bool resetSwapchain     = false;
-
-    uint32_t* selectionFlags = nullptr;
-
-    // Input variables
-    glm::vec2 mouseWindowPos = glm::vec2( 0.0 );
-    glm::vec2 mouseDragStart = glm::vec2( 0.0 );
-    glm::vec2 mouseDelta     = glm::vec2( 0.0 );
-    glm::vec2 scrollDelta    = glm::vec2( 0.0 );
-    bool mouseDown           = false;
-
-    mc::Layers layers = mc::Layers( NumLayers );
-};
-
-void initMainPipeline( AppContext* app )
+void initMainPipeline( mc::AppContext* app )
 {
     // we have two vertex buffers, our one for verticies and the other for instances
     std::array<wgpu::VertexBufferLayout, 2> vertexBufLayout;
@@ -263,7 +182,7 @@ void initMainPipeline( AppContext* app )
     globalGroupLayoutEntries[0].visibility              = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Compute;
     globalGroupLayoutEntries[0].buffer.hasDynamicOffset = false;
     globalGroupLayoutEntries[0].buffer.type             = wgpu::BufferBindingType::Uniform;
-    globalGroupLayoutEntries[0].buffer.minBindingSize   = sizeof( Uniforms );
+    globalGroupLayoutEntries[0].buffer.minBindingSize   = sizeof( mc::Uniforms );
 
     globalGroupLayoutEntries[1].binding                 = 1;
     globalGroupLayoutEntries[1].visibility              = wgpu::ShaderStage::Fragment | wgpu::ShaderStage::Compute;
@@ -300,19 +219,19 @@ void initMainPipeline( AppContext* app )
     // Create buffers
     wgpu::BufferDescriptor uboBufDesc;
     uboBufDesc.mappedAtCreation = false;
-    uboBufDesc.size             = sizeof( Uniforms );
+    uboBufDesc.size             = sizeof( mc::Uniforms );
     uboBufDesc.usage            = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
     app->viewParamBuf           = app->device.CreateBuffer( &uboBufDesc );
 
     wgpu::BufferDescriptor layerBufDesc;
     layerBufDesc.mappedAtCreation = false;
-    layerBufDesc.size             = NumLayers * sizeof( mc::Layer );
+    layerBufDesc.size             = mc::NumLayers * sizeof( mc::Layer );
     layerBufDesc.usage            = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Storage;
     app->layerBuf                 = app->device.CreateBuffer( &layerBufDesc );
 
     wgpu::BufferDescriptor selectionOutputBufDesc;
     selectionOutputBufDesc.mappedAtCreation = false;
-    selectionOutputBufDesc.size             = sizeof( float ) * NumLayers;
+    selectionOutputBufDesc.size             = sizeof( float ) * mc::NumLayers;
     selectionOutputBufDesc.usage            = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc | wgpu::BufferUsage::CopyDst;
     app->selectionBuf                       = app->device.CreateBuffer( &selectionOutputBufDesc );
 
@@ -487,269 +406,7 @@ void initMainPipeline( AppContext* app )
     app->selectionBindGroup = app->device.CreateBindGroup( &computeBindGroupDesc );
 }
 
-void initUI( AppContext* app )
-{
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
-
-    // configure fonts
-    ImFontConfig configRoboto;
-    configRoboto.FontDataOwnedByAtlas = false;
-    configRoboto.OversampleH          = 2;
-    configRoboto.OversampleV          = 2;
-    configRoboto.RasterizerMultiply   = 1.5f;
-    configRoboto.GlyphExtraSpacing    = ImVec2( 1.0f, 0 );
-    io.Fonts->AddFontFromMemoryTTF( const_cast<uint8_t*>( Roboto_ttf ), Roboto_ttf_size, 18.0f, &configRoboto );
-
-    ImFontConfig configLucide;
-    configLucide.FontDataOwnedByAtlas = false;
-    configLucide.OversampleH          = 2;
-    configLucide.OversampleV          = 2;
-    configLucide.MergeMode            = true;
-    configLucide.GlyphMinAdvanceX     = 24.0f; // Use if you want to make the icon monospaced
-    configLucide.GlyphOffset          = ImVec2( 0.0f, 5.0f );
-
-    // Specify which icons we use
-    // Need to specify or texture atlas will be too large and fail to upload to gpu on
-    // lower systems
-    ImFontGlyphRangesBuilder builder;
-    builder.AddText( ICON_LC_GITHUB );
-    builder.AddText( ICON_LC_IMAGE_UP );
-    builder.AddText( ICON_LC_IMAGE_DOWN );
-    builder.AddText( ICON_LC_ROTATE_CW );
-    builder.AddText( ICON_LC_ARROW_UP_NARROW_WIDE );
-    builder.AddText( ICON_LC_ARROW_DOWN_NARROW_WIDE );
-    builder.AddText( ICON_LC_FLIP_HORIZONTAL_2 );
-    builder.AddText( ICON_LC_FLIP_VERTICAL_2 );
-    builder.AddText( ICON_LC_BRUSH );
-    builder.AddText( ICON_LC_SQUARE_DASHED_MOUSE_POINTER );
-    builder.AddText( ICON_LC_TRASH_2 );
-    builder.AddText( ICON_LC_HAND );
-    builder.AddText( ICON_LC_MOUSE_POINTER );
-    builder.AddText( ICON_LC_UNDO );
-    builder.AddText( ICON_LC_REDO );
-    builder.AddText( ICON_LC_TYPE );
-    builder.AddText( ICON_LC_INFO );
-    builder.AddText( ICON_LC_CROP );
-
-    ImVector<ImWchar> iconRanges;
-    builder.BuildRanges( &iconRanges );
-
-    io.Fonts->AddFontFromMemoryTTF( const_cast<uint8_t*>( Lucide_ttf ), Lucide_ttf_size, 24.0f, &configLucide, iconRanges.Data );
-
-    io.Fonts->Build();
-
-    // add style
-    ImGuiStyle& style = ImGui::GetStyle();
-
-    style.Alpha                     = 1.0f;
-    style.DisabledAlpha             = 1.0f;
-    style.WindowPadding             = ImVec2( 12.0f, 12.0f );
-    style.WindowRounding            = 3.0f;
-    style.WindowBorderSize          = 0.0f;
-    style.WindowMinSize             = ImVec2( 20.0f, 20.0f );
-    style.WindowTitleAlign          = ImVec2( 0.5f, 0.5f );
-    style.WindowMenuButtonPosition  = ImGuiDir_None;
-    style.ChildRounding             = 3.0f;
-    style.ChildBorderSize           = 1.0f;
-    style.PopupRounding             = 3.0f;
-    style.PopupBorderSize           = 1.0f;
-    style.FramePadding              = ImVec2( 6.0f, 6.0f );
-    style.FrameRounding             = 4.0f;
-    style.FrameBorderSize           = 0.0f;
-    style.ItemSpacing               = ImVec2( 12.0f, 6.0f );
-    style.ItemInnerSpacing          = ImVec2( 6.0f, 3.0f );
-    style.CellPadding               = ImVec2( 12.0f, 6.0f );
-    style.IndentSpacing             = 20.0f;
-    style.ColumnsMinSpacing         = 6.0f;
-    style.ScrollbarSize             = 12.0f;
-    style.ScrollbarRounding         = 3.0f;
-    style.GrabMinSize               = 12.0f;
-    style.GrabRounding              = 3.0f;
-    style.TabRounding               = 3.0f;
-    style.TabBorderSize             = 0.0f;
-    style.TabMinWidthForCloseButton = 0.0f;
-    style.ColorButtonPosition       = ImGuiDir_Right;
-    style.ButtonTextAlign           = ImVec2( 0.5f, 0.5f );
-    style.SelectableTextAlign       = ImVec2( 0.0f, 0.0f );
-
-    style.Colors[ImGuiCol_Text]                  = ImVec4( 0.9f, 0.9f, 0.9f, 1.0f );
-    style.Colors[ImGuiCol_TextDisabled]          = ImVec4( 0.2745098173618317f, 0.3176470696926117f, 0.4509803950786591f, 1.0f );
-    style.Colors[ImGuiCol_WindowBg]              = ImVec4( 0.0784313753247261f, 0.08627451211214066f, 0.1019607856869698f, 1.0f );
-    style.Colors[ImGuiCol_ChildBg]               = ImVec4( 0.0784313753247261f, 0.08627451211214066f, 0.1019607856869698f, 1.0f );
-    style.Colors[ImGuiCol_PopupBg]               = ImVec4( 0.0784313753247261f, 0.08627451211214066f, 0.1019607856869698f, 1.0f );
-    style.Colors[ImGuiCol_Border]                = ImVec4( 0.1568627506494522f, 0.168627455830574f, 0.1921568661928177f, 1.0f );
-    style.Colors[ImGuiCol_BorderShadow]          = ImVec4( 0.0784313753247261f, 0.08627451211214066f, 0.1019607856869698f, 1.0f );
-    style.Colors[ImGuiCol_FrameBg]               = ImVec4( 0.1176470592617989f, 0.1333333402872086f, 0.1490196138620377f, 1.0f );
-    style.Colors[ImGuiCol_FrameBgHovered]        = ImVec4( 0.1568627506494522f, 0.168627455830574f, 0.1921568661928177f, 1.0f );
-    style.Colors[ImGuiCol_FrameBgActive]         = ImVec4( 0.2352941185235977f, 0.2156862765550613f, 0.5960784554481506f, 1.0f );
-    style.Colors[ImGuiCol_TitleBg]               = ImVec4( 0.0470588244497776f, 0.05490196123719215f, 0.07058823853731155f, 1.0f );
-    style.Colors[ImGuiCol_TitleBgActive]         = ImVec4( 0.0470588244497776f, 0.05490196123719215f, 0.07058823853731155f, 1.0f );
-    style.Colors[ImGuiCol_TitleBgCollapsed]      = ImVec4( 0.0784313753247261f, 0.08627451211214066f, 0.1019607856869698f, 1.0f );
-    style.Colors[ImGuiCol_MenuBarBg]             = ImVec4( 0.09803921729326248f, 0.105882354080677f, 0.1215686276555061f, 1.0f );
-    style.Colors[ImGuiCol_ScrollbarBg]           = ImVec4( 0.0470588244497776f, 0.05490196123719215f, 0.07058823853731155f, 1.0f );
-    style.Colors[ImGuiCol_ScrollbarGrab]         = ImVec4( 0.1176470592617989f, 0.1333333402872086f, 0.1490196138620377f, 1.0f );
-    style.Colors[ImGuiCol_ScrollbarGrabHovered]  = ImVec4( 0.1568627506494522f, 0.168627455830574f, 0.1921568661928177f, 1.0f );
-    style.Colors[ImGuiCol_ScrollbarGrabActive]   = ImVec4( 0.1176470592617989f, 0.1333333402872086f, 0.1490196138620377f, 1.0f );
-    style.Colors[ImGuiCol_CheckMark]             = ImVec4( 0.9f, 0.9f, 0.9f, 1.0f );
-    style.Colors[ImGuiCol_SliderGrab]            = ImVec4( 0.4980392158031464f, 0.5137255191802979f, 1.0f, 1.0f );
-    style.Colors[ImGuiCol_SliderGrabActive]      = ImVec4( 0.5372549295425415f, 0.5529412031173706f, 1.0f, 1.0f );
-    style.Colors[ImGuiCol_Button]                = ImVec4( 0.1176470592617989f, 0.1333333402872086f, 0.1490196138620377f, 1.0f );
-    style.Colors[ImGuiCol_ButtonHovered]         = ImVec4( 0.196078434586525f, 0.1764705926179886f, 0.5450980663299561f, 1.0f );
-    style.Colors[ImGuiCol_ButtonActive]          = ImVec4( 0.2352941185235977f, 0.2156862765550613f, 0.5960784554481506f, 1.0f );
-    style.Colors[ImGuiCol_Header]                = ImVec4( 0.1176470592617989f, 0.1333333402872086f, 0.1490196138620377f, 1.0f );
-    style.Colors[ImGuiCol_HeaderHovered]         = ImVec4( 0.196078434586525f, 0.1764705926179886f, 0.5450980663299561f, 1.0f );
-    style.Colors[ImGuiCol_HeaderActive]          = ImVec4( 0.2352941185235977f, 0.2156862765550613f, 0.5960784554481506f, 1.0f );
-    style.Colors[ImGuiCol_Separator]             = ImVec4( 0.1568627506494522f, 0.1843137294054031f, 0.250980406999588f, 1.0f );
-    style.Colors[ImGuiCol_SeparatorHovered]      = ImVec4( 0.1568627506494522f, 0.1843137294054031f, 0.250980406999588f, 1.0f );
-    style.Colors[ImGuiCol_SeparatorActive]       = ImVec4( 0.1568627506494522f, 0.1843137294054031f, 0.250980406999588f, 1.0f );
-    style.Colors[ImGuiCol_ResizeGrip]            = ImVec4( 0.1176470592617989f, 0.1333333402872086f, 0.1490196138620377f, 1.0f );
-    style.Colors[ImGuiCol_ResizeGripHovered]     = ImVec4( 0.196078434586525f, 0.1764705926179886f, 0.5450980663299561f, 1.0f );
-    style.Colors[ImGuiCol_ResizeGripActive]      = ImVec4( 0.2352941185235977f, 0.2156862765550613f, 0.5960784554481506f, 1.0f );
-    style.Colors[ImGuiCol_Tab]                   = ImVec4( 0.0470588244497776f, 0.05490196123719215f, 0.07058823853731155f, 1.0f );
-    style.Colors[ImGuiCol_TabHovered]            = ImVec4( 0.1176470592617989f, 0.1333333402872086f, 0.1490196138620377f, 1.0f );
-    style.Colors[ImGuiCol_TabActive]             = ImVec4( 0.09803921729326248f, 0.105882354080677f, 0.1215686276555061f, 1.0f );
-    style.Colors[ImGuiCol_TabUnfocused]          = ImVec4( 0.0470588244497776f, 0.05490196123719215f, 0.07058823853731155f, 1.0f );
-    style.Colors[ImGuiCol_TabUnfocusedActive]    = ImVec4( 0.0784313753247261f, 0.08627451211214066f, 0.1019607856869698f, 1.0f );
-    style.Colors[ImGuiCol_PlotLines]             = ImVec4( 0.5215686559677124f, 0.6000000238418579f, 0.7019608020782471f, 1.0f );
-    style.Colors[ImGuiCol_PlotLinesHovered]      = ImVec4( 0.03921568766236305f, 0.9803921580314636f, 0.9803921580314636f, 1.0f );
-    style.Colors[ImGuiCol_PlotHistogram]         = ImVec4( 1.0f, 0.2901960909366608f, 0.5960784554481506f, 1.0f );
-    style.Colors[ImGuiCol_PlotHistogramHovered]  = ImVec4( 0.9960784316062927f, 0.4745098054409027f, 0.6980392336845398f, 1.0f );
-    style.Colors[ImGuiCol_TableHeaderBg]         = ImVec4( 0.0470588244497776f, 0.05490196123719215f, 0.07058823853731155f, 1.0f );
-    style.Colors[ImGuiCol_TableBorderStrong]     = ImVec4( 0.0470588244497776f, 0.05490196123719215f, 0.07058823853731155f, 1.0f );
-    style.Colors[ImGuiCol_TableBorderLight]      = ImVec4( 0.0f, 0.0f, 0.0f, 1.0f );
-    style.Colors[ImGuiCol_TableRowBg]            = ImVec4( 0.1176470592617989f, 0.1333333402872086f, 0.1490196138620377f, 1.0f );
-    style.Colors[ImGuiCol_TableRowBgAlt]         = ImVec4( 0.09803921729326248f, 0.105882354080677f, 0.1215686276555061f, 1.0f );
-    style.Colors[ImGuiCol_TextSelectedBg]        = ImVec4( 0.2352941185235977f, 0.2156862765550613f, 0.5960784554481506f, 1.0f );
-    style.Colors[ImGuiCol_DragDropTarget]        = ImVec4( 0.4980392158031464f, 0.5137255191802979f, 1.0f, 1.0f );
-    style.Colors[ImGuiCol_NavHighlight]          = ImVec4( 0.4980392158031464f, 0.5137255191802979f, 1.0f, 1.0f );
-    style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4( 0.4980392158031464f, 0.5137255191802979f, 1.0f, 1.0f );
-    style.Colors[ImGuiCol_NavWindowingDimBg]     = ImVec4( 0.196078434586525f, 0.1764705926179886f, 0.5450980663299561f, 0.501960813999176f );
-    style.Colors[ImGuiCol_ModalWindowDimBg]      = ImVec4( 0.196078434586525f, 0.1764705926179886f, 0.5450980663299561f, 0.501960813999176f );
-}
-
-void drawUI( AppContext* app, const wgpu::RenderPassEncoder& renderPass )
-{
-    static bool show_test_window    = true;
-    static bool show_another_window = false;
-    static bool show_quit_dialog    = false;
-    static float f                  = 0.0f;
-
-    ImGui_ImplWGPU_NewFrame();
-    ImGui_ImplSDL3_NewFrame();
-
-    ImGui::NewFrame();
-
-    ImGui::Text( "width: %d, height: %d, dpi: %.1f scale:%.1f\n pos x:%.1f\n pos y:%.1f\n", app->width, app->height,
-                 static_cast<float>( app->width ) / static_cast<float>( app->bbwidth ), app->viewParams.scale, app->viewParams.mousePos.x,
-                 app->viewParams.mousePos.y );
-    ImGui::Text( "NOTE: programmatic quit isn't supported on mobile" );
-    if( ImGui::Button( "Hard Quit" ) )
-    {
-        app->appQuit = true;
-    }
-    ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate );
-
-    // 2. Show another simple window, this time using an explicit Begin/End pair
-    if( show_another_window )
-    {
-        ImGui::SetNextWindowSize( ImVec2( 200, 100 ), ImGuiCond_FirstUseEver );
-        ImGui::Begin( "Another Window", &show_another_window );
-        ImGui::Text( "Hello" );
-        ImGui::End();
-    }
-
-    // 3. Show the ImGui test window. Most of the sample code is in ImGui::ShowDemoWindow()
-    if( show_test_window )
-    {
-        ImGui::SetNextWindowPos( ImVec2( 460, 20 ), ImGuiCond_FirstUseEver );
-        ImGui::ShowDemoWindow();
-    }
-
-    // 4. Prepare and conditionally open the "Really Quit?" popup
-    if( ImGui::BeginPopupModal( "Really Quit?", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
-    {
-        ImGui::Text( "Do you really want to quit?\n" );
-        ImGui::Separator();
-        if( ImGui::Button( "OK", ImVec2( 120, 0 ) ) )
-        {
-            app->appQuit = true;
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::SetItemDefaultFocus();
-        ImGui::SameLine();
-        if( ImGui::Button( "Cancel", ImVec2( 120, 0 ) ) )
-        {
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
-    }
-    if( show_quit_dialog )
-    {
-        ImGui::OpenPopup( "Really Quit?" );
-        show_quit_dialog = false;
-    }
-
-    ImGui::Begin( "toolbox", nullptr,
-                  ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar |
-                      ImGuiWindowFlags_NoBackground );
-    {
-        ImGui::SetWindowPos( ImVec2( 10, 10 ) );
-        ImGui::SetWindowSize( ImVec2( 80, 300 ) );
-
-        ImGui::PushID( "Upload Image Button" );
-        ImGui::PushStyleColor( ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_Button] );
-        if( ImGui::Button( ICON_LC_IMAGE_UP, ImVec2( 50, 50 ) ) )
-        {
-            // upload image code goes goes here
-        }
-        ImGui::PopStyleColor( 1 );
-        ImGui::PopID();
-
-        std::array<std::string, 4> tools = { ICON_LC_MOUSE_POINTER, ICON_LC_BRUSH, ICON_LC_TYPE, ICON_LC_HAND };
-        std::array<State, 4> states      = { Cursor, Paint, Text, Pan };
-
-        for( size_t i = 0; i < tools.size(); i++ )
-        {
-            ImGui::PushID( i );
-            ImVec4 color = ImGui::GetStyle().Colors[ImGuiCol_Button];
-            if( app->state == states[i] )
-            {
-                color = ImGui::GetStyle().Colors[ImGuiCol_ButtonActive];
-            }
-
-            ImGui::PushStyleColor( ImGuiCol_Button, color );
-            if( ImGui::Button( tools[i].c_str(), ImVec2( 50, 50 ) ) && states[i] != Other )
-            {
-                app->state = states[i];
-            }
-            ImGui::PopStyleColor( 1 );
-            ImGui::PopID();
-        }
-    }
-    ImGui::End();
-
-    if( app->state == Cursor && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
-    {
-        ImDrawList* drawList = ImGui::GetBackgroundDrawList();
-        drawList->AddRect( ImVec2( app->mouseDragStart.x, app->mouseDragStart.y ), ImVec2( app->mouseWindowPos.x, app->mouseWindowPos.y ),
-                           ImGui::GetColorU32( IM_COL32( 0, 130, 216, 255 ) ) );
-        drawList->AddRectFilled( ImVec2( app->mouseDragStart.x, app->mouseDragStart.y ), ImVec2( app->mouseWindowPos.x, app->mouseWindowPos.y ),
-                                 ImGui::GetColorU32( IM_COL32( 0, 130, 216, 50 ) ) );
-    }
-
-    ImGui::EndFrame();
-
-    ImGui::Render();
-
-    ImGui_ImplWGPU_RenderDrawData( ImGui::GetDrawData(), renderPass.Get() );
-}
-
-bool initSwapChain( AppContext* app )
+bool initSwapChain( mc::AppContext* app )
 {
     SDL_GetWindowSize( app->window, &app->width, &app->height );
     SDL_GetWindowSizeInPixels( app->window, &app->bbwidth, &app->bbheight );
@@ -842,7 +499,7 @@ int SDL_Fail()
 
 int SDL_AppInit( void** appstate, int argc, char* argv[] )
 {
-    AppContext* app = new AppContext;
+    mc::AppContext* app = new mc::AppContext;
 
     if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_GAMEPAD ) )
     {
@@ -906,9 +563,6 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
     requiredLimits.limits.maxTextureArrayLayers            = 1;
     requiredLimits.limits.maxSampledTexturesPerShaderStage = 1;
     requiredLimits.limits.maxSamplersPerShaderStage        = 1;
-    requiredLimits.limits.maxComputeWorkgroupSizeX         = WorkGroupSize;
-    requiredLimits.limits.maxComputeWorkgroupSizeY         = WorkGroupSize;
-    requiredLimits.limits.maxComputeWorkgroupSizeZ         = WorkGroupSize;
 
     wgpu::DeviceDescriptor deviceDesc;
     deviceDesc.label = "Device";
@@ -928,21 +582,14 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
             SDL_Log( "Device error type: %d\n", type );
             SDL_Log( "Device error message: %s\n", message );
 
-            AppContext* app = static_cast<AppContext*>( userData );
-            app->appQuit    = true;
+            mc::AppContext* app = static_cast<mc::AppContext*>( userData );
+            app->appQuit        = true;
         },
         app );
 
     initSwapChain( app );
 
-    initUI( app );
-
-    ImGui_ImplSDL3_InitForOther( app->window );
-
-    ImGui_ImplWGPU_InitInfo imguiWgpuInfo{};
-    imguiWgpuInfo.Device             = app->device.Get();
-    imguiWgpuInfo.RenderTargetFormat = static_cast<WGPUTextureFormat>( app->colorFormat );
-    ImGui_ImplWGPU_Init( &imguiWgpuInfo );
+    mc::initUI( app );
 
     initMainPipeline( app );
 
@@ -971,8 +618,8 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
 
 int SDL_AppEvent( void* appstate, const SDL_Event* event )
 {
-    AppContext* app = reinterpret_cast<AppContext*>( appstate );
-    ImGuiIO& io     = ImGui::GetIO();
+    mc::AppContext* app = reinterpret_cast<mc::AppContext*>( appstate );
+    ImGuiIO& io         = ImGui::GetIO();
 
     switch( event->type )
     {
@@ -1030,7 +677,7 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
 
 int SDL_AppIterate( void* appstate )
 {
-    AppContext* app = reinterpret_cast<AppContext*>( appstate );
+    mc::AppContext* app = reinterpret_cast<mc::AppContext*>( appstate );
 
     if( app->resetSwapchain )
     {
@@ -1043,7 +690,7 @@ int SDL_AppIterate( void* appstate )
     }
 
     // Update canvas offset
-    if( app->mouseDelta.length() > 0.0 && app->mouseDown && app->updateView && app->state == Pan )
+    if( app->mouseDelta.length() > 0.0 && app->mouseDown && app->updateView && app->state == mc::State::Pan )
     {
         app->viewParams.canvasPos += app->mouseDelta;
     }
@@ -1055,7 +702,7 @@ int SDL_AppIterate( void* appstate )
     // For zoom, we want to center it around the mouse position
     if( app->scrollDelta.y != 0.0 && app->updateView )
     {
-        float newScale        = std::max<float>( 1.0, app->scrollDelta.y * ZoomScaleFactor + app->viewParams.scale );
+        float newScale        = std::max<float>( 1.0, app->scrollDelta.y * mc::ZoomScaleFactor + app->viewParams.scale );
         float deltaScale      = newScale - app->viewParams.scale;
         app->viewParams.scale = newScale;
         app->viewParams.canvasPos -= app->viewParams.mousePos * deltaScale;
@@ -1075,15 +722,15 @@ int SDL_AppIterate( void* appstate )
                                           0.5, 0.0, 0.0, 0.0, 1.0 );
     }
 
-    if( app->state == Cursor && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
+    if( app->state == mc::State::Cursor && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
     {
         app->selectionRequested = true;
 
         app->viewParams.mouseSelectPos = ( app->mouseDragStart - app->viewParams.canvasPos ) / app->viewParams.scale;
     }
-    app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &app->viewParams, sizeof( Uniforms ) );
+    app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &app->viewParams, sizeof( mc::Uniforms ) );
 
-    if( app->addLayer && app->state == Cursor )
+    if( app->addLayer && app->state == mc::State::Cursor )
     {
         // temporary generate random color
         const uint32_t a = 1664525;
@@ -1138,7 +785,7 @@ int SDL_AppIterate( void* appstate )
         renderPassEnc.Draw( 6, app->layers.length(), 0, 0 );
     }
 
-    drawUI( app, renderPassEnc );
+    mc::drawUI( app, renderPassEnc );
 
     renderPassEnc.End();
 
@@ -1159,7 +806,7 @@ int SDL_AppIterate( void* appstate )
         app->selectionMapBuf.Unmap();
         app->selectionFlags = nullptr;
 
-        encoder.CopyBufferToBuffer( app->selectionBuf, 0, app->selectionMapBuf, 0, sizeof( float ) * NumLayers );
+        encoder.CopyBufferToBuffer( app->selectionBuf, 0, app->selectionMapBuf, 0, sizeof( float ) * mc::NumLayers );
     }
 
     wgpu::CommandBufferDescriptor cmdBufferDescriptor;
@@ -1175,13 +822,13 @@ int SDL_AppIterate( void* appstate )
         {
             if( status == WGPUBufferMapAsyncStatus_Success )
             {
-                AppContext* app     = reinterpret_cast<AppContext*>( userdata );
+                mc::AppContext* app = reinterpret_cast<mc::AppContext*>( userdata );
                 app->selectionFlags = reinterpret_cast<uint32_t*>(
                     const_cast<void*>( ( app->selectionMapBuf.GetConstMappedRange( 0, sizeof( float ) * app->layers.length() ) ) ) );
                 app->selectionReady = true;
             }
         };
-        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, sizeof( float ) * NumLayers, callback, app );
+        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, sizeof( float ) * mc::NumLayers, callback, app );
     }
 
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )
@@ -1202,11 +849,11 @@ int SDL_AppIterate( void* appstate )
 
 void SDL_AppQuit( void* appstate )
 {
-    ImGui_ImplWGPU_Shutdown();
-    ImGui_ImplSDL3_Shutdown();
-    ImGui::DestroyContext();
 
-    AppContext* app = reinterpret_cast<AppContext*>( appstate );
+
+    mc::shutdownUI();
+
+    mc::AppContext* app = reinterpret_cast<mc::AppContext*>( appstate );
     if( app )
     {
         SDL_DestroyWindow( app->window );
