@@ -30,12 +30,13 @@ enum State { Cursor, Pan, Paint, Text, Other };
 #pragma pack(push)
 struct Uniforms {
     glm::mat4 proj;
-    glm::vec2 mousePos = glm::vec2(0.0);
     glm::vec2 canvasPos = glm::vec2(0.0);
+    glm::vec2 mousePos = glm::vec2(0.0);
+    glm::vec2 mouseSelectPos = glm::vec2(0.0);
     uint32_t width;
     uint32_t height;
     float scale = 1.0;
-    float _pad[9];
+    float _pad[7];
 };
 #pragma pack(pop)
 // Have the compiler check byte alignment
@@ -175,8 +176,9 @@ void initMainPipeline(AppContext *app)
 
         struct Uniforms {
             proj: mat4x4<f32>,
+            canvasPos: vec2<f32>,
             mousePos: vec2<f32>,
-            dragStart: vec2<f32>,
+            mouseSelectPos: vec2<f32>,
             windowSize: vec2<u32>,
             scale: f32,
         };
@@ -346,8 +348,9 @@ void initMainPipeline(AppContext *app)
     const std::string computeShaderSource = R"(
         struct Uniforms {
             proj: mat4x4<f32>,
+            canvasPos: vec2<f32>,
             mousePos: vec2<f32>,
-            dragStart: vec2<f32>,
+            mouseSelectPos: vec2<f32>,
             windowSize: vec2<u32>,
             scale: f32,
         };
@@ -393,10 +396,10 @@ void initMainPipeline(AppContext *app)
             vec4<f32>(  0.5,   0.5, 0.0, 1.0),
             vec4<f32>( -0.5,   0.5, 0.0, 1.0));
 
-            let minX = min(uniforms.mousePos.x, uniforms.dragStart.x);
-            let minY = min(uniforms.mousePos.y, uniforms.dragStart.y);
-            let maxX = max(uniforms.mousePos.x, uniforms.dragStart.x);
-            let maxY = max(uniforms.mousePos.y, uniforms.dragStart.y);
+            let minX = min(uniforms.mousePos.x, uniforms.mouseSelectPos.x);
+            let minY = min(uniforms.mousePos.y, uniforms.mouseSelectPos.y);
+            let maxX = max(uniforms.mousePos.x, uniforms.mouseSelectPos.x);
+            let maxY = max(uniforms.mousePos.y, uniforms.mouseSelectPos.y);
 
             let model = mat4x4<f32>(instanceBuffer[layer].basis_a.x,
                                     instanceBuffer[layer].basis_b.x, 0.0,
@@ -1075,8 +1078,10 @@ int SDL_AppIterate(void *appstate)
 
     if (app->state == Cursor && app->mouseDown && app->mouseDragStart != app->mouseWindowPos) {
         app->selectionRequested = true;
-    }
 
+        app->viewParams.mouseSelectPos =
+            (app->mouseDragStart - app->viewParams.canvasPos) / app->viewParams.scale;
+    }
     app->device.GetQueue().WriteBuffer(
         app->viewParamBuf, 0, &app->viewParams, sizeof(Uniforms));
 
@@ -1090,16 +1095,15 @@ int SDL_AppIterate(void *appstate)
         const uint8_t green = static_cast<uint8_t>((color >> 8) & 0xFF);
         const uint8_t blue = static_cast<uint8_t>(color & 0xFF);
 
-        app->layers.add(
-            {(app->mouseWindowPos - app->viewParams.canvasPos) / app->viewParams.scale,
-             glm::vec2(100, 0),
-             glm::vec2(0, 100),
-             glm::u16vec2(0),
-             glm::u16vec2(0),
-             0,
-             0,
-             glm::u8vec3(red, green, blue),
-             0});
+        app->layers.add({app->viewParams.mousePos,
+                         glm::vec2(100, 0),
+                         glm::vec2(0, 100),
+                         glm::u16vec2(0),
+                         glm::u16vec2(0),
+                         0,
+                         0,
+                         glm::u8vec3(red, green, blue),
+                         0});
 
         app->layersModified = true;
     }
