@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.28)
 project(miskeenity-canvas LANGUAGES CXX)
 
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
+
 if (NOT CMAKE_SYSTEM_NAME STREQUAL Emscripten)
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
 endif()
