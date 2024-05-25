@@ -9,8 +9,10 @@
 namespace mc
 {
 
-    constexpr float ZoomScaleFactor = 0.5;
-    constexpr size_t NumLayers      = 2048;
+    constexpr float ZoomScaleFactor        = 0.5;
+    constexpr size_t NumLayers             = 2048;
+    constexpr glm::vec4 UndefinedSelection = glm::vec4( -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(),
+                                                        std::numeric_limits<float>::max(), std::numeric_limits<float>::max() );
 
     enum class State
     {
@@ -74,6 +76,7 @@ namespace mc
         Uniforms viewParams;
 
         State state             = State::Cursor;
+        bool mouseDown          = false;
         bool updateView         = false;
         bool selectionRequested = false;
         bool selectionReady     = true;
@@ -82,14 +85,14 @@ namespace mc
         bool appQuit            = false;
         bool resetSwapchain     = false;
 
-        uint32_t* selectionFlags = nullptr;
+        Selection* selectionData = nullptr;
 
         // Input variables
         glm::vec2 mouseWindowPos = glm::vec2( 0.0 );
         glm::vec2 mouseDragStart = glm::vec2( 0.0 );
         glm::vec2 mouseDelta     = glm::vec2( 0.0 );
         glm::vec2 scrollDelta    = glm::vec2( 0.0 );
-        bool mouseDown           = false;
+        glm::vec4 selectionBbox  = UndefinedSelection;
 
         Layers layers = mc::Layers( NumLayers );
     };

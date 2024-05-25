@@ -154,7 +154,7 @@ namespace mc
 
         wgpu::BufferDescriptor selectionOutputBufDesc;
         selectionOutputBufDesc.mappedAtCreation = false;
-        selectionOutputBufDesc.size             = sizeof( float ) * mc::NumLayers;
+        selectionOutputBufDesc.size             = sizeof( mc::Selection ) * mc::NumLayers;
         selectionOutputBufDesc.usage            = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc | wgpu::BufferUsage::CopyDst;
         app->selectionBuf                       = app->device.CreateBuffer( &selectionOutputBufDesc );
 

@@ -17,10 +17,18 @@ struct InstanceInput {
     color_type: u32,
 };
 
+struct Selection {
+    bboxMaxX: f32,
+    bboxMaxY: f32,
+    bboxMinX: f32,
+    bboxMinY: f32,
+    flags: u32,
+};
+
 @group(0) @binding(0)
 var<uniform> uniforms: Uniforms;
 @group(0) @binding(1)
-var<storage,read_write> outBuffer: array<u32>;
+var<storage,read_write> outBuffer: array<Selection>;
 
 @group(1) @binding(0)
 var<storage, read> instanceBuffer: array<InstanceInput>;
@@ -68,16 +76,27 @@ fn cs_main(@builtin(global_invocation_id) id_global : vec3<u32>, @builtin(local_
     // Rectangle is partially inside selection box in which case we need to rasterize
 
     var flags = u32(0);
+    var bbox = vec4<f32>(-10000000.0, -10000000.0, 10000000.0, 10000000.0);
 
     for (var i: u32 = 0; i < 4; i = i + 1u) {
         let pos = verts[i] * model;
-        
+
+        bbox.x = max(bbox.x, pos.x);
+        bbox.y = max(bbox.y, pos.y);
+        bbox.z = min(bbox.z, pos.x);
+        bbox.w = min(bbox.w, pos.y);
+
         if(minX < pos.x && pos.x < maxX && minY < pos.y && pos.y < maxY) {
             flags = flags | 1;
+
         } else {
             flags = flags | 2;
         }
     }
 
-    outBuffer[layer] = flags;
+    outBuffer[layer].flags = flags;
+    outBuffer[layer].bboxMaxX = bbox.x;
+    outBuffer[layer].bboxMaxY = bbox.y;
+    outBuffer[layer].bboxMinX = bbox.z;
+    outBuffer[layer].bboxMinY = bbox.w;
 }

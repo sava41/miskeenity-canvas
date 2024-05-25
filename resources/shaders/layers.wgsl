@@ -31,10 +31,18 @@ struct Uniforms {
     scale: f32,
 };
 
+struct Selection {
+    bboxMaxX: f32,
+    bboxMaxY: f32,
+    bboxMinX: f32,
+    bboxMinY: f32,
+    flags: u32,
+};
+
 @group(0) @binding(0)
 var<uniform> uniforms: Uniforms;
 @group(0) @binding(1)
-var<storage,read_write> selectionFlags: array<u32>;
+var<storage,read_write> selectionData: array<Selection>;
 
 @vertex
 fn vs_main(vert: VertexInput, inst: InstanceInput) -> VertexOutput {
@@ -56,5 +64,5 @@ fn vs_main(vert: VertexInput, inst: InstanceInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return in.color + (vec4<f32>(in.uv, 1.0, 1.0) * 0.3 - 0.15) * f32(selectionFlags[in.inst] == 1);
+    return in.color + (vec4<f32>(in.uv, 1.0, 1.0) * 0.3 - 0.15) * f32(selectionData[in.inst].flags == 1);
 }

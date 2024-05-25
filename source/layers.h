@@ -8,7 +8,13 @@
 namespace mc
 {
 
-    // enum LayerType : uint8_t { Textured, Paint, Mask, Text };
+    enum class LayerType : uint8_t
+    {
+        Textured,
+        Paint,
+        Mask,
+        Text
+    };
 
 #pragma pack( push, 4 )
     struct Layer
@@ -25,7 +31,21 @@ namespace mc
 
         glm::u8vec3 color;
 
-        uint8_t type;
+        LayerType type;
+    };
+#pragma pack( pop )
+
+    enum class SelectionFlags : uint32_t
+    {
+        InsideBox  = 1 << 0,
+        OutsideBox = 1 << 1
+    };
+
+#pragma pack( push )
+    struct Selection
+    {
+        glm::vec4 bbox;
+        SelectionFlags flags;
     };
 #pragma pack( pop )
 

@@ -1,5 +1,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <algorithm>
 #include <glm/glm.hpp>
 #include <imgui.h>
 #include <string>
@@ -264,7 +265,7 @@ int SDL_AppIterate( void* appstate )
         const uint8_t blue   = static_cast<uint8_t>( color & 0xFF );
 
         app->layers.add( { app->viewParams.mousePos, glm::vec2( 100, 0 ), glm::vec2( 0, 100 ), glm::u16vec2( 0 ), glm::u16vec2( 0 ), 0, 0,
-                           glm::u8vec3( red, green, blue ), 0 } );
+                           glm::u8vec3( red, green, blue ), mc::LayerType::Textured } );
 
         app->layersModified = true;
     }
@@ -326,7 +327,7 @@ int SDL_AppIterate( void* appstate )
         computePass.End();
 
         app->selectionMapBuf.Unmap();
-        app->selectionFlags = nullptr;
+        app->selectionData = nullptr;
 
         encoder.CopyBufferToBuffer( app->selectionBuf, 0, app->selectionMapBuf, 0, sizeof( float ) * mc::NumLayers );
     }
@@ -337,7 +338,7 @@ int SDL_AppIterate( void* appstate )
 
     app->device.GetQueue().Submit( 1, &command );
 
-    if( app->selectionRequested && app->selectionReady )
+    if( app->selectionRequested && app->selectionReady && app->layers.length() > 0 )
     {
         app->selectionReady              = false;
         wgpu::BufferMapCallback callback = []( WGPUBufferMapAsyncStatus status, void* userdata )
@@ -345,8 +346,24 @@ int SDL_AppIterate( void* appstate )
             if( status == WGPUBufferMapAsyncStatus_Success )
             {
                 mc::AppContext* app = reinterpret_cast<mc::AppContext*>( userdata );
-                app->selectionFlags = reinterpret_cast<uint32_t*>(
-                    const_cast<void*>( ( app->selectionMapBuf.GetConstMappedRange( 0, sizeof( float ) * app->layers.length() ) ) ) );
+                app->selectionData  = reinterpret_cast<mc::Selection*>(
+                    const_cast<void*>( ( app->selectionMapBuf.GetConstMappedRange( 0, sizeof( mc::Selection ) * app->layers.length() ) ) ) );
+
+                app->selectionBbox = mc::UndefinedSelection;
+
+                for( int i = 0; i < app->layers.length(); ++i )
+                {
+                    if( app->selectionData[i].flags != mc::SelectionFlags::InsideBox )
+                    {
+                        continue;
+                    }
+
+                    app->selectionBbox.x = std::max( app->selectionBbox.x, app->selectionData[i].bbox.x );
+                    app->selectionBbox.y = std::max( app->selectionBbox.y, app->selectionData[i].bbox.y );
+                    app->selectionBbox.z = std::min( app->selectionBbox.z, app->selectionData[i].bbox.z );
+                    app->selectionBbox.w = std::min( app->selectionBbox.w, app->selectionData[i].bbox.w );
+                }
+
                 app->selectionReady = true;
             }
         };

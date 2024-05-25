@@ -264,13 +264,19 @@ namespace mc
         }
         ImGui::End();
 
+        ImDrawList* drawList = ImGui::GetBackgroundDrawList();
         if( app->state == State::Cursor && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
         {
-            ImDrawList* drawList = ImGui::GetBackgroundDrawList();
             drawList->AddRect( ImVec2( app->mouseDragStart.x, app->mouseDragStart.y ), ImVec2( app->mouseWindowPos.x, app->mouseWindowPos.y ),
                                ImGui::GetColorU32( IM_COL32( 0, 130, 216, 255 ) ) );
             drawList->AddRectFilled( ImVec2( app->mouseDragStart.x, app->mouseDragStart.y ), ImVec2( app->mouseWindowPos.x, app->mouseWindowPos.y ),
                                      ImGui::GetColorU32( IM_COL32( 0, 130, 216, 50 ) ) );
+        }
+
+        if( app->selectionReady && app->selectionBbox != UndefinedSelection )
+        {
+            drawList->AddRect( ImVec2( app->selectionBbox.x, app->selectionBbox.y ), ImVec2( app->selectionBbox.z, app->selectionBbox.w ),
+                               ImGui::GetColorU32( IM_COL32( 0, 130, 216, 255 ) ) );
         }
 
         ImGui::EndFrame();
