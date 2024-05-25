@@ -29,13 +29,6 @@ namespace mc
     };
 #pragma pack( pop )
 
-    const std::vector<float> VertexData{
-        -0.5, -0.5, 0.0, 1.0, +0.5, -0.5, 1.0, 1.0, +0.5, +0.5, 0.0, 0.0,
-
-
-        -0.5, -0.5, 0.0, 1.0, +0.5, +0.5, 0.0, 0.0, -0.5, +0.5, 1.0, 0.0,
-    };
-
     class Layers
     {
       public:

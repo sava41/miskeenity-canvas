@@ -4,7 +4,6 @@
 
 #include <SDL3/SDL.h>
 #include <glm/glm.hpp>
-#include <webgpu/webgpu.h>
 #include <webgpu/webgpu_cpp.h>
 
 namespace mc
@@ -36,8 +35,14 @@ namespace mc
     };
 #pragma pack( pop )
     // Have the compiler check byte alignment
-    // Total size must be a multiple of the alignment size of its largest field
+    // Total size must be a multiple of the alignment size of its largest element
     static_assert( sizeof( Uniforms ) % sizeof( glm::mat4 ) == 0 );
+
+    const std::vector<float> SquareVertexData{
+        -0.5, -0.5, 0.0, 1.0, +0.5, -0.5, 1.0, 1.0, +0.5, +0.5, 0.0, 0.0,
+
+        -0.5, -0.5, 0.0, 1.0, +0.5, +0.5, 0.0, 0.0, -0.5, +0.5, 1.0, 0.0,
+    };
 
     struct AppContext
     {
