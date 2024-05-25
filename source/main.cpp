@@ -347,7 +347,9 @@ int SDL_Fail()
 
 int SDL_AppInit( void** appstate, int argc, char* argv[] )
 {
-    mc::AppContext* app = new mc::AppContext;
+    static mc::AppContext appContext;
+    mc::AppContext* app = &appContext;
+    *appstate           = app;
 
     if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_GAMEPAD ) )
     {
@@ -456,8 +458,6 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
     }
 
     app->updateView = true;
-
-    *appstate = app;
 
     SDL_Log( "Application started successfully!" );
 
@@ -703,7 +703,6 @@ void SDL_AppQuit( void* appstate )
     if( app )
     {
         SDL_DestroyWindow( app->window );
-        delete app;
     }
 
     SDL_Quit();
