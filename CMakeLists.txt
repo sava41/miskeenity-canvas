@@ -29,7 +29,7 @@ add_subdirectory(third_party/imgui)
 add_subdirectory(third_party/glm)
 
 # Add resources
-embed_files(embedded_files ./resources/fonts/Lucide.ttf ./resources/fonts/Roboto.ttf)
+embed_files(embedded_files ./resources/fonts/Lucide.ttf ./resources/fonts/Roboto.ttf ./resources/shaders/layers.wgsl ./resources/shaders/selection.wgsl)
 
 # Setup executable
 add_executable(miskeenity-canvas source/main.cpp source/webgpu_surface.cpp source/layers.cpp source/ui.cpp)
