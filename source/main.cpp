@@ -166,10 +166,10 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
     case SDL_EVENT_MOUSE_BUTTON_UP:
         io.AddMouseButtonEvent( 0, false );
 
-        // we want to place a sprite on click
+        // click selection if the mouse hasnt moved since mouse down
         if( app->mouseWindowPos == app->mouseDragStart )
         {
-            app->addLayer = true;
+            // TODO
         }
         app->mouseDown = false;
         break;
@@ -253,7 +253,7 @@ int SDL_AppIterate( void* appstate )
     }
     app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &app->viewParams, sizeof( mc::Uniforms ) );
 
-    if( app->addLayer && app->state == mc::State::Cursor )
+    if( app->addLayer )
     {
         // temporary generate random color
         const uint32_t a = 1664525;
@@ -264,10 +264,15 @@ int SDL_AppIterate( void* appstate )
         const uint8_t green  = static_cast<uint8_t>( ( color >> 8 ) & 0xFF );
         const uint8_t blue   = static_cast<uint8_t>( color & 0xFF );
 
-        app->layers.add( { app->viewParams.mousePos, glm::vec2( 100, 0 ), glm::vec2( 0, 100 ), glm::u16vec2( 0 ), glm::u16vec2( 0 ), 0, 0,
-                           glm::u8vec3( red, green, blue ), mc::LayerType::Textured } );
+        // place at screen center
+        glm::vec2 pos = ( glm::vec2( app->width / 2.0, app->height / 2.0 ) - app->viewParams.canvasPos ) / app->viewParams.scale;
+
+        app->layers.add( { pos, glm::vec2( 100, 0 ), glm::vec2( 0, 100 ), glm::u16vec2( 0 ), glm::u16vec2( 0 ), 0, 0, glm::u8vec3( red, green, blue ),
+                           mc::LayerType::Textured } );
 
         app->layersModified = true;
+
+        app->addLayer = false;
     }
 
     if( app->layersModified )
@@ -385,7 +390,6 @@ int SDL_AppIterate( void* appstate )
     app->scrollDelta        = glm::vec2( 0.0 );
     app->updateView         = false;
     app->layersModified     = false;
-    app->addLayer           = false;
     app->selectionRequested = false;
 
     return app->appQuit;

@@ -168,6 +168,7 @@ namespace mc
         static bool show_test_window    = true;
         static bool show_another_window = false;
         static bool show_quit_dialog    = false;
+        static bool add_image           = false;
         static float f                  = 0.0f;
 
         ImGui_ImplWGPU_NewFrame();
@@ -236,7 +237,15 @@ namespace mc
             ImGui::PushStyleColor( ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_Button] );
             if( ImGui::Button( ICON_LC_IMAGE_UP, ImVec2( 50, 50 ) ) )
             {
-                // upload image code goes goes here
+                if( !add_image )
+                {
+                    app->addLayer = true;
+                    add_image     = true;
+                }
+            }
+            else
+            {
+                add_image = false;
             }
             ImGui::PopStyleColor( 1 );
             ImGui::PopID();
