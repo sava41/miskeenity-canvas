@@ -9,10 +9,8 @@
 namespace mc
 {
 
-    constexpr float ZoomScaleFactor        = 0.5;
-    constexpr size_t NumLayers             = 2048;
-    constexpr glm::vec4 UndefinedSelection = glm::vec4( -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(),
-                                                        std::numeric_limits<float>::max(), std::numeric_limits<float>::max() );
+    constexpr float ZoomScaleFactor = 0.5;
+    constexpr size_t NumLayers      = 2048;
 
     enum class State
     {
@@ -86,13 +84,14 @@ namespace mc
         bool resetSwapchain     = false;
 
         Selection* selectionData = nullptr;
+        int numLayersSelected    = 0;
 
         // Input variables
         glm::vec2 mouseWindowPos = glm::vec2( 0.0 );
         glm::vec2 mouseDragStart = glm::vec2( 0.0 );
         glm::vec2 mouseDelta     = glm::vec2( 0.0 );
         glm::vec2 scrollDelta    = glm::vec2( 0.0 );
-        glm::vec4 selectionBbox  = UndefinedSelection;
+        glm::vec4 selectionBbox  = glm::vec4( 0.0 );
 
         Layers layers = mc::Layers( NumLayers );
     };

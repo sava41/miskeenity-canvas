@@ -273,9 +273,12 @@ namespace mc
                                      ImGui::GetColorU32( IM_COL32( 0, 130, 216, 50 ) ) );
         }
 
-        if( app->selectionReady && app->selectionBbox != UndefinedSelection )
+        if( app->selectionReady && app->numLayersSelected > 0 )
         {
-            drawList->AddRect( ImVec2( app->selectionBbox.x, app->selectionBbox.y ), ImVec2( app->selectionBbox.z, app->selectionBbox.w ),
+            glm::vec2 screenSpaceSelectionMax = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
+            glm::vec2 screenSpaceSelectionMin = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
+
+            drawList->AddRect( ImVec2( screenSpaceSelectionMin.x, screenSpaceSelectionMin.y ), ImVec2( screenSpaceSelectionMax.x, screenSpaceSelectionMax.y ),
                                ImGui::GetColorU32( IM_COL32( 0, 130, 216, 255 ) ) );
         }
 

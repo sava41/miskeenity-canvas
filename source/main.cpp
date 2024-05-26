@@ -327,7 +327,8 @@ int SDL_AppIterate( void* appstate )
         computePass.End();
 
         app->selectionMapBuf.Unmap();
-        app->selectionData = nullptr;
+        app->selectionData     = nullptr;
+        app->numLayersSelected = 0;
 
         encoder.CopyBufferToBuffer( app->selectionBuf, 0, app->selectionMapBuf, 0, sizeof( float ) * mc::NumLayers );
     }
@@ -349,7 +350,9 @@ int SDL_AppIterate( void* appstate )
                 app->selectionData  = reinterpret_cast<mc::Selection*>(
                     const_cast<void*>( ( app->selectionMapBuf.GetConstMappedRange( 0, sizeof( mc::Selection ) * app->layers.length() ) ) ) );
 
-                app->selectionBbox = mc::UndefinedSelection;
+                app->selectionBbox     = glm::vec4( -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
+                                                    std::numeric_limits<float>::max() );
+                app->numLayersSelected = 0;
 
                 for( int i = 0; i < app->layers.length(); ++i )
                 {
@@ -362,6 +365,8 @@ int SDL_AppIterate( void* appstate )
                     app->selectionBbox.y = std::max( app->selectionBbox.y, app->selectionData[i].bbox.y );
                     app->selectionBbox.z = std::min( app->selectionBbox.z, app->selectionData[i].bbox.z );
                     app->selectionBbox.w = std::min( app->selectionBbox.w, app->selectionData[i].bbox.w );
+
+                    app->numLayersSelected += 1;
                 }
 
                 app->selectionReady = true;
