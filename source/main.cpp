@@ -46,12 +46,12 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
     }
 
     app->instance = wgpu::CreateInstance();
-    if( !app->instance )
+    if( !app->instance.Get() )
     {
         return SDL_Fail();
     }
 
-    app->surface = SDL_GetWGPUSurface( app->instance, app->window );
+    app->surface = wgpu::Surface( SDL_GetWGPUSurface( app->instance.Get(), app->window ) );
     if( !app->surface.Get() )
     {
         return SDL_Fail();

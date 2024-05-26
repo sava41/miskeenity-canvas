@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(miskeenity-canvas LANGUAGES CXX)
+project(miskeenity-canvas LANGUAGES CXX C)
 
 if (NOT CMAKE_SYSTEM_NAME STREQUAL Emscripten)
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
@@ -13,6 +13,8 @@ include(ExternalProject)
 include(${PROJECT_SOURCE_DIR}/cmake/EmbedFile.cmake)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_C_STANDARD 11)
+
 # Linux -pthread shenanigans
 if (CMAKE_SYSTEM_NAME STREQUAL Linux)
     set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -32,7 +34,7 @@ add_subdirectory(third_party/glm)
 embed_files(embedded_files ./resources/fonts/Lucide.ttf ./resources/fonts/Roboto.ttf ./resources/shaders/layers.wgsl ./resources/shaders/selection.wgsl)
 
 # Setup executable
-add_executable(miskeenity-canvas source/main.cpp source/webgpu_utils.cpp source/webgpu_surface.cpp source/layers.cpp source/ui.cpp)
+add_executable(miskeenity-canvas source/main.cpp source/webgpu_utils.cpp source/webgpu_surface.c source/layers.cpp source/ui.cpp)
 
 add_dependencies(miskeenity-canvas SDL3::SDL3 imgui glm::glm icon-font-headers embedded_files)
 target_link_libraries(miskeenity-canvas PRIVATE SDL3::SDL3 imgui glm::glm icon-font-headers embedded_files)
@@ -49,6 +51,15 @@ if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
 else()
     add_dependencies(miskeenity-canvas webgpu_cpp webgpu_dawn)
     target_link_libraries(miskeenity-canvas PRIVATE webgpu_cpp webgpu_dawn)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+    set_source_files_properties(source/webgpu_surface.c PROPERTIES COMPILE_FLAGS "-x objective-c")
+    target_link_libraries(miskeenity-canvas
+        "-framework QuartzCore"
+        "-framework Cocoa"
+        "-framework Metal"
+    )
 endif()
 
 # explicitly strip dead code
