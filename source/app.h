@@ -21,6 +21,14 @@ namespace mc
         Other
     };
 
+    enum class CursorDragType
+    {
+        Select,
+        Move,
+        Rotate,
+        Scale
+    };
+
 #pragma pack( push )
     struct Uniforms
     {
@@ -74,6 +82,7 @@ namespace mc
         Uniforms viewParams;
 
         State state             = State::Cursor;
+        CursorDragType dragType = CursorDragType::Select;
         bool mouseDown          = false;
         bool updateView         = false;
         bool selectionRequested = false;

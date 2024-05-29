@@ -73,4 +73,35 @@ namespace mc
         return m_array.get();
     }
 
+    void Layers::addSelection( int index )
+    {
+        if( index < 0 || index > length() )
+            return;
+
+        m_selection.insert( index );
+    }
+
+    void Layers::clearSelection()
+    {
+        m_selection.clear();
+    }
+
+    void Layers::moveSelection( const glm::vec2& offset )
+    {
+        for( int index : m_selection )
+        {
+            m_array[index].offset += offset;
+        }
+    }
+
+    void Layers::rotateSelection( float angle )
+    {
+        return;
+    }
+
+    void Layers::scaleSelection( const glm::vec2& ammount )
+    {
+        return;
+    }
+
 } // namespace mc

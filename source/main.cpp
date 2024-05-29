@@ -160,7 +160,17 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
         if( !io.WantCaptureMouse )
         {
             app->mouseDragStart = app->mouseWindowPos;
-            app->mouseDown      = true;
+            if( app->selectionBbox.x > app->viewParams.mousePos.x && app->selectionBbox.y > app->viewParams.mousePos.y &&
+                app->selectionBbox.z < app->viewParams.mousePos.x && app->selectionBbox.w < app->viewParams.mousePos.y )
+            {
+                app->dragType = mc::CursorDragType::Move;
+            }
+            else
+            {
+                app->dragType = mc::CursorDragType::Select;
+            }
+
+            app->mouseDown = true;
         }
         break;
     case SDL_EVENT_MOUSE_BUTTON_UP:
@@ -171,6 +181,12 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
         {
             // TODO
         }
+        else if( app->dragType == mc::CursorDragType::Move || app->dragType == mc::CursorDragType::Scale || app->dragType == mc::CursorDragType::Rotate )
+        {
+            // dispatch selection compute to recalculate bboxes without modyfying selection
+            app->viewParams.mouseSelectPos = glm::vec2( 0.0 );
+            app->selectionRequested        = true;
+        }
         app->mouseDown = false;
         break;
     case SDL_EVENT_MOUSE_MOTION:
@@ -178,7 +194,7 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
         app->mouseWindowPos = glm::vec2( event->motion.x, event->motion.y );
         app->mouseDelta += glm::vec2( event->motion.xrel, event->motion.yrel );
 
-        if( app->mouseDown && !io.WantCaptureMouse )
+        if( app->mouseDown && !io.WantCaptureMouse && app->state == mc::State::Pan )
         {
             app->updateView = true;
         }
@@ -247,9 +263,15 @@ int SDL_AppIterate( void* appstate )
 
     if( app->state == mc::State::Cursor && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
     {
-        app->selectionRequested = true;
-
-        app->viewParams.mouseSelectPos = ( app->mouseDragStart - app->viewParams.canvasPos ) / app->viewParams.scale;
+        switch( app->dragType )
+        {
+        case mc::CursorDragType::Select:
+            app->selectionRequested        = true;
+            app->viewParams.mouseSelectPos = ( app->mouseDragStart - app->viewParams.canvasPos ) / app->viewParams.scale;
+            break;
+        case mc::CursorDragType::Move:
+            break;
+        }
     }
     app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &app->viewParams, sizeof( mc::Uniforms ) );
 
@@ -273,6 +295,17 @@ int SDL_AppIterate( void* appstate )
         app->layersModified = true;
 
         app->addLayer = false;
+    }
+
+    if( app->mouseDelta.length() > 0.0 && app->mouseDown && app->state == mc::State::Cursor )
+    {
+        switch( app->dragType )
+        {
+        case mc::CursorDragType::Move:
+            app->layers.moveSelection( app->mouseDelta / app->viewParams.scale );
+            break;
+        }
+        app->layersModified = true;
     }
 
     if( app->layersModified )
@@ -358,6 +391,7 @@ int SDL_AppIterate( void* appstate )
                 app->selectionBbox     = glm::vec4( -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
                                                     std::numeric_limits<float>::max() );
                 app->numLayersSelected = 0;
+                app->layers.clearSelection();
 
                 for( int i = 0; i < app->layers.length(); ++i )
                 {
@@ -372,6 +406,9 @@ int SDL_AppIterate( void* appstate )
                     app->selectionBbox.w = std::min( app->selectionBbox.w, app->selectionData[i].bbox.w );
 
                     app->numLayersSelected += 1;
+                    app->layers.addSelection( i );
+
+                    app->dragType = mc::CursorDragType::Select;
                 }
 
                 app->selectionReady = true;

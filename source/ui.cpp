@@ -35,7 +35,7 @@ namespace mc
         configLucide.OversampleV          = 2;
         configLucide.MergeMode            = true;
         configLucide.GlyphMinAdvanceX     = 24.0f; // Use if you want to make the icon monospaced
-        configLucide.GlyphOffset          = ImVec2( 0.0f, 5.0f );
+        configLucide.GlyphOffset          = ImVec2( 0.0f, 5.8f );
 
         // Specify which icons we use
         // Need to specify or texture atlas will be too large and fail to upload to gpu on
@@ -274,21 +274,21 @@ namespace mc
         ImGui::End();
 
         ImDrawList* drawList = ImGui::GetBackgroundDrawList();
-        if( app->state == State::Cursor && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
+        if( app->state == State::Cursor && app->dragType == CursorDragType::Select && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
         {
             drawList->AddRect( ImVec2( app->mouseDragStart.x, app->mouseDragStart.y ), ImVec2( app->mouseWindowPos.x, app->mouseWindowPos.y ),
-                               ImGui::GetColorU32( IM_COL32( 0, 130, 216, 255 ) ) );
+                               ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
             drawList->AddRectFilled( ImVec2( app->mouseDragStart.x, app->mouseDragStart.y ), ImVec2( app->mouseWindowPos.x, app->mouseWindowPos.y ),
                                      ImGui::GetColorU32( IM_COL32( 0, 130, 216, 50 ) ) );
         }
 
-        if( app->selectionReady && app->numLayersSelected > 0 )
+        if( app->selectionReady && app->numLayersSelected > 0 && app->dragType == CursorDragType::Select )
         {
             glm::vec2 screenSpaceSelectionMax = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
             glm::vec2 screenSpaceSelectionMin = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
 
             drawList->AddRect( ImVec2( screenSpaceSelectionMin.x, screenSpaceSelectionMin.y ), ImVec2( screenSpaceSelectionMax.x, screenSpaceSelectionMax.y ),
-                               ImGui::GetColorU32( IM_COL32( 0, 130, 216, 255 ) ) );
+                               ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
         }
 
         ImGui::EndFrame();

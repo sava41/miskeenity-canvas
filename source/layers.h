@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_precision.hpp>
 #include <memory>
+#include <unordered_set>
 #include <vector>
 
 namespace mc
@@ -62,10 +63,18 @@ namespace mc
         size_t length() const;
         Layer* data() const;
 
+        void addSelection( int index );
+        void clearSelection();
+        void moveSelection( const glm::vec2& offset );
+        void rotateSelection( float angle );
+        void scaleSelection( const glm::vec2& ammount );
+
       private:
         size_t m_maxLength;
         size_t m_curLength;
 
         std::unique_ptr<Layer[]> m_array;
+
+        std::unordered_set<int> m_selection;
     };
 } // namespace mc

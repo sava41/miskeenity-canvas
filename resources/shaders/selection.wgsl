@@ -70,10 +70,15 @@ fn cs_main(@builtin(global_invocation_id) id_global : vec3<u32>, @builtin(local_
                             0.0, 0.0, 1.0, 0.0,
                             0.0, 0.0, 0.0, 1.0);
 
-    // We have 3 possible scenarios:
+    // We have 3 possible scenarios with regards to intersection:
     // Ractangle is fully inside selection box
     // Rectangle is fully outside selection box
     // Rectangle is partially inside selection box in which case we need to rasterize
+
+    // We have 3 posible selection modes:
+    // mouse select pos == (0.0 0.0) : recalculate bboxes without modifying selection
+    // mouse select pos == (1.0 1.0) : use point-click selection
+    // mouse select pos is arbitrary size : use bbox selection
 
     var flags = u32(0);
     var bbox = vec4<f32>(-10000000.0, -10000000.0, 10000000.0, 10000000.0);
@@ -94,7 +99,10 @@ fn cs_main(@builtin(global_invocation_id) id_global : vec3<u32>, @builtin(local_
         }
     }
 
-    outBuffer[layer].flags = flags;
+    if(uniforms.mouseSelectPos.x != 0.0 && uniforms.mouseSelectPos.y != 0.0) {
+        outBuffer[layer].flags = flags;
+    }
+
     outBuffer[layer].bboxMaxX = bbox.x;
     outBuffer[layer].bboxMaxY = bbox.y;
     outBuffer[layer].bboxMinX = bbox.z;
