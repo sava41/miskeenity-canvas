@@ -290,16 +290,31 @@ namespace mc
 
             glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerBR.y - 40 );
 
-            glm::vec2 handleHalfSize = glm::vec2( HandleHalfSize );
+            ImU32 color = ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
 
-            drawList->AddRect( cornerTL, cornerBR, ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
-            drawList->AddLine( rotHandlePos, ImVec2( screenSpaceCenterX, cornerBR.y ), ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
-            drawList->AddCircleFilled( rotHandlePos, HandleHalfSize, ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
+            drawList->AddRect( cornerTL, cornerBR, color );
+            drawList->AddLine( rotHandlePos, ImVec2( screenSpaceCenterX, cornerBR.y ), color );
 
-            drawList->AddCircleFilled( cornerBR, HandleHalfSize, ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
-            drawList->AddCircleFilled( cornerBL, HandleHalfSize, ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
-            drawList->AddCircleFilled( cornerTR, HandleHalfSize, ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
-            drawList->AddCircleFilled( cornerTL, HandleHalfSize, ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
+            color = glm::distance( app->mouseWindowPos, rotHandlePos ) < HandleHalfSize
+                        ? ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_PlotLinesHovered] )
+                        : ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
+            drawList->AddCircleFilled( rotHandlePos, HandleHalfSize, color );
+
+            color = glm::distance( app->mouseWindowPos, cornerBR ) < HandleHalfSize ? ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_PlotLinesHovered] )
+                                                                                    : ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
+            drawList->AddCircleFilled( cornerBR, HandleHalfSize, color );
+
+            color = glm::distance( app->mouseWindowPos, cornerBL ) < HandleHalfSize ? ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_PlotLinesHovered] )
+                                                                                    : ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
+            drawList->AddCircleFilled( cornerBL, HandleHalfSize, color );
+
+            color = glm::distance( app->mouseWindowPos, cornerTR ) < HandleHalfSize ? ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_PlotLinesHovered] )
+                                                                                    : ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
+            drawList->AddCircleFilled( cornerTR, HandleHalfSize, color );
+
+            color = glm::distance( app->mouseWindowPos, cornerTL ) < HandleHalfSize ? ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_PlotLinesHovered] )
+                                                                                    : ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
+            drawList->AddCircleFilled( cornerTL, HandleHalfSize, color );
         }
 
         ImGui::EndFrame();
