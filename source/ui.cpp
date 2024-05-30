@@ -294,13 +294,12 @@ namespace mc
 
             drawList->AddRect( cornerTL, cornerBR, ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
             drawList->AddLine( rotHandlePos, ImVec2( screenSpaceCenterX, cornerBR.y ), ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
+            drawList->AddCircleFilled( rotHandlePos, HandleHalfSize, ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
 
             drawList->AddCircleFilled( cornerBR, HandleHalfSize, ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
             drawList->AddCircleFilled( cornerBL, HandleHalfSize, ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
             drawList->AddCircleFilled( cornerTR, HandleHalfSize, ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
             drawList->AddCircleFilled( cornerTL, HandleHalfSize, ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
-
-            drawList->AddCircleFilled( rotHandlePos, HandleHalfSize, ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
         }
 
         ImGui::EndFrame();
