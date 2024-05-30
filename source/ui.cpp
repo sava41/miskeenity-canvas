@@ -6,7 +6,6 @@
 #include <array>
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
-#include <imgui.h>
 #include <string>
 
 namespace mc
@@ -226,9 +225,9 @@ namespace mc
             show_quit_dialog = false;
         }
 
-        ImGui::Begin( "toolbox", nullptr,
+        ImGui::Begin( "Toolbox", nullptr,
                       ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar |
-                          ImGuiWindowFlags_NoBackground );
+                          ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoBringToFrontOnFocus );
         {
             ImGui::SetWindowPos( ImVec2( 10, 10 ) );
             ImGui::SetWindowSize( ImVec2( 80, 300 ) );
@@ -276,19 +275,36 @@ namespace mc
         ImDrawList* drawList = ImGui::GetBackgroundDrawList();
         if( app->state == State::Cursor && app->dragType == CursorDragType::Select && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
         {
-            drawList->AddRect( ImVec2( app->mouseDragStart.x, app->mouseDragStart.y ), ImVec2( app->mouseWindowPos.x, app->mouseWindowPos.y ),
-                               ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
-            drawList->AddRectFilled( ImVec2( app->mouseDragStart.x, app->mouseDragStart.y ), ImVec2( app->mouseWindowPos.x, app->mouseWindowPos.y ),
-                                     ImGui::GetColorU32( IM_COL32( 0, 130, 216, 50 ) ) );
+            drawList->AddRect( app->mouseDragStart, app->mouseWindowPos, ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
+            drawList->AddRectFilled( app->mouseDragStart, app->mouseWindowPos, ImGui::GetColorU32( IM_COL32( 0, 130, 216, 50 ) ) );
         }
 
         if( app->selectionReady && app->numLayersSelected > 0 && app->dragType == CursorDragType::Select )
         {
-            glm::vec2 screenSpaceSelectionMax = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
-            glm::vec2 screenSpaceSelectionMin = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
+            glm::vec2 cornerTL = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
+            glm::vec2 cornerBR = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
+            glm::vec2 cornerTR = glm::vec2( cornerBR.x, cornerTL.y );
+            glm::vec2 cornerBL = glm::vec2( cornerTL.x, cornerBR.y );
 
-            drawList->AddRect( ImVec2( screenSpaceSelectionMin.x, screenSpaceSelectionMin.y ), ImVec2( screenSpaceSelectionMax.x, screenSpaceSelectionMax.y ),
-                               ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
+            float screenSpaceCenterX = ( cornerTL.x + cornerBR.x ) * 0.5f;
+
+            glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerBR.y - 40 );
+
+            glm::vec2 handleHalfSize = glm::vec2( HandleHalfSize );
+
+            drawList->AddRect( cornerTL, cornerBR, ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
+            drawList->AddLine( rotHandlePos, ImVec2( screenSpaceCenterX, cornerBR.y ), ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
+
+            drawList->AddRectFilled( cornerBR - handleHalfSize, cornerBR + handleHalfSize,
+                                     ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ), HandleCornerRadius );
+            drawList->AddRectFilled( cornerBL - handleHalfSize, cornerBL + handleHalfSize,
+                                     ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ), HandleCornerRadius );
+            drawList->AddRectFilled( cornerTR - handleHalfSize, cornerTR + handleHalfSize,
+                                     ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ), HandleCornerRadius );
+            drawList->AddRectFilled( cornerTL - handleHalfSize, cornerTL + handleHalfSize,
+                                     ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ), HandleCornerRadius );
+
+            drawList->AddCircleFilled( rotHandlePos, HandleHalfSize * 1.1, ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] ) );
         }
 
         ImGui::EndFrame();

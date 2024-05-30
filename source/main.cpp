@@ -2,7 +2,6 @@
 #include <SDL3/SDL_main.h>
 #include <algorithm>
 #include <glm/glm.hpp>
-#include <imgui.h>
 #include <string>
 #include <webgpu/webgpu.h>
 #include <webgpu/webgpu_cpp.h>
