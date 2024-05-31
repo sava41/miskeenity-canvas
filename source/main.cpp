@@ -159,8 +159,29 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
         if( !io.WantCaptureMouse )
         {
             app->mouseDragStart = app->mouseWindowPos;
-            if( app->selectionBbox.x > app->viewParams.mousePos.x && app->selectionBbox.y > app->viewParams.mousePos.y &&
-                app->selectionBbox.z < app->viewParams.mousePos.x && app->selectionBbox.w < app->viewParams.mousePos.y )
+
+            glm::vec2 cornerTL = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
+            glm::vec2 cornerBR = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
+            glm::vec2 cornerTR = glm::vec2( cornerBR.x, cornerTL.y );
+            glm::vec2 cornerBL = glm::vec2( cornerTL.x, cornerBR.y );
+
+            float screenSpaceCenterX = ( cornerTL.x + cornerBR.x ) * 0.5f;
+
+            glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerBR.y - mc::RotateHandleHeight );
+
+            if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, rotHandlePos ) < mc::HandleHalfSize )
+            {
+                app->dragType = mc::CursorDragType::Rotate;
+            }
+            else if( app->layers.numSelected() > 0 && ( glm::distance( app->mouseWindowPos, cornerBR ) < mc::HandleHalfSize ||
+                                                        glm::distance( app->mouseWindowPos, cornerTR ) < mc::HandleHalfSize ||
+                                                        glm::distance( app->mouseWindowPos, cornerBL ) < mc::HandleHalfSize ||
+                                                        glm::distance( app->mouseWindowPos, cornerTL ) < mc::HandleHalfSize ) )
+            {
+                app->dragType = mc::CursorDragType::Scale;
+            }
+            else if( app->selectionBbox.x > app->viewParams.mousePos.x && app->selectionBbox.y > app->viewParams.mousePos.y &&
+                     app->selectionBbox.z < app->viewParams.mousePos.x && app->selectionBbox.w < app->viewParams.mousePos.y )
             {
                 app->dragType = mc::CursorDragType::Move;
             }
@@ -265,11 +286,34 @@ int SDL_AppIterate( void* appstate )
         switch( app->dragType )
         {
         case mc::CursorDragType::Select:
+        {
             app->selectionRequested        = true;
             app->viewParams.mouseSelectPos = ( app->mouseDragStart - app->viewParams.canvasPos ) / app->viewParams.scale;
-            break;
+        }
+        break;
         case mc::CursorDragType::Move:
-            break;
+        {
+            app->layers.moveSelection( app->mouseDelta / app->viewParams.scale );
+            app->layersModified = true;
+        }
+        break;
+        case mc::CursorDragType::Rotate:
+        {
+            glm::vec2 p1       = app->viewParams.mousePos - app->selectionCenter;
+            glm::vec2 p2       = p1 - app->mouseDelta / app->viewParams.scale;
+            float angle        = acos( std::clamp( glm::dot( p1, p2 ) / ( glm::length( p1 ) * glm::length( p2 ) ), -1.0f, 1.0f ) );
+            float partialCross = p1.x * p2.y - p2.x * p1.y;
+
+            app->layers.rotateSelection( app->selectionCenter, partialCross < 0.0 ? angle : -angle );
+            app->layersModified = true;
+        }
+        break;
+        case mc::CursorDragType::Scale:
+        {
+            // app->layers.scaleSelection( glm::vec2( 0.0 ) );
+            app->layersModified = true;
+        }
+        break;
         }
     }
     app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &app->viewParams, sizeof( mc::Uniforms ) );
@@ -294,17 +338,6 @@ int SDL_AppIterate( void* appstate )
         app->layersModified = true;
 
         app->addLayer = false;
-    }
-
-    if( app->mouseDelta.length() > 0.0 && app->mouseDown && app->state == mc::State::Cursor )
-    {
-        switch( app->dragType )
-        {
-        case mc::CursorDragType::Move:
-            app->layers.moveSelection( app->mouseDelta / app->viewParams.scale );
-            break;
-        }
-        app->layersModified = true;
     }
 
     if( app->layersModified )
@@ -364,8 +397,7 @@ int SDL_AppIterate( void* appstate )
         computePass.End();
 
         app->selectionMapBuf.Unmap();
-        app->selectionData     = nullptr;
-        app->numLayersSelected = 0;
+        app->selectionData = nullptr;
 
         encoder.CopyBufferToBuffer( app->selectionBuf, 0, app->selectionMapBuf, 0, sizeof( float ) * mc::NumLayers );
     }
@@ -387,9 +419,8 @@ int SDL_AppIterate( void* appstate )
                 app->selectionData  = reinterpret_cast<mc::Selection*>(
                     const_cast<void*>( ( app->selectionMapBuf.GetConstMappedRange( 0, sizeof( mc::Selection ) * app->layers.length() ) ) ) );
 
-                app->selectionBbox     = glm::vec4( -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
-                                                    std::numeric_limits<float>::max() );
-                app->numLayersSelected = 0;
+                app->selectionBbox = glm::vec4( -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
+                                                std::numeric_limits<float>::max() );
                 app->layers.clearSelection();
 
                 for( int i = 0; i < app->layers.length(); ++i )
@@ -404,11 +435,13 @@ int SDL_AppIterate( void* appstate )
                     app->selectionBbox.z = std::min( app->selectionBbox.z, app->selectionData[i].bbox.z );
                     app->selectionBbox.w = std::min( app->selectionBbox.w, app->selectionData[i].bbox.w );
 
-                    app->numLayersSelected += 1;
                     app->layers.addSelection( i );
 
                     app->dragType = mc::CursorDragType::Select;
                 }
+
+                app->selectionCenter =
+                    ( glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) + glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) ) * 0.5;
 
                 app->selectionReady = true;
             }

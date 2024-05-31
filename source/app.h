@@ -93,14 +93,14 @@ namespace mc
         bool resetSwapchain     = false;
 
         Selection* selectionData = nullptr;
-        int numLayersSelected    = 0;
 
         // Input variables
-        glm::vec2 mouseWindowPos = glm::vec2( 0.0 );
-        glm::vec2 mouseDragStart = glm::vec2( 0.0 );
-        glm::vec2 mouseDelta     = glm::vec2( 0.0 );
-        glm::vec2 scrollDelta    = glm::vec2( 0.0 );
-        glm::vec4 selectionBbox  = glm::vec4( 0.0 );
+        glm::vec2 mouseWindowPos  = glm::vec2( 0.0 );
+        glm::vec2 mouseDragStart  = glm::vec2( 0.0 );
+        glm::vec2 mouseDelta      = glm::vec2( 0.0 );
+        glm::vec2 scrollDelta     = glm::vec2( 0.0 );
+        glm::vec4 selectionBbox   = glm::vec4( 0.0 );
+        glm::vec2 selectionCenter = glm::vec2( 0.0 );
 
         Layers layers = mc::Layers( NumLayers );
     };

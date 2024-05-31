@@ -81,6 +81,11 @@ namespace mc
         m_selection.insert( index );
     }
 
+    size_t Layers::numSelected() const
+    {
+        return m_selection.size();
+    }
+
     void Layers::clearSelection()
     {
         m_selection.clear();
@@ -94,12 +99,27 @@ namespace mc
         }
     }
 
-    void Layers::rotateSelection( float angle )
+    void Layers::rotateSelection( const glm::vec2& center, float angle )
     {
-        return;
+        float cos = std::cos( angle );
+        float sin = std::sin( angle );
+
+        for( int index : m_selection )
+        {
+            m_array[index].basisA =
+                glm::vec2( m_array[index].basisA.x * cos - m_array[index].basisA.y * sin, m_array[index].basisA.x * sin + m_array[index].basisA.y * cos );
+            m_array[index].basisB =
+                glm::vec2( m_array[index].basisB.x * cos - m_array[index].basisB.y * sin, m_array[index].basisB.x * sin + m_array[index].basisB.y * cos );
+
+
+            m_array[index].offset -= center;
+            m_array[index].offset =
+                glm::vec2( m_array[index].offset.x * cos - m_array[index].offset.y * sin, m_array[index].offset.x * sin + m_array[index].offset.y * cos );
+            m_array[index].offset += center;
+        }
     }
 
-    void Layers::scaleSelection( const glm::vec2& ammount )
+    void Layers::scaleSelection( const glm::vec2& center, const glm::vec2& ammount )
     {
         return;
     }

@@ -64,10 +64,12 @@ namespace mc
         Layer* data() const;
 
         void addSelection( int index );
+        size_t numSelected() const;
         void clearSelection();
+
         void moveSelection( const glm::vec2& offset );
-        void rotateSelection( float angle );
-        void scaleSelection( const glm::vec2& ammount );
+        void rotateSelection( const glm::vec2& center, float angle );
+        void scaleSelection( const glm::vec2& center, const glm::vec2& ammount );
 
       private:
         size_t m_maxLength;

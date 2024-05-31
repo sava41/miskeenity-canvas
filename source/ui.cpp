@@ -279,7 +279,7 @@ namespace mc
             drawList->AddRectFilled( app->mouseDragStart, app->mouseWindowPos, ImGui::GetColorU32( IM_COL32( 0, 130, 216, 50 ) ) );
         }
 
-        if( app->selectionReady && app->numLayersSelected > 0 && app->dragType == CursorDragType::Select )
+        if( app->selectionReady && app->layers.numSelected() > 0 && app->dragType == CursorDragType::Select )
         {
             glm::vec2 cornerTL = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
             glm::vec2 cornerBR = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
@@ -288,7 +288,7 @@ namespace mc
 
             float screenSpaceCenterX = ( cornerTL.x + cornerBR.x ) * 0.5f;
 
-            glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerBR.y - 40 );
+            glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerBR.y - RotateHandleHeight );
 
             ImU32 color = ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
 
