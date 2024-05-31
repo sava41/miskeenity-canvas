@@ -160,25 +160,34 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
         {
             app->mouseDragStart = app->mouseWindowPos;
 
-            glm::vec2 cornerTL = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
-            glm::vec2 cornerBR = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
+            glm::vec2 cornerTL = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
+            glm::vec2 cornerBR = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
             glm::vec2 cornerTR = glm::vec2( cornerBR.x, cornerTL.y );
             glm::vec2 cornerBL = glm::vec2( cornerTL.x, cornerBR.y );
 
             float screenSpaceCenterX = ( cornerTL.x + cornerBR.x ) * 0.5f;
 
-            glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerBR.y - mc::RotateHandleHeight );
+            glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerTR.y - mc::RotateHandleHeight );
 
             if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, rotHandlePos ) < mc::HandleHalfSize )
             {
                 app->dragType = mc::CursorDragType::Rotate;
             }
-            else if( app->layers.numSelected() > 0 && ( glm::distance( app->mouseWindowPos, cornerBR ) < mc::HandleHalfSize ||
-                                                        glm::distance( app->mouseWindowPos, cornerTR ) < mc::HandleHalfSize ||
-                                                        glm::distance( app->mouseWindowPos, cornerBL ) < mc::HandleHalfSize ||
-                                                        glm::distance( app->mouseWindowPos, cornerTL ) < mc::HandleHalfSize ) )
+            else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerTL ) < mc::HandleHalfSize )
             {
-                app->dragType = mc::CursorDragType::Scale;
+                app->dragType = mc::CursorDragType::ScaleTL;
+            }
+            else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerBR ) < mc::HandleHalfSize )
+            {
+                app->dragType = mc::CursorDragType::ScaleBR;
+            }
+            else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerTR ) < mc::HandleHalfSize )
+            {
+                app->dragType = mc::CursorDragType::ScaleTR;
+            }
+            else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerBL ) < mc::HandleHalfSize )
+            {
+                app->dragType = mc::CursorDragType::ScaleBL;
             }
             else if( app->selectionBbox.x > app->viewParams.mousePos.x && app->selectionBbox.y > app->viewParams.mousePos.y &&
                      app->selectionBbox.z < app->viewParams.mousePos.x && app->selectionBbox.w < app->viewParams.mousePos.y )
@@ -201,9 +210,9 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
         {
             // TODO
         }
-        else if( app->dragType == mc::CursorDragType::Move || app->dragType == mc::CursorDragType::Scale || app->dragType == mc::CursorDragType::Rotate )
+        else if( app->dragType != mc::CursorDragType::Select )
         {
-            // dispatch selection compute to recalculate bboxes without modyfying selection
+            // dispatch selection compute after a tranform to recalculate bboxes without modyfying selection
             app->viewParams.mouseSelectPos = glm::vec2( 0.0 );
             app->selectionRequested        = true;
         }
@@ -308,9 +317,35 @@ int SDL_AppIterate( void* appstate )
             app->layersModified = true;
         }
         break;
-        case mc::CursorDragType::Scale:
+        case mc::CursorDragType::ScaleTR:
+        case mc::CursorDragType::ScaleBR:
+        case mc::CursorDragType::ScaleTL:
+        case mc::CursorDragType::ScaleBL:
         {
-            // app->layers.scaleSelection( glm::vec2( 0.0 ) );
+            glm::vec2 mouseDeltaCanvas = app->mouseDelta / app->viewParams.scale;
+            glm::vec2 factor = mouseDeltaCanvas / glm::vec2( app->selectionBbox.x - app->selectionBbox.z, app->selectionBbox.y - app->selectionBbox.w );
+
+            glm::vec2 orientation = glm::vec2( 1.0 );
+            if( app->dragType == mc::CursorDragType::ScaleTR )
+            {
+                orientation.y = -1.0;
+            }
+            else if( app->dragType == mc::CursorDragType::ScaleTL )
+            {
+                orientation = -orientation;
+            }
+            else if( app->dragType == mc::CursorDragType::ScaleBL )
+            {
+                orientation.x = -1.0;
+            }
+
+            // Update bounding box
+            app->selectionBbox.x += mouseDeltaCanvas.x * orientation.x;
+            app->selectionBbox.y += mouseDeltaCanvas.y * orientation.y;
+            app->selectionBbox.z -= mouseDeltaCanvas.x * orientation.x;
+            app->selectionBbox.w -= mouseDeltaCanvas.y * orientation.y;
+
+            app->layers.scaleSelection( app->selectionCenter, 2.0f * factor * orientation + glm::vec2( 1.0 ) );
             app->layersModified = true;
         }
         break;

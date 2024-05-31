@@ -26,7 +26,10 @@ namespace mc
         Select,
         Move,
         Rotate,
-        Scale
+        ScaleTL,
+        ScaleBR,
+        ScaleTR,
+        ScaleBL
     };
 
 #pragma pack( push )

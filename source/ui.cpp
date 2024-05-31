@@ -281,19 +281,19 @@ namespace mc
 
         if( app->selectionReady && app->layers.numSelected() > 0 && app->dragType == CursorDragType::Select )
         {
-            glm::vec2 cornerTL = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
-            glm::vec2 cornerBR = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
+            glm::vec2 cornerTL = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
+            glm::vec2 cornerBR = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
             glm::vec2 cornerTR = glm::vec2( cornerBR.x, cornerTL.y );
             glm::vec2 cornerBL = glm::vec2( cornerTL.x, cornerBR.y );
 
             float screenSpaceCenterX = ( cornerTL.x + cornerBR.x ) * 0.5f;
 
-            glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerBR.y - RotateHandleHeight );
+            glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerTR.y - mc::RotateHandleHeight );
 
             ImU32 color = ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
 
             drawList->AddRect( cornerTL, cornerBR, color );
-            drawList->AddLine( rotHandlePos, ImVec2( screenSpaceCenterX, cornerBR.y ), color );
+            drawList->AddLine( rotHandlePos, ImVec2( screenSpaceCenterX, cornerTR.y ), color );
 
             color = glm::distance( app->mouseWindowPos, rotHandlePos ) < HandleHalfSize
                         ? ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_PlotLinesHovered] )

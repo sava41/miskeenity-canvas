@@ -121,7 +121,15 @@ namespace mc
 
     void Layers::scaleSelection( const glm::vec2& center, const glm::vec2& ammount )
     {
-        return;
+        for( int index : m_selection )
+        {
+            m_array[index].basisA *= ammount;
+            m_array[index].basisB *= ammount;
+
+            m_array[index].offset -= center;
+            m_array[index].offset *= ammount;
+            m_array[index].offset += center;
+        }
     }
 
 } // namespace mc
