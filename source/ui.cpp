@@ -1,11 +1,13 @@
 #include "ui.h"
 
 #include "embedded_files.h"
+#include "imgui_config.h"
 #include "lucide.h"
 
 #include <array>
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
+#include <imgui.h>
 #include <string>
 
 namespace mc
@@ -322,6 +324,16 @@ namespace mc
         ImGui::Render();
 
         ImGui_ImplWGPU_RenderDrawData( ImGui::GetDrawData(), renderPass.Get() );
+    }
+
+    void processEventUI( const SDL_Event* event )
+    {
+        ImGui_ImplSDL3_ProcessEvent( event );
+    }
+
+    bool captureMouseUI()
+    {
+        return ImGui::GetIO().WantCaptureMouse;
     }
 
     void shutdownUI()

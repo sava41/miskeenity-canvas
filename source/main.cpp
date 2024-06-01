@@ -142,7 +142,8 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
 int SDL_AppEvent( void* appstate, const SDL_Event* event )
 {
     mc::AppContext* app = reinterpret_cast<mc::AppContext*>( appstate );
-    ImGuiIO& io         = ImGui::GetIO();
+
+    mc::processEventUI( event );
 
     switch( event->type )
     {
@@ -154,9 +155,8 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
         app->resetSwapchain = true;
         break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
-        io.AddMouseButtonEvent( 0, true );
 
-        if( !io.WantCaptureMouse )
+        if( !mc::captureMouseUI() )
         {
             app->mouseDragStart = app->mouseWindowPos;
 
@@ -203,7 +203,6 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
         }
         break;
     case SDL_EVENT_MOUSE_BUTTON_UP:
-        io.AddMouseButtonEvent( 0, false );
 
         // click selection if the mouse hasnt moved since mouse down
         if( app->mouseWindowPos == app->mouseDragStart )
@@ -219,23 +218,25 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
         app->mouseDown = false;
         break;
     case SDL_EVENT_MOUSE_MOTION:
-        io.AddMousePosEvent( event->motion.x, event->motion.y );
         app->mouseWindowPos = glm::vec2( event->motion.x, event->motion.y );
         app->mouseDelta += glm::vec2( event->motion.xrel, event->motion.yrel );
 
-        if( app->mouseDown && !io.WantCaptureMouse && app->state == mc::State::Pan )
+        if( app->mouseDown && !mc::captureMouseUI() && app->state == mc::State::Pan )
         {
             app->updateView = true;
         }
         break;
     case SDL_EVENT_MOUSE_WHEEL:
-        io.AddMouseWheelEvent( event->wheel.x, event->wheel.y );
         app->scrollDelta += glm::vec2( event->wheel.x, event->wheel.y );
 
-        if( !io.WantCaptureMouse )
+        if( !mc::captureMouseUI() )
         {
             app->updateView = true;
         }
+        break;
+    case SDL_EVENT_KEY_DOWN:
+        break;
+    case SDL_EVENT_KEY_UP:
         break;
     default:
         break;
@@ -476,7 +477,7 @@ int SDL_AppIterate( void* appstate )
                 }
 
                 app->selectionCenter =
-                    ( glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) + glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) ) * 0.5;
+                    ( glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) + glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) ) * 0.5f;
 
                 app->selectionReady = true;
             }

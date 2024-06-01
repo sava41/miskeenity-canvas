@@ -1,10 +1,13 @@
 #pragma once
 
 #include "app.h"
-#include "imgui_config.h"
 
-#include <imgui.h>
-#include <webgpu/webgpu_cpp.h>
+typedef union SDL_Event;
+
+namespace wgpu
+{
+    class RenderPassEncoder;
+}
 
 namespace mc
 {
@@ -14,5 +17,7 @@ namespace mc
 
     void initUI( AppContext* app );
     void drawUI( AppContext* app, const wgpu::RenderPassEncoder& renderPass );
+    void processEventUI( const SDL_Event* event );
+    bool captureMouseUI();
     void shutdownUI();
 } // namespace mc
