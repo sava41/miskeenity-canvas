@@ -21,6 +21,14 @@ namespace mc
         Other
     };
 
+    enum class SelectDispatch : uint32_t
+    {
+        Box         = 0,
+        Point       = 1,
+        ComputeBbox = 2,
+        None        = 3
+    };
+
     enum class CursorDragType
     {
         Select,
@@ -36,13 +44,15 @@ namespace mc
     struct Uniforms
     {
         glm::mat4 proj;
-        glm::vec2 canvasPos      = glm::vec2( 0.0 );
-        glm::vec2 mousePos       = glm::vec2( 0.0 );
-        glm::vec2 mouseSelectPos = glm::vec2( 0.0 );
+        glm::vec2 canvasPos           = glm::vec2( 0.0 );
+        glm::vec2 mousePos            = glm::vec2( 0.0 );
+        glm::vec2 mouseSelectPos      = glm::vec2( 0.0 );
+        SelectDispatch selectDispatch = SelectDispatch::None;
         uint32_t width;
         uint32_t height;
         float scale = 1.0;
-        float _pad[7];
+
+        float _pad[6];
     };
 #pragma pack( pop )
     // Have the compiler check byte alignment
@@ -88,7 +98,6 @@ namespace mc
         CursorDragType dragType = CursorDragType::Select;
         bool mouseDown          = false;
         bool updateView         = false;
-        bool selectionRequested = false;
         bool selectionReady     = true;
         bool layersModified     = true;
         bool addLayer           = false;

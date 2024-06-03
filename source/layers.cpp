@@ -73,29 +73,57 @@ namespace mc
         return m_array.get();
     }
 
-    void Layers::addSelection( int index )
+    void Layers::changeSelection( int index, bool isSelected )
     {
-        if( index < 0 || index > length() )
+        if( index < 0 || index >= m_curLength )
+        {
             return;
+        }
 
-        m_selection.insert( index );
-    }
+        if( isSelected )
+        {
 
-    size_t Layers::numSelected() const
-    {
-        return m_selection.size();
+            m_array[index].flags = m_array[index].flags | LayerFlags::Selected;
+            m_numSelected += 1;
+        }
+        else
+        {
+            m_array[index].flags = m_array[index].flags & ~LayerFlags::Selected;
+            m_numSelected -= 1;
+        }
     }
 
     void Layers::clearSelection()
     {
-        m_selection.clear();
+        for( int i = 0; i < m_curLength; ++i )
+        {
+            changeSelection( i, false );
+        }
+    }
+
+    bool Layers::isSelected( int index ) const
+    {
+        if( index < 0 || index >= m_curLength )
+        {
+            return false;
+        }
+
+        return m_array[index].flags & LayerFlags::Selected;
+    }
+
+    size_t Layers::numSelected() const
+    {
+        return m_numSelected;
     }
 
     void Layers::moveSelection( const glm::vec2& offset )
     {
-        for( int index : m_selection )
+        for( int i = 0; i < m_curLength; ++i )
         {
-            m_array[index].offset += offset;
+            if( m_array[i].flags & LayerFlags::Selected )
+            {
+                m_array[i].offset += offset;
+            }
         }
     }
 
@@ -104,31 +132,34 @@ namespace mc
         float cos = std::cos( angle );
         float sin = std::sin( angle );
 
-        for( int index : m_selection )
+        for( int i = 0; i < m_curLength; ++i )
         {
-            m_array[index].basisA =
-                glm::vec2( m_array[index].basisA.x * cos - m_array[index].basisA.y * sin, m_array[index].basisA.x * sin + m_array[index].basisA.y * cos );
-            m_array[index].basisB =
-                glm::vec2( m_array[index].basisB.x * cos - m_array[index].basisB.y * sin, m_array[index].basisB.x * sin + m_array[index].basisB.y * cos );
+            if( m_array[i].flags & LayerFlags::Selected )
+            {
+                m_array[i].basisA = glm::vec2( m_array[i].basisA.x * cos - m_array[i].basisA.y * sin, m_array[i].basisA.x * sin + m_array[i].basisA.y * cos );
+                m_array[i].basisB = glm::vec2( m_array[i].basisB.x * cos - m_array[i].basisB.y * sin, m_array[i].basisB.x * sin + m_array[i].basisB.y * cos );
 
 
-            m_array[index].offset -= center;
-            m_array[index].offset =
-                glm::vec2( m_array[index].offset.x * cos - m_array[index].offset.y * sin, m_array[index].offset.x * sin + m_array[index].offset.y * cos );
-            m_array[index].offset += center;
+                m_array[i].offset -= center;
+                m_array[i].offset = glm::vec2( m_array[i].offset.x * cos - m_array[i].offset.y * sin, m_array[i].offset.x * sin + m_array[i].offset.y * cos );
+                m_array[i].offset += center;
+            }
         }
     }
 
     void Layers::scaleSelection( const glm::vec2& center, const glm::vec2& ammount )
     {
-        for( int index : m_selection )
+        for( int i = 0; i < m_curLength; ++i )
         {
-            m_array[index].basisA *= ammount;
-            m_array[index].basisB *= ammount;
+            if( m_array[i].flags & LayerFlags::Selected )
+            {
+                m_array[i].basisA *= ammount;
+                m_array[i].basisB *= ammount;
 
-            m_array[index].offset -= center;
-            m_array[index].offset *= ammount;
-            m_array[index].offset += center;
+                m_array[i].offset -= center;
+                m_array[i].offset *= ammount;
+                m_array[i].offset += center;
+            }
         }
     }
 

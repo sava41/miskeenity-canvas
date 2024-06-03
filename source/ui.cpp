@@ -1,5 +1,6 @@
 #include "ui.h"
 
+#include "app.h"
 #include "embedded_files.h"
 #include "imgui_config.h"
 #include "lucide.h"

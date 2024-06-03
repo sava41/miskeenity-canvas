@@ -1,7 +1,5 @@
 #pragma once
 
-#include "app.h"
-
 typedef union SDL_Event;
 
 namespace wgpu
@@ -11,6 +9,8 @@ namespace wgpu
 
 namespace mc
 {
+    struct AppContext;
+
     constexpr float HandleHalfSize     = 7.0;
     constexpr float HandleCornerRadius = 3.0;
     constexpr float RotateHandleHeight = 40.0;

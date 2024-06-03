@@ -1,21 +1,12 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <glm/gtc/type_precision.hpp>
 #include <memory>
 #include <unordered_set>
 #include <vector>
 
 namespace mc
 {
-
-    enum class LayerType : uint8_t
-    {
-        Textured,
-        Paint,
-        Mask,
-        Text
-    };
 
 #pragma pack( push, 4 )
     struct Layer
@@ -30,9 +21,9 @@ namespace mc
         uint16_t texture;
         uint16_t mask;
 
-        glm::u8vec3 color;
+        glm::u8vec4 color;
 
-        LayerType type;
+        uint32_t flags;
     };
 #pragma pack( pop )
 
@@ -63,20 +54,29 @@ namespace mc
         size_t length() const;
         Layer* data() const;
 
-        void addSelection( int index );
-        size_t numSelected() const;
+        void changeSelection( int index, bool isSelected );
         void clearSelection();
+        bool isSelected( int index ) const;
+        size_t numSelected() const;
 
         void moveSelection( const glm::vec2& offset );
         void rotateSelection( const glm::vec2& center, float angle );
         void scaleSelection( const glm::vec2& center, const glm::vec2& ammount );
 
       private:
+        enum LayerFlags : uint32_t
+        {
+            Selected        = 1 << 0,
+            HasColorTex     = 1 << 1,
+            HasAlphaTex     = 1 << 2,
+            HasSdfAlphaTex  = 1 << 3,
+            HasPillAlphaTex = 1 << 4
+        };
+
         size_t m_maxLength;
         size_t m_curLength;
+        size_t m_numSelected;
 
         std::unique_ptr<Layer[]> m_array;
-
-        std::unordered_set<int> m_selection;
     };
 } // namespace mc

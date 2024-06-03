@@ -6,13 +6,17 @@ struct VertexInput {
 };
 
 struct InstanceInput {
-    @location(2) offset: vec2<f32>,
-    @location(3) basis_a: vec2<f32>,
-    @location(4) basis_b: vec2<f32>,
-    @location(5) uv_top: vec2<u32>,
-    @location(6) uv_bot: vec2<u32>,
-    @location(7) image_mask_ids: vec2<u32>,
-    @location(8) color_type: vec4<u32>,
+    @location(2)    offsetX: f32,
+    @location(3)    offsetY: f32,
+    @location(4)    basisAX: f32,
+    @location(5)    basisAY: f32,
+    @location(6)    basisBX: f32,
+    @location(7)    basisBY: f32,
+    @location(8)    uvTop: vec2<u32>,
+    @location(9)    uvBot: vec2<u32>,
+    @location(10)   imageMaskIds: vec2<u32>,
+    @location(11)   color: vec4<u32>,
+    @location(12)   flags: u32,
 };
 
 struct VertexOutput {
@@ -29,6 +33,7 @@ struct Uniforms {
     mouseSelectPos: vec2<f32>,
     windowSize: vec2<u32>,
     scale: f32,
+    selectType: u32,
 };
 
 struct Selection {
@@ -48,8 +53,8 @@ var<storage,read_write> selectionData: array<Selection>;
 fn vs_main(vert: VertexInput, inst: InstanceInput) -> VertexOutput {
     var out: VertexOutput;
 
-    let model = mat4x4<f32>(inst.basis_a.x, inst.basis_b.x, 0.0, inst.offset.x,
-                            inst.basis_a.y, inst.basis_b.y, 0.0, inst.offset.y,
+    let model = mat4x4<f32>(inst.basisAX, inst.basisBX, 0.0, inst.offsetX,
+                            inst.basisAY, inst.basisBY, 0.0, inst.offsetY,
                             0.0,            0.0,            1.0, 0.0,
                             0.0,            0.0,            0.0, 1.0);
 
@@ -57,12 +62,13 @@ fn vs_main(vert: VertexInput, inst: InstanceInput) -> VertexOutput {
     out.uv = vert.uv;
     out.inst = vert.instanceId;
 
-    out.color = vec4<f32>(f32(inst.color_type.r) / 255.0, f32(inst.color_type.g) / 255.0, f32(inst.color_type.b) / 255.0, 1.0);
+    out.color = vec4<f32>(f32(inst.color.r) / 255.0, f32(inst.color.g) / 255.0, f32(inst.color.b) / 255.0, 1.0) +
+                (vec4<f32>(vert.uv, 1.0, 1.0) * 0.3 - 0.15) * f32(inst.flags & 1);
 
     return out;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return in.color + (vec4<f32>(in.uv, 1.0, 1.0) * 0.3 - 0.15) * f32(selectionData[in.inst].flags == 1);
+    return in.color;
 }

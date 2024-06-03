@@ -26,36 +26,51 @@ namespace mc
         vertexBufLayout[0].attributeCount = static_cast<uint32_t>( vertexAttr.size() );
         vertexBufLayout[0].attributes     = vertexAttr.data();
 
-        // we have 9 instance attributes as defined the in mc::Layer struct
-        // we combine some of them to form 7 vertex attributes
-        std::array<wgpu::VertexAttribute, 7> instanceAttr;
-        instanceAttr[0].format         = wgpu::VertexFormat::Float32x2;
+        // attributes as defined the in mc::Layer struct
+        std::array<wgpu::VertexAttribute, 11> instanceAttr;
+        instanceAttr[0].format         = wgpu::VertexFormat::Float32;
         instanceAttr[0].offset         = 0;
         instanceAttr[0].shaderLocation = 2;
 
-        instanceAttr[1].format         = wgpu::VertexFormat::Float32x2;
-        instanceAttr[1].offset         = 2 * sizeof( float );
+        instanceAttr[1].format         = wgpu::VertexFormat::Float32;
+        instanceAttr[1].offset         = 1 * sizeof( float );
         instanceAttr[1].shaderLocation = 3;
 
-        instanceAttr[2].format         = wgpu::VertexFormat::Float32x2;
-        instanceAttr[2].offset         = 4 * sizeof( float );
+        instanceAttr[2].format         = wgpu::VertexFormat::Float32;
+        instanceAttr[2].offset         = 2 * sizeof( float );
         instanceAttr[2].shaderLocation = 4;
 
-        instanceAttr[3].format         = wgpu::VertexFormat::Uint16x2;
-        instanceAttr[3].offset         = 6 * sizeof( float );
+        instanceAttr[3].format         = wgpu::VertexFormat::Float32;
+        instanceAttr[3].offset         = 3 * sizeof( float );
         instanceAttr[3].shaderLocation = 5;
 
-        instanceAttr[4].format         = wgpu::VertexFormat::Uint16x2;
-        instanceAttr[4].offset         = 6 * sizeof( float ) + 2 * sizeof( uint16_t );
+        instanceAttr[4].format         = wgpu::VertexFormat::Float32;
+        instanceAttr[4].offset         = 4 * sizeof( float );
         instanceAttr[4].shaderLocation = 6;
 
-        instanceAttr[5].format         = wgpu::VertexFormat::Uint16x2;
-        instanceAttr[5].offset         = 6 * sizeof( float ) + 4 * sizeof( uint16_t );
+        instanceAttr[5].format         = wgpu::VertexFormat::Float32;
+        instanceAttr[5].offset         = 5 * sizeof( float );
         instanceAttr[5].shaderLocation = 7;
 
-        instanceAttr[6].format         = wgpu::VertexFormat::Uint8x4;
-        instanceAttr[6].offset         = 6 * sizeof( float ) + 6 * sizeof( uint16_t );
+        instanceAttr[6].format         = wgpu::VertexFormat::Uint16x2;
+        instanceAttr[6].offset         = 6 * sizeof( float );
         instanceAttr[6].shaderLocation = 8;
+
+        instanceAttr[7].format         = wgpu::VertexFormat::Uint16x2;
+        instanceAttr[7].offset         = 6 * sizeof( float ) + 2 * sizeof( uint16_t );
+        instanceAttr[7].shaderLocation = 9;
+
+        instanceAttr[8].format         = wgpu::VertexFormat::Uint16x2;
+        instanceAttr[8].offset         = 6 * sizeof( float ) + 4 * sizeof( uint16_t );
+        instanceAttr[8].shaderLocation = 10;
+
+        instanceAttr[9].format         = wgpu::VertexFormat::Uint8x4;
+        instanceAttr[9].offset         = 6 * sizeof( float ) + 6 * sizeof( uint16_t );
+        instanceAttr[9].shaderLocation = 11;
+
+        instanceAttr[10].format         = wgpu::VertexFormat::Uint32;
+        instanceAttr[10].offset         = 6 * sizeof( float ) + 6 * sizeof( uint16_t ) + 4 * sizeof( uint8_t );
+        instanceAttr[10].shaderLocation = 12;
 
         vertexBufLayout[1].stepMode       = wgpu::VertexStepMode::Instance;
         vertexBufLayout[1].arrayStride    = sizeof( mc::Layer );
