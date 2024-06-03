@@ -167,11 +167,7 @@ namespace mc
 
     void drawUI( AppContext* app, const wgpu::RenderPassEncoder& renderPass )
     {
-        static bool show_test_window    = true;
-        static bool show_another_window = false;
-        static bool show_quit_dialog    = false;
-        static bool add_image           = false;
-        static float f                  = 0.0f;
+        static bool addImage = false;
 
         ImGui_ImplWGPU_NewFrame();
         ImGui_ImplSDL3_NewFrame();
@@ -188,21 +184,8 @@ namespace mc
         }
         ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate );
 
-        // 2. Show another simple window, this time using an explicit Begin/End pair
-        if( show_another_window )
-        {
-            ImGui::SetNextWindowSize( ImVec2( 200, 100 ), ImGuiCond_FirstUseEver );
-            ImGui::Begin( "Another Window", &show_another_window );
-            ImGui::Text( "Hello" );
-            ImGui::End();
-        }
-
-        // 3. Show the ImGui test window. Most of the sample code is in ImGui::ShowDemoWindow()
-        if( show_test_window )
-        {
-            ImGui::SetNextWindowPos( ImVec2( 460, 20 ), ImGuiCond_FirstUseEver );
-            ImGui::ShowDemoWindow();
-        }
+        ImGui::SetNextWindowPos( ImVec2( 460, 20 ), ImGuiCond_FirstUseEver );
+        ImGui::ShowDemoWindow();
 
         // 4. Prepare and conditionally open the "Really Quit?" popup
         if( ImGui::BeginPopupModal( "Really Quit?", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
@@ -222,11 +205,6 @@ namespace mc
             }
             ImGui::EndPopup();
         }
-        if( show_quit_dialog )
-        {
-            ImGui::OpenPopup( "Really Quit?" );
-            show_quit_dialog = false;
-        }
 
         ImGui::Begin( "Toolbox", nullptr,
                       ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar |
@@ -239,15 +217,15 @@ namespace mc
             ImGui::PushStyleColor( ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_Button] );
             if( ImGui::Button( ICON_LC_IMAGE_UP, ImVec2( 50, 50 ) ) )
             {
-                if( !add_image )
+                if( !addImage )
                 {
                     app->addLayer = true;
-                    add_image     = true;
+                    addImage      = true;
                 }
             }
             else
             {
-                add_image = false;
+                addImage = false;
             }
             ImGui::PopStyleColor( 1 );
             ImGui::PopID();
