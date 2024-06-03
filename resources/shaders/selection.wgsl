@@ -32,10 +32,10 @@ struct Selection {
 
 @group(0) @binding(0)
 var<uniform> uniforms: Uniforms;
-@group(0) @binding(1)
-var<storage,read_write> outBuffer: array<Selection>;
 
 @group(1) @binding(0)
+var<storage,read_write> outBuffer: array<Selection>;
+@group(1) @binding(1)
 var<storage, read> instBuff: array<InstanceInput>;
 
 fn barycentric(v1: vec4<f32>, v2: vec4<f32>, v3: vec4<f32>, p: vec2<f32>) -> vec3<f32> {

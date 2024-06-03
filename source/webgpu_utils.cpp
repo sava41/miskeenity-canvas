@@ -115,17 +115,12 @@ namespace mc
         vertexState.buffers       = vertexBufLayout.data();
 
         // Create global bind group layout
-        std::array<wgpu::BindGroupLayoutEntry, 2> globalGroupLayoutEntries;
+        std::array<wgpu::BindGroupLayoutEntry, 1> globalGroupLayoutEntries;
         globalGroupLayoutEntries[0].binding                 = 0;
         globalGroupLayoutEntries[0].visibility              = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Compute;
         globalGroupLayoutEntries[0].buffer.hasDynamicOffset = false;
         globalGroupLayoutEntries[0].buffer.type             = wgpu::BufferBindingType::Uniform;
         globalGroupLayoutEntries[0].buffer.minBindingSize   = sizeof( mc::Uniforms );
-
-        globalGroupLayoutEntries[1].binding                 = 1;
-        globalGroupLayoutEntries[1].visibility              = wgpu::ShaderStage::Fragment | wgpu::ShaderStage::Compute;
-        globalGroupLayoutEntries[1].buffer.hasDynamicOffset = false;
-        globalGroupLayoutEntries[1].buffer.type             = wgpu::BufferBindingType::Storage;
 
         wgpu::BindGroupLayoutDescriptor globalGroupLayoutDesc;
         globalGroupLayoutDesc.entryCount = static_cast<uint32_t>( globalGroupLayoutEntries.size() );
@@ -177,15 +172,10 @@ namespace mc
         app->selectionMapBuf         = app->device.CreateBuffer( &selectionOutputBufDesc );
 
         // Create the bind group for the uniform and shared buffers
-        std::array<wgpu::BindGroupEntry, 2> globalGroupEntries;
+        std::array<wgpu::BindGroupEntry, 1> globalGroupEntries;
         globalGroupEntries[0].binding = 0;
         globalGroupEntries[0].buffer  = app->viewParamBuf;
         globalGroupEntries[0].size    = uboBufDesc.size;
-
-        globalGroupEntries[1].binding = 1;
-        globalGroupEntries[1].buffer  = app->selectionBuf;
-        globalGroupEntries[1].offset  = 0;
-        globalGroupEntries[1].size    = selectionOutputBufDesc.size;
 
         wgpu::BindGroupDescriptor bindGroupDesc;
         bindGroupDesc.layout     = globalGroupLayout;
@@ -212,13 +202,19 @@ namespace mc
 
         wgpu::ShaderModule computeShaderModule = app->device.CreateShaderModule( &computeShaderModuleDesc );
 
-        std::array<wgpu::BindGroupLayoutEntry, 1> computeGroupLayoutEntries;
+        std::array<wgpu::BindGroupLayoutEntry, 2> computeGroupLayoutEntries;
 
         computeGroupLayoutEntries[0].binding                 = 0;
         computeGroupLayoutEntries[0].visibility              = wgpu::ShaderStage::Compute;
         computeGroupLayoutEntries[0].buffer.hasDynamicOffset = false;
-        computeGroupLayoutEntries[0].buffer.type             = wgpu::BufferBindingType::ReadOnlyStorage;
-        computeGroupLayoutEntries[0].buffer.minBindingSize   = sizeof( mc::Layer );
+        computeGroupLayoutEntries[0].buffer.type             = wgpu::BufferBindingType::Storage;
+        computeGroupLayoutEntries[0].buffer.minBindingSize   = sizeof( mc::Selection );
+
+        computeGroupLayoutEntries[1].binding                 = 1;
+        computeGroupLayoutEntries[1].visibility              = wgpu::ShaderStage::Compute;
+        computeGroupLayoutEntries[1].buffer.hasDynamicOffset = false;
+        computeGroupLayoutEntries[1].buffer.type             = wgpu::BufferBindingType::ReadOnlyStorage;
+        computeGroupLayoutEntries[1].buffer.minBindingSize   = sizeof( mc::Layer );
 
         wgpu::BindGroupLayoutDescriptor computeBindGroupLayoutDesc;
         computeBindGroupLayoutDesc.entryCount = static_cast<uint32_t>( computeGroupLayoutEntries.size() );
@@ -242,12 +238,17 @@ namespace mc
 
         app->selectionPipeline = app->device.CreateComputePipeline( &computePipelineDesc );
 
-        std::array<wgpu::BindGroupEntry, 1> computeGroupEntries;
+        std::array<wgpu::BindGroupEntry, 2> computeGroupEntries;
 
         computeGroupEntries[0].binding = 0;
-        computeGroupEntries[0].buffer  = app->layerBuf;
+        computeGroupEntries[0].buffer  = app->selectionBuf;
         computeGroupEntries[0].offset  = 0;
-        computeGroupEntries[0].size    = layerBufDesc.size;
+        computeGroupEntries[0].size    = selectionOutputBufDesc.size;
+
+        computeGroupEntries[1].binding = 1;
+        computeGroupEntries[1].buffer  = app->layerBuf;
+        computeGroupEntries[1].offset  = 0;
+        computeGroupEntries[1].size    = layerBufDesc.size;
 
         wgpu::BindGroupDescriptor computeBindGroupDesc;
         computeBindGroupDesc.layout     = computeGroupLayout;

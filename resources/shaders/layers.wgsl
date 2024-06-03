@@ -46,8 +46,6 @@ struct Selection {
 
 @group(0) @binding(0)
 var<uniform> uniforms: Uniforms;
-@group(0) @binding(1)
-var<storage,read_write> selectionData: array<Selection>;
 
 @vertex
 fn vs_main(vert: VertexInput, inst: InstanceInput) -> VertexOutput {
