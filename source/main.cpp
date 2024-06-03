@@ -421,7 +421,7 @@ int SDL_AppIterate( void* appstate )
     // previously requested computations have completed aka selection ready
     if( app->viewParams.selectDispatch != mc::SelectDispatch::None && app->selectionReady && app->layers.length() > 0 )
     {
-        encoder.ClearBuffer( app->selectionBuf, 0, app->layers.length() * sizeof( uint32_t ) );
+        encoder.ClearBuffer( app->selectionBuf, 0, app->layers.length() * sizeof( mc::Selection ) );
         wgpu::ComputePassEncoder computePass = encoder.BeginComputePass();
         computePass.SetPipeline( app->selectionPipeline );
         // figure out which things to bind;
@@ -431,7 +431,7 @@ int SDL_AppIterate( void* appstate )
         computePass.DispatchWorkgroups( ( app->layers.length() + 256 - 1 ) / 256, 1, 1 );
         computePass.End();
 
-        encoder.CopyBufferToBuffer( app->selectionBuf, 0, app->selectionMapBuf, 0, sizeof( float ) * mc::NumLayers );
+        encoder.CopyBufferToBuffer( app->selectionBuf, 0, app->selectionMapBuf, 0, app->layers.length() * sizeof( mc::Selection ) );
     }
 
     wgpu::CommandBufferDescriptor cmdBufferDescriptor;
@@ -456,7 +456,10 @@ int SDL_AppIterate( void* appstate )
             {
                 mc::AppContext* app = reinterpret_cast<mc::AppContext*>( userData );
                 const mc::Selection* selectionData =
-                    reinterpret_cast<const mc::Selection*>( ( app->selectionMapBuf.GetConstMappedRange( 0, sizeof( mc::Selection ) * app->layers.length() ) ) );
+                    reinterpret_cast<const mc::Selection*>( ( app->selectionMapBuf.GetConstMappedRange( 0, app->layers.length() * sizeof( mc::Selection ) ) ) );
+
+                if( selectionData == nullptr )
+                    return;
 
                 app->selectionBbox = glm::vec4( -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
                                                 std::numeric_limits<float>::max() );
@@ -495,7 +498,7 @@ int SDL_AppIterate( void* appstate )
                 app->selectionMapBuf.Unmap();
             }
         };
-        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, sizeof( float ) * mc::NumLayers, callback, app );
+        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, app->layers.length() * sizeof( mc::Selection ), callback, app );
     }
 
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )

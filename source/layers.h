@@ -8,6 +8,15 @@
 namespace mc
 {
 
+    enum LayerFlags : uint32_t
+    {
+        Selected        = 1 << 0,
+        HasColorTex     = 1 << 1,
+        HasAlphaTex     = 1 << 2,
+        HasSdfAlphaTex  = 1 << 3,
+        HasPillAlphaTex = 1 << 4
+    };
+
 #pragma pack( push, 4 )
     struct Layer
     {
@@ -64,15 +73,6 @@ namespace mc
         void scaleSelection( const glm::vec2& center, const glm::vec2& ammount );
 
       private:
-        enum LayerFlags : uint32_t
-        {
-            Selected        = 1 << 0,
-            HasColorTex     = 1 << 1,
-            HasAlphaTex     = 1 << 2,
-            HasSdfAlphaTex  = 1 << 3,
-            HasPillAlphaTex = 1 << 4
-        };
-
         size_t m_maxLength;
         size_t m_curLength;
         size_t m_numSelected;
