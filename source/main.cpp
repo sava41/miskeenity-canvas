@@ -353,28 +353,6 @@ int SDL_AppIterate( void* appstate )
     }
     app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &app->viewParams, sizeof( mc::Uniforms ) );
 
-    if( app->addLayer )
-    {
-        // temporary generate random color
-        const uint32_t a = 1664525;
-        const uint32_t c = 1013904223;
-
-        const uint32_t color = a * app->layers.length() + c;
-        const uint8_t red    = static_cast<uint8_t>( ( color >> 16 ) & 0xFF );
-        const uint8_t green  = static_cast<uint8_t>( ( color >> 8 ) & 0xFF );
-        const uint8_t blue   = static_cast<uint8_t>( color & 0xFF );
-
-        // place at screen center
-        glm::vec2 pos = ( glm::vec2( app->width / 2.0, app->height / 2.0 ) - app->viewParams.canvasPos ) / app->viewParams.scale;
-
-        app->layers.add(
-            { pos, glm::vec2( 100, 0 ), glm::vec2( 0, 100 ), glm::u16vec2( 0 ), glm::u16vec2( 0 ), 0, 0, glm::u8vec4( red, green, blue, 255 ), 0 } );
-
-        app->layersModified = true;
-
-        app->addLayer = false;
-    }
-
     if( app->layersModified )
     {
         app->device.GetQueue().WriteBuffer( app->layerBuf, 0, app->layers.data(), app->layers.length() * sizeof( mc::Layer ) );

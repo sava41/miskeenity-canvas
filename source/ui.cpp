@@ -2,6 +2,7 @@
 
 #include "app.h"
 #include "embedded_files.h"
+#include "image.h"
 #include "imgui_config.h"
 #include "lucide.h"
 
@@ -219,8 +220,8 @@ namespace mc
             {
                 if( !addImage )
                 {
-                    app->addLayer = true;
-                    addImage      = true;
+                    loadImageFromFile( app );
+                    addImage = true;
                 }
             }
             else

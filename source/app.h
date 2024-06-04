@@ -100,7 +100,6 @@ namespace mc
         bool updateView         = false;
         bool selectionReady     = true;
         bool layersModified     = true;
-        bool addLayer           = false;
         bool appQuit            = false;
         bool resetSwapchain     = false;
 
