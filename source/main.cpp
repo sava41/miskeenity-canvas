@@ -119,6 +119,7 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
 
     SDL_GetWindowSize( app->window, &app->width, &app->height );
     SDL_GetWindowSizeInPixels( app->window, &app->bbwidth, &app->bbheight );
+    app->dpiFactor = SDL_GetWindowDisplayScale( app->window );
     mc::initSwapChain( app );
 
     mc::initUI( app );
@@ -153,6 +154,11 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
         app->resetSwapchain = true;
+        break;
+    case SDL_EVENT_DISPLAY_CONTENT_SCALE_CHANGED:
+    case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
+        app->dpiFactor = SDL_GetWindowDisplayScale( app->window );
+        mc::setStylesUI( app->dpiFactor );
         break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
 

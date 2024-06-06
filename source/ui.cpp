@@ -14,95 +14,9 @@
 
 namespace mc
 {
-    void initUI( AppContext* app )
+    void setColorsUI()
     {
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO();
-        (void)io;
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
-
-        // configure fonts
-        ImFontConfig configRoboto;
-        configRoboto.FontDataOwnedByAtlas = false;
-        configRoboto.OversampleH          = 2;
-        configRoboto.OversampleV          = 2;
-        configRoboto.RasterizerMultiply   = 1.5f;
-        configRoboto.GlyphExtraSpacing    = ImVec2( 1.0f, 0 );
-        io.Fonts->AddFontFromMemoryTTF( const_cast<uint8_t*>( Roboto_ttf ), Roboto_ttf_size, 18.0f, &configRoboto );
-
-        ImFontConfig configLucide;
-        configLucide.FontDataOwnedByAtlas = false;
-        configLucide.OversampleH          = 2;
-        configLucide.OversampleV          = 2;
-        configLucide.MergeMode            = true;
-        configLucide.GlyphMinAdvanceX     = 24.0f; // Use if you want to make the icon monospaced
-        configLucide.GlyphOffset          = ImVec2( 0.0f, 5.8f );
-
-        // Specify which icons we use
-        // Need to specify or texture atlas will be too large and fail to upload to gpu on
-        // lower systems
-        ImFontGlyphRangesBuilder builder;
-        builder.AddText( ICON_LC_GITHUB );
-        builder.AddText( ICON_LC_IMAGE_UP );
-        builder.AddText( ICON_LC_IMAGE_DOWN );
-        builder.AddText( ICON_LC_ROTATE_CW );
-        builder.AddText( ICON_LC_ARROW_UP_NARROW_WIDE );
-        builder.AddText( ICON_LC_ARROW_DOWN_NARROW_WIDE );
-        builder.AddText( ICON_LC_FLIP_HORIZONTAL_2 );
-        builder.AddText( ICON_LC_FLIP_VERTICAL_2 );
-        builder.AddText( ICON_LC_BRUSH );
-        builder.AddText( ICON_LC_SQUARE_DASHED_MOUSE_POINTER );
-        builder.AddText( ICON_LC_TRASH_2 );
-        builder.AddText( ICON_LC_HAND );
-        builder.AddText( ICON_LC_MOUSE_POINTER );
-        builder.AddText( ICON_LC_UNDO );
-        builder.AddText( ICON_LC_REDO );
-        builder.AddText( ICON_LC_TYPE );
-        builder.AddText( ICON_LC_INFO );
-        builder.AddText( ICON_LC_CROP );
-
-        ImVector<ImWchar> iconRanges;
-        builder.BuildRanges( &iconRanges );
-
-        io.Fonts->AddFontFromMemoryTTF( const_cast<uint8_t*>( Lucide_ttf ), Lucide_ttf_size, 24.0f, &configLucide, iconRanges.Data );
-
-        io.Fonts->Build();
-
-        // add style
         ImGuiStyle& style = ImGui::GetStyle();
-
-        style.Alpha                     = 1.0f;
-        style.DisabledAlpha             = 1.0f;
-        style.WindowPadding             = ImVec2( 12.0f, 12.0f );
-        style.WindowRounding            = 3.0f;
-        style.WindowBorderSize          = 0.0f;
-        style.WindowMinSize             = ImVec2( 20.0f, 20.0f );
-        style.WindowTitleAlign          = ImVec2( 0.5f, 0.5f );
-        style.WindowMenuButtonPosition  = ImGuiDir_None;
-        style.ChildRounding             = 3.0f;
-        style.ChildBorderSize           = 1.0f;
-        style.PopupRounding             = 3.0f;
-        style.PopupBorderSize           = 1.0f;
-        style.FramePadding              = ImVec2( 6.0f, 6.0f );
-        style.FrameRounding             = 4.0f;
-        style.FrameBorderSize           = 0.0f;
-        style.ItemSpacing               = ImVec2( 12.0f, 6.0f );
-        style.ItemInnerSpacing          = ImVec2( 6.0f, 3.0f );
-        style.CellPadding               = ImVec2( 12.0f, 6.0f );
-        style.IndentSpacing             = 20.0f;
-        style.ColumnsMinSpacing         = 6.0f;
-        style.ScrollbarSize             = 12.0f;
-        style.ScrollbarRounding         = 3.0f;
-        style.GrabMinSize               = 12.0f;
-        style.GrabRounding              = 3.0f;
-        style.TabRounding               = 3.0f;
-        style.TabBorderSize             = 0.0f;
-        style.TabMinWidthForCloseButton = 0.0f;
-        style.ColorButtonPosition       = ImGuiDir_Right;
-        style.ButtonTextAlign           = ImVec2( 0.5f, 0.5f );
-        style.SelectableTextAlign       = ImVec2( 0.0f, 0.0f );
 
         style.Colors[ImGuiCol_Text]                  = ImVec4( 0.9490196108818054f, 0.95686274766922f, 0.9764705896377563f, 1.0f );
         style.Colors[ImGuiCol_TextDisabled]          = ImVec4( 0.4980392158031464f, 0.4980392158031464f, 0.4980392158031464f, 1.0f );
@@ -157,6 +71,106 @@ namespace mc
         style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4( 1.0f, 1.0f, 1.0f, 0.699999988079071f );
         style.Colors[ImGuiCol_NavWindowingDimBg]     = ImVec4( 0.800000011920929f, 0.800000011920929f, 0.800000011920929f, 0.2000000029802322f );
         style.Colors[ImGuiCol_ModalWindowDimBg]      = ImVec4( 0.800000011920929f, 0.800000011920929f, 0.800000011920929f, 0.3499999940395355f );
+    }
+
+    void setStylesUI( float dpiFactor )
+    {
+        ImGuiStyle& style = ImGui::GetStyle();
+
+        style.Alpha                     = 1.0f;
+        style.DisabledAlpha             = 1.0f;
+        style.WindowPadding             = ImVec2( 12.0f, 12.0f );
+        style.WindowRounding            = 3.0f;
+        style.WindowBorderSize          = 0.0f;
+        style.WindowMinSize             = ImVec2( 20.0f, 20.0f );
+        style.WindowTitleAlign          = ImVec2( 0.5f, 0.5f );
+        style.WindowMenuButtonPosition  = ImGuiDir_None;
+        style.ChildRounding             = 3.0f;
+        style.ChildBorderSize           = 1.0f;
+        style.PopupRounding             = 3.0f;
+        style.PopupBorderSize           = 1.0f;
+        style.FramePadding              = ImVec2( 6.0f, 6.0f );
+        style.FrameRounding             = 4.0f;
+        style.FrameBorderSize           = 0.0f;
+        style.ItemSpacing               = ImVec2( 12.0f, 6.0f );
+        style.ItemInnerSpacing          = ImVec2( 6.0f, 3.0f );
+        style.CellPadding               = ImVec2( 12.0f, 6.0f );
+        style.IndentSpacing             = 20.0f;
+        style.ColumnsMinSpacing         = 6.0f;
+        style.ScrollbarSize             = 12.0f;
+        style.ScrollbarRounding         = 3.0f;
+        style.GrabMinSize               = 12.0f;
+        style.GrabRounding              = 3.0f;
+        style.TabRounding               = 3.0f;
+        style.TabBorderSize             = 0.0f;
+        style.TabMinWidthForCloseButton = 0.0f;
+        style.ColorButtonPosition       = ImGuiDir_Right;
+        style.ButtonTextAlign           = ImVec2( 0.5f, 0.5f );
+        style.SelectableTextAlign       = ImVec2( 0.0f, 0.0f );
+
+        style.ScaleAllSizes( dpiFactor );
+
+        ImGui::GetIO().Fonts->Clear();
+
+        // configure fonts
+        ImFontConfig configRoboto;
+        configRoboto.FontDataOwnedByAtlas = false;
+        configRoboto.OversampleH          = 2;
+        configRoboto.OversampleV          = 2;
+        configRoboto.RasterizerMultiply   = 1.5f;
+        configRoboto.GlyphExtraSpacing    = ImVec2( 1.0f, 0 );
+        ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<uint8_t*>( Roboto_ttf ), Roboto_ttf_size, 16.0f * dpiFactor, &configRoboto );
+
+        ImFontConfig configLucide;
+        configLucide.FontDataOwnedByAtlas = false;
+        configLucide.OversampleH          = 2;
+        configLucide.OversampleV          = 2;
+        configLucide.MergeMode            = true;
+        configLucide.GlyphMinAdvanceX     = 24.0f * dpiFactor; // Use if you want to make the icon monospaced
+
+        // The calculation to get these glyphs perfectly centered on the y axis doesnt make sense but it works
+        configLucide.GlyphOffset = ImVec2( 0.0f, 11.0f * dpiFactor - 5.8f );
+
+        // Specify which icons we use
+        // Need to specify or texture atlas will be too large and fail to upload to gpu on
+        // lower end systems
+        ImFontGlyphRangesBuilder builder;
+        builder.AddText( ICON_LC_GITHUB );
+        builder.AddText( ICON_LC_IMAGE_UP );
+        builder.AddText( ICON_LC_IMAGE_DOWN );
+        builder.AddText( ICON_LC_ROTATE_CW );
+        builder.AddText( ICON_LC_ARROW_UP_NARROW_WIDE );
+        builder.AddText( ICON_LC_ARROW_DOWN_NARROW_WIDE );
+        builder.AddText( ICON_LC_FLIP_HORIZONTAL_2 );
+        builder.AddText( ICON_LC_FLIP_VERTICAL_2 );
+        builder.AddText( ICON_LC_BRUSH );
+        builder.AddText( ICON_LC_SQUARE_DASHED_MOUSE_POINTER );
+        builder.AddText( ICON_LC_TRASH_2 );
+        builder.AddText( ICON_LC_HAND );
+        builder.AddText( ICON_LC_MOUSE_POINTER );
+        builder.AddText( ICON_LC_UNDO );
+        builder.AddText( ICON_LC_REDO );
+        builder.AddText( ICON_LC_TYPE );
+        builder.AddText( ICON_LC_INFO );
+        builder.AddText( ICON_LC_CROP );
+
+        ImVector<ImWchar> iconRanges;
+        builder.BuildRanges( &iconRanges );
+
+        ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<uint8_t*>( Lucide_ttf ), Lucide_ttf_size, 24.0f * dpiFactor, &configLucide, iconRanges.Data );
+
+        ImGui::GetIO().Fonts->Build();
+    }
+
+    void initUI( AppContext* app )
+    {
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+
+        setColorsUI();
+        setStylesUI( app->dpiFactor );
 
         ImGui_ImplSDL3_InitForOther( app->window );
 
@@ -175,15 +189,13 @@ namespace mc
 
         ImGui::NewFrame();
 
-        ImGui::Text( "width: %d, height: %d, dpi: %.1f scale:%.1f\n pos x:%.1f\n pos y:%.1f\n", app->width, app->height,
-                     static_cast<float>( app->width ) / static_cast<float>( app->bbwidth ), app->viewParams.scale, app->viewParams.mousePos.x,
-                     app->viewParams.mousePos.y );
-        ImGui::Text( "NOTE: programmatic quit isn't supported on mobile" );
+        ImGui::Text( "Width: %d, Height: %d, Dpi factor: %.1f", app->width, app->height, app->dpiFactor );
+        ImGui::Text( "Mouse x:%.1f Mouse y:%.1f Zoom:%.1f\n", app->viewParams.mousePos.x, app->viewParams.mousePos.y, app->viewParams.scale );
+        ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate );
         if( ImGui::Button( "Hard Quit" ) )
         {
             app->appQuit = true;
         }
-        ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate );
 
         ImGui::SetNextWindowPos( ImVec2( 460, 20 ), ImGuiCond_FirstUseEver );
         ImGui::ShowDemoWindow();
@@ -211,12 +223,14 @@ namespace mc
                       ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar |
                           ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoBringToFrontOnFocus );
         {
-            ImGui::SetWindowPos( ImVec2( 10, 10 ) );
-            ImGui::SetWindowSize( ImVec2( 80, 300 ) );
+            ImGui::SetWindowPos( glm::vec2( 10 ) * app->dpiFactor );
+            ImGui::SetWindowSize( glm::vec2( 80, 300 ) * app->dpiFactor );
+
+            const glm::vec2 buttonSize = glm::vec2( 50 ) * app->dpiFactor;
 
             ImGui::PushID( "Upload Image Button" );
             ImGui::PushStyleColor( ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_Button] );
-            if( ImGui::Button( ICON_LC_IMAGE_UP, ImVec2( 50, 50 ) ) )
+            if( ImGui::Button( ICON_LC_IMAGE_UP, buttonSize ) )
             {
                 if( !addImage )
                 {
@@ -244,7 +258,7 @@ namespace mc
                 }
 
                 ImGui::PushStyleColor( ImGuiCol_Button, color );
-                if( ImGui::Button( tools[i].c_str(), ImVec2( 50, 50 ) ) && states[i] != State::Other )
+                if( ImGui::Button( tools[i].c_str(), buttonSize ) && states[i] != State::Other )
                 {
                     app->state = states[i];
                 }
@@ -274,29 +288,33 @@ namespace mc
 
             ImU32 color = ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
 
-            drawList->AddRect( cornerTL, cornerBR, color );
-            drawList->AddLine( rotHandlePos, ImVec2( screenSpaceCenterX, cornerTR.y ), color );
+            drawList->AddRect( cornerTL, cornerBR, color, 0.0, 0, ceilf( app->dpiFactor ) );
+            drawList->AddLine( rotHandlePos, ImVec2( screenSpaceCenterX, cornerTR.y ), color, ceilf( app->dpiFactor ) );
 
             color = glm::distance( app->mouseWindowPos, rotHandlePos ) < HandleHalfSize
                         ? ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_PlotLinesHovered] )
                         : ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
-            drawList->AddCircleFilled( rotHandlePos, HandleHalfSize, color );
+            drawList->AddCircleFilled( rotHandlePos, HandleHalfSize * app->dpiFactor, color );
 
-            color = glm::distance( app->mouseWindowPos, cornerBR ) < HandleHalfSize ? ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_PlotLinesHovered] )
-                                                                                    : ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
-            drawList->AddCircleFilled( cornerBR, HandleHalfSize, color );
+            color = glm::distance( app->mouseWindowPos, cornerBR ) < HandleHalfSize * app->dpiFactor
+                        ? ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_PlotLinesHovered] )
+                        : ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
+            drawList->AddCircleFilled( cornerBR, HandleHalfSize * app->dpiFactor, color );
 
-            color = glm::distance( app->mouseWindowPos, cornerBL ) < HandleHalfSize ? ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_PlotLinesHovered] )
-                                                                                    : ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
-            drawList->AddCircleFilled( cornerBL, HandleHalfSize, color );
+            color = glm::distance( app->mouseWindowPos, cornerBL ) < HandleHalfSize * app->dpiFactor
+                        ? ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_PlotLinesHovered] )
+                        : ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
+            drawList->AddCircleFilled( cornerBL, HandleHalfSize * app->dpiFactor, color );
 
-            color = glm::distance( app->mouseWindowPos, cornerTR ) < HandleHalfSize ? ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_PlotLinesHovered] )
-                                                                                    : ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
-            drawList->AddCircleFilled( cornerTR, HandleHalfSize, color );
+            color = glm::distance( app->mouseWindowPos, cornerTR ) < HandleHalfSize * app->dpiFactor
+                        ? ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_PlotLinesHovered] )
+                        : ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
+            drawList->AddCircleFilled( cornerTR, HandleHalfSize * app->dpiFactor, color );
 
-            color = glm::distance( app->mouseWindowPos, cornerTL ) < HandleHalfSize ? ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_PlotLinesHovered] )
-                                                                                    : ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
-            drawList->AddCircleFilled( cornerTL, HandleHalfSize, color );
+            color = glm::distance( app->mouseWindowPos, cornerTL ) < HandleHalfSize * app->dpiFactor
+                        ? ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_PlotLinesHovered] )
+                        : ImGui::GetColorU32( ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] );
+            drawList->AddCircleFilled( cornerTL, HandleHalfSize * app->dpiFactor, color );
         }
 
         ImGui::EndFrame();

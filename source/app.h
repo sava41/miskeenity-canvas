@@ -67,6 +67,7 @@ namespace mc
         int height;
         int bbwidth;
         int bbheight;
+        float dpiFactor = 1.0f;
 
         wgpu::Instance instance;
         wgpu::Surface surface;
