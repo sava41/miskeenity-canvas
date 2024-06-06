@@ -1,6 +1,7 @@
 #include "image.h"
 
 #include "app.h"
+#include "webgpu_utils.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_dialog.h>
@@ -27,11 +28,20 @@ namespace mc
                 if( filelist && filelist[0] )
                 {
                     int width, height, channels;
-                    unsigned char* image = stbi_load( filelist[0], &width, &height, &channels, 0 );
+                    unsigned char* image = stbi_load( filelist[0], &width, &height, &channels, 4 );
 
                     if( image != nullptr )
                     {
-                        SDL_Log( "loaded image `%s` with width %d and height %d", filelist[0], width, height );
+                        if( app->textureData != nullptr )
+                        {
+                            stbi_image_free( app->textureData );
+                            app->textureData = nullptr;
+                        }
+
+                        app->textureData = image;
+
+                        createTexture( app, width, height );
+                        uploadTexture( app->device.GetQueue(), app->texture, app->textureData, width, height, 4 );
 
                         // temporary generate random color
                         const uint32_t a = 1664525;
@@ -47,9 +57,10 @@ namespace mc
                         app->layers.add( { pos, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( 0 ), 0, 0,
                                            glm::u8vec4( red, green, blue, 255 ), 0 } );
 
-                        stbi_image_free( image );
 
                         app->layersModified = true;
+
+                        SDL_Log( "loaded image `%s` with width %d and height %d", filelist[0], width, height );
                     }
                 }
             },

@@ -288,6 +288,8 @@ int SDL_AppIterate( void* appstate )
 
         app->viewParams.proj = glm::mat4( 2.0 / ( r - l ), 0.0, 0.0, ( r + l ) / ( l - r ), 0.0, 2.0 / ( t - b ), 0.0, ( t + b ) / ( b - t ), 0.0, 0.0, 0.5,
                                           0.5, 0.0, 0.0, 0.0, 1.0 );
+
+        app->updateView = false;
     }
 
     if( app->state == mc::State::Cursor && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
@@ -356,6 +358,7 @@ int SDL_AppIterate( void* appstate )
     if( app->layersModified )
     {
         app->device.GetQueue().WriteBuffer( app->layerBuf, 0, app->layers.data(), app->layers.length() * sizeof( mc::Layer ) );
+        app->layersModified = false;
     }
 
     wgpu::TextureView nextTexture = app->swapchain.GetCurrentTextureView();
@@ -387,7 +390,8 @@ int SDL_AppIterate( void* appstate )
         renderPassEnc.SetPipeline( app->mainPipeline );
         renderPassEnc.SetVertexBuffer( 0, app->vertexBuf );
         renderPassEnc.SetVertexBuffer( 1, app->layerBuf );
-        renderPassEnc.SetBindGroup( 0, app->bindGroup );
+        renderPassEnc.SetBindGroup( 0, app->globalBindGroup );
+        renderPassEnc.SetBindGroup( 1, app->mainBindGroup );
         renderPassEnc.Draw( 6, app->layers.length(), 0, 0 );
     }
 
@@ -400,14 +404,13 @@ int SDL_AppIterate( void* appstate )
     if( app->viewParams.selectDispatch != mc::SelectDispatch::None && app->selectionReady && app->layers.length() > 0 )
     {
         encoder.ClearBuffer( app->selectionBuf, 0, app->layers.length() * sizeof( mc::Selection ) );
-        wgpu::ComputePassEncoder computePass = encoder.BeginComputePass();
-        computePass.SetPipeline( app->selectionPipeline );
-        // figure out which things to bind;
-        computePass.SetBindGroup( 0, app->bindGroup );
-        computePass.SetBindGroup( 1, app->selectionBindGroup );
+        wgpu::ComputePassEncoder computePassEnc = encoder.BeginComputePass();
+        computePassEnc.SetPipeline( app->selectionPipeline );
+        computePassEnc.SetBindGroup( 0, app->globalBindGroup );
+        computePassEnc.SetBindGroup( 1, app->selectionBindGroup );
 
-        computePass.DispatchWorkgroups( ( app->layers.length() + 256 - 1 ) / 256, 1, 1 );
-        computePass.End();
+        computePassEnc.DispatchWorkgroups( ( app->layers.length() + 256 - 1 ) / 256, 1, 1 );
+        computePassEnc.End();
 
         encoder.CopyBufferToBuffer( app->selectionBuf, 0, app->selectionMapBuf, 0, app->layers.length() * sizeof( mc::Selection ) );
     }
@@ -419,10 +422,8 @@ int SDL_AppIterate( void* appstate )
     app->device.GetQueue().Submit( 1, &command );
 
     // Reset
-    app->mouseDelta     = glm::vec2( 0.0 );
-    app->scrollDelta    = glm::vec2( 0.0 );
-    app->updateView     = false;
-    app->layersModified = false;
+    app->mouseDelta  = glm::vec2( 0.0 );
+    app->scrollDelta = glm::vec2( 0.0 );
 
     if( app->viewParams.selectDispatch != mc::SelectDispatch::None && app->selectionReady && app->layers.length() > 0 )
     {

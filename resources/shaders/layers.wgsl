@@ -47,6 +47,9 @@ struct Selection {
 @group(0) @binding(0)
 var<uniform> uniforms: Uniforms;
 
+@group(1) @binding(0) var textureSampler: sampler;
+@group(1) @binding(1) var texture: texture_2d<f32>;
+
 @vertex
 fn vs_main(vert: VertexInput, inst: InstanceInput) -> VertexOutput {
     var out: VertexOutput;
@@ -68,5 +71,7 @@ fn vs_main(vert: VertexInput, inst: InstanceInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return in.color;
+    let texColor = textureSample(texture, textureSampler, in.uv).rgb;
+
+    return vec4f(texColor, in.color.a);
 }

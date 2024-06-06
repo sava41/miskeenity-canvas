@@ -114,6 +114,20 @@ namespace mc
         vertexState.constantCount = 0;
         vertexState.buffers       = vertexBufLayout.data();
 
+        // Create texture sampler
+        wgpu::SamplerDescriptor samplerDesc;
+        samplerDesc.addressModeU  = wgpu::AddressMode::Repeat;
+        samplerDesc.addressModeV  = wgpu::AddressMode::Repeat;
+        samplerDesc.addressModeW  = wgpu::AddressMode::Repeat;
+        samplerDesc.magFilter     = wgpu::FilterMode::Linear;
+        samplerDesc.minFilter     = wgpu::FilterMode::Linear;
+        samplerDesc.mipmapFilter  = wgpu::MipmapFilterMode::Linear;
+        samplerDesc.lodMinClamp   = 0.0f;
+        samplerDesc.lodMaxClamp   = 8.0f;
+        samplerDesc.compare       = wgpu::CompareFunction::Undefined;
+        samplerDesc.maxAnisotropy = 1;
+        app->sampler              = app->device.CreateSampler( &samplerDesc );
+
         // Create global bind group layout
         std::array<wgpu::BindGroupLayoutEntry, 1> globalGroupLayoutEntries;
         globalGroupLayoutEntries[0].binding                 = 0;
@@ -128,10 +142,30 @@ namespace mc
 
         wgpu::BindGroupLayout globalGroupLayout = app->device.CreateBindGroupLayout( &globalGroupLayoutDesc );
 
+        // Create main bind group layout
+        std::array<wgpu::BindGroupLayoutEntry, 2> mainGroupLayoutEntries;
+
+        mainGroupLayoutEntries[0].binding      = 0;
+        mainGroupLayoutEntries[0].visibility   = wgpu::ShaderStage::Fragment;
+        mainGroupLayoutEntries[0].sampler.type = wgpu::SamplerBindingType::Filtering;
+
+        mainGroupLayoutEntries[1].binding               = 1;
+        mainGroupLayoutEntries[1].visibility            = wgpu::ShaderStage::Fragment;
+        mainGroupLayoutEntries[1].texture.sampleType    = wgpu::TextureSampleType::Float;
+        mainGroupLayoutEntries[1].texture.viewDimension = wgpu::TextureViewDimension::e2D;
+
+        wgpu::BindGroupLayoutDescriptor mainGroupLayoutDesc;
+        mainGroupLayoutDesc.entryCount = static_cast<uint32_t>( mainGroupLayoutEntries.size() );
+        mainGroupLayoutDesc.entries    = mainGroupLayoutEntries.data();
+
+        wgpu::BindGroupLayout mainGroupLayout = app->device.CreateBindGroupLayout( &mainGroupLayoutDesc );
+
         // Create main pipeline
+        std::array<wgpu::BindGroupLayout, 2> mainBindGroupLayouts = { globalGroupLayout, mainGroupLayout };
+
         wgpu::PipelineLayoutDescriptor pipelineLayoutDesc;
-        pipelineLayoutDesc.bindGroupLayoutCount = 1;
-        pipelineLayoutDesc.bindGroupLayouts     = &globalGroupLayout;
+        pipelineLayoutDesc.bindGroupLayoutCount = static_cast<uint32_t>( mainBindGroupLayouts.size() );
+        pipelineLayoutDesc.bindGroupLayouts     = mainBindGroupLayouts.data();
 
         wgpu::PipelineLayout pipelineLayout = app->device.CreatePipelineLayout( &pipelineLayoutDesc );
 
@@ -182,15 +216,21 @@ namespace mc
         bindGroupDesc.entryCount = static_cast<uint32_t>( globalGroupEntries.size() );
         bindGroupDesc.entries    = globalGroupEntries.data();
 
-        app->bindGroup = app->device.CreateBindGroup( &bindGroupDesc );
+        app->globalBindGroup = app->device.CreateBindGroup( &bindGroupDesc );
 
         // Create layer quad vertex buffer
+        const std::vector<float> SquareVertexData{
+            -0.5, -0.5, 0.0, 0.0, +0.5, -0.5, 1.0, 0.0, +0.5, +0.5, 1.0, 1.0,
+
+            -0.5, -0.5, 0.0, 0.0, +0.5, +0.5, 1.0, 1.0, -0.5, +0.5, 0.0, 1.0,
+        };
+
         wgpu::BufferDescriptor bufferDesc;
         bufferDesc.mappedAtCreation = true;
-        bufferDesc.size             = mc::SquareVertexData.size() * sizeof( float );
+        bufferDesc.size             = SquareVertexData.size() * sizeof( float );
         bufferDesc.usage            = wgpu::BufferUsage::Vertex;
         app->vertexBuf              = app->device.CreateBuffer( &bufferDesc );
-        std::memcpy( app->vertexBuf.GetMappedRange(), mc::SquareVertexData.data(), bufferDesc.size );
+        std::memcpy( app->vertexBuf.GetMappedRange(), SquareVertexData.data(), bufferDesc.size );
         app->vertexBuf.Unmap();
 
         // Set up compute shader used to compute selection
@@ -271,6 +311,94 @@ namespace mc
         app->swapchain = app->device.CreateSwapChain( app->surface, &swapChainDesc );
 
         app->updateView = true;
+    }
+
+    void createTexture( mc::AppContext* app, int width, int height )
+    {
+        if( app->texture )
+        {
+            app->texture.Release();
+        }
+
+        if( app->textureView )
+        {
+            app->textureView.Release();
+        }
+
+        wgpu::TextureDescriptor textureDesc;
+        textureDesc.dimension       = wgpu::TextureDimension::e2D;
+        textureDesc.format          = wgpu::TextureFormat::RGBA8Unorm;
+        textureDesc.size            = { (unsigned int)width, (unsigned int)height, 1 };
+        textureDesc.mipLevelCount   = 1;
+        textureDesc.sampleCount     = 1;
+        textureDesc.usage           = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
+        textureDesc.viewFormatCount = 0;
+        textureDesc.viewFormats     = nullptr;
+        app->texture                = app->device.CreateTexture( &textureDesc );
+
+        wgpu::TextureViewDescriptor textureViewDesc;
+        textureViewDesc.aspect          = wgpu::TextureAspect::All;
+        textureViewDesc.baseArrayLayer  = 0;
+        textureViewDesc.arrayLayerCount = 1;
+        textureViewDesc.baseMipLevel    = 0;
+        textureViewDesc.mipLevelCount   = textureDesc.mipLevelCount;
+        textureViewDesc.dimension       = wgpu::TextureViewDimension::e2D;
+        textureViewDesc.format          = textureDesc.format;
+        app->textureView                = app->texture.CreateView( &textureViewDesc );
+
+        // Create layout descriptor
+        std::array<wgpu::BindGroupLayoutEntry, 2> mainGroupLayoutEntries;
+
+        mainGroupLayoutEntries[0].binding      = 0;
+        mainGroupLayoutEntries[0].visibility   = wgpu::ShaderStage::Fragment;
+        mainGroupLayoutEntries[0].sampler.type = wgpu::SamplerBindingType::Filtering;
+
+        mainGroupLayoutEntries[1].binding               = 1;
+        mainGroupLayoutEntries[1].visibility            = wgpu::ShaderStage::Fragment;
+        mainGroupLayoutEntries[1].texture.sampleType    = wgpu::TextureSampleType::Float;
+        mainGroupLayoutEntries[1].texture.viewDimension = wgpu::TextureViewDimension::e2D;
+
+        wgpu::BindGroupLayoutDescriptor mainGroupLayoutDesc;
+        mainGroupLayoutDesc.entryCount = static_cast<uint32_t>( mainGroupLayoutEntries.size() );
+        mainGroupLayoutDesc.entries    = mainGroupLayoutEntries.data();
+
+        wgpu::BindGroupLayout mainGroupLayout = app->device.CreateBindGroupLayout( &mainGroupLayoutDesc );
+
+        // Create the bind group for the main pipeline
+        std::array<wgpu::BindGroupEntry, 2> mainGroupEntries;
+        mainGroupEntries[0].binding = 0;
+        mainGroupEntries[0].sampler = app->sampler;
+
+        mainGroupEntries[1].binding     = 1;
+        mainGroupEntries[1].textureView = app->textureView;
+
+        wgpu::BindGroupDescriptor mainBindGroupDesc;
+        mainBindGroupDesc.layout     = mainGroupLayout;
+        mainBindGroupDesc.entryCount = static_cast<uint32_t>( mainGroupEntries.size() );
+        mainBindGroupDesc.entries    = mainGroupEntries.data();
+
+        app->mainBindGroup = app->device.CreateBindGroup( &mainBindGroupDesc );
+    }
+
+    void uploadTexture( const wgpu::Queue& queue, const wgpu::Texture& texture, void* data, int width, int height, int channels )
+    {
+        wgpu::ImageCopyTexture imageCopyTexture;
+        imageCopyTexture.texture  = texture;
+        imageCopyTexture.mipLevel = 0;
+        imageCopyTexture.origin   = { 0, 0, 0 };
+        imageCopyTexture.aspect   = wgpu::TextureAspect::All;
+
+        wgpu::TextureDataLayout textureDataLayout;
+        textureDataLayout.offset       = 0;
+        textureDataLayout.bytesPerRow  = width * 4;
+        textureDataLayout.rowsPerImage = height;
+
+        wgpu::Extent3D writeSize;
+        writeSize.width              = width;
+        writeSize.height             = height;
+        writeSize.depthOrArrayLayers = 1;
+
+        queue.WriteTexture( &imageCopyTexture, data, width * height * channels * sizeof( uint8_t ), &textureDataLayout, &writeSize );
     }
 
     wgpu::Device requestDevice( const wgpu::Adapter& adapter, const wgpu::DeviceDescriptor* descriptor )

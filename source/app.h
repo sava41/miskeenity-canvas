@@ -59,12 +59,6 @@ namespace mc
     // Total size must be a multiple of the alignment size of its largest element
     static_assert( sizeof( Uniforms ) % sizeof( glm::mat4 ) == 0 );
 
-    const std::vector<float> SquareVertexData{
-        -0.5, -0.5, 0.0, 1.0, +0.5, -0.5, 1.0, 1.0, +0.5, +0.5, 0.0, 0.0,
-
-        -0.5, -0.5, 0.0, 1.0, +0.5, +0.5, 0.0, 0.0, -0.5, +0.5, 1.0, 0.0,
-    };
-
     struct AppContext
     {
         SDL_Window* window;
@@ -89,8 +83,12 @@ namespace mc
         wgpu::Buffer viewParamBuf;
         wgpu::Buffer selectionBuf;
         wgpu::Buffer selectionMapBuf;
-        wgpu::BindGroup bindGroup;
+        wgpu::BindGroup globalBindGroup;
         wgpu::BindGroup selectionBindGroup;
+        wgpu::BindGroup mainBindGroup;
+        wgpu::Sampler sampler;
+        wgpu::Texture texture;
+        wgpu::TextureView textureView;
 
         Uniforms viewParams;
 
@@ -114,6 +112,8 @@ namespace mc
         glm::vec2 selectionCenter = glm::vec2( 0.0 );
 
         Layers layers = mc::Layers( NumLayers );
+
+        unsigned char* textureData = nullptr;
     };
 
 } // namespace mc
