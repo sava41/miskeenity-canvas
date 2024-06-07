@@ -175,23 +175,23 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
 
             glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerTR.y - mc::RotateHandleHeight );
 
-            if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, rotHandlePos ) < mc::HandleHalfSize )
+            if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, rotHandlePos ) < mc::HandleHalfSize * app->dpiFactor )
             {
                 app->dragType = mc::CursorDragType::Rotate;
             }
-            else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerTL ) < mc::HandleHalfSize )
+            else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerTL ) < mc::HandleHalfSize * app->dpiFactor )
             {
                 app->dragType = mc::CursorDragType::ScaleTL;
             }
-            else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerBR ) < mc::HandleHalfSize )
+            else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerBR ) < mc::HandleHalfSize * app->dpiFactor )
             {
                 app->dragType = mc::CursorDragType::ScaleBR;
             }
-            else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerTR ) < mc::HandleHalfSize )
+            else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerTR ) < mc::HandleHalfSize * app->dpiFactor )
             {
                 app->dragType = mc::CursorDragType::ScaleTR;
             }
-            else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerBL ) < mc::HandleHalfSize )
+            else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerBL ) < mc::HandleHalfSize * app->dpiFactor )
             {
                 app->dragType = mc::CursorDragType::ScaleBL;
             }
