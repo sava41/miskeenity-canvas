@@ -23,7 +23,7 @@ struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) uv: vec2<f32>,
     @location(1) color: vec4<f32>,
-    @location(2) @interpolate(flat) inst: u32,
+    @location(2) @interpolate(flat) flags: u32,
 };
 
 struct Uniforms {
@@ -34,14 +34,6 @@ struct Uniforms {
     windowSize: vec2<u32>,
     scale: f32,
     selectType: u32,
-};
-
-struct Selection {
-    bboxMaxX: f32,
-    bboxMaxY: f32,
-    bboxMinX: f32,
-    bboxMinY: f32,
-    flags: u32,
 };
 
 @group(0) @binding(0)
@@ -61,10 +53,9 @@ fn vs_main(vert: VertexInput, inst: InstanceInput) -> VertexOutput {
 
     out.position = vec4<f32>(vert.position, 0.0, 1.0) * model * uniforms.proj ;
     out.uv = vert.uv;
-    out.inst = vert.instanceId;
+    out.flags = inst.flags;
 
-    out.color = vec4<f32>(f32(inst.color.r) / 255.0, f32(inst.color.g) / 255.0, f32(inst.color.b) / 255.0, 1.0) +
-                (vec4<f32>(vert.uv, 1.0, 1.0) * 0.3 - 0.15) * f32(inst.flags & 1);
+    out.color = vec4<f32>(f32(inst.color.r) / 255.0, f32(inst.color.g) / 255.0, f32(inst.color.b) / 255.0, 1.0);
 
     return out;
 }
@@ -72,6 +63,7 @@ fn vs_main(vert: VertexInput, inst: InstanceInput) -> VertexOutput {
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let texColor = textureSample(texture, textureSampler, in.uv).rgb;
+    let selectColor = f32(modf(in.position.x / f32(15.0) + f32(modf(in.position.y / f32(15.0)).whole % 2)).whole % 2);
 
-    return vec4f(texColor, in.color.a);
+    return vec4<f32>(texColor + vec3<f32>(selectColor * 0.1 - 0.05) * f32(in.flags & 1), in.color.a);
 }
