@@ -4,26 +4,43 @@
 namespace Spectrum
 {
 
-    namespace
+    constexpr float ColorR( unsigned int c )
     {
-        unsigned int Color( unsigned int c )
-        {
-            // add alpha.
-            // also swap red and blue channel for some reason.
-            // todo: figure out why, and fix it.
-            const short a = 0xFF;
-            const short r = ( c >> 16 ) & 0xFF;
-            const short g = ( c >> 8 ) & 0xFF;
-            const short b = ( c >> 0 ) & 0xFF;
-            return ( a << 24 ) | ( r << 0 ) | ( g << 8 ) | ( b << 16 );
-        }
-    } // namespace
+        float s = 1.0f / 255.0f;
+        return ( ( c >> 0 ) & 0xFF ) * s;
+    }
+
+    constexpr float ColorG( unsigned int c )
+    {
+        float s = 1.0f / 255.0f;
+        return ( ( c >> 8 ) & 0xFF ) * s;
+    }
+
+    constexpr float ColorB( unsigned int c )
+    {
+        float s = 1.0f / 255.0f;
+        return ( ( c >> 16 ) & 0xFF ) * s;
+    }
+
+
+    constexpr int Color( unsigned int c )
+    {
+        // add alpha.
+        // also swap red and blue channel for some reason.
+        // todo: figure out why, and fix it.
+        const short a = 0xFF;
+        const short r = ( c >> 16 ) & 0xFF;
+        const short g = ( c >> 8 ) & 0xFF;
+        const short b = ( c >> 0 ) & 0xFF;
+        return ( a << 24 ) | ( r << 0 ) | ( g << 8 ) | ( b << 16 );
+    }
 
     namespace Static
     {                                              // static colors
         const unsigned int NONE      = 0x00000000; // transparent
         const unsigned int WHITE     = Color( 0xFFFFFF );
         const unsigned int BLACK     = Color( 0x000000 );
+        const unsigned int BONE      = Color( 0xF0EDE5 );
         const unsigned int GRAY200   = Color( 0xF4F4F4 );
         const unsigned int GRAY300   = Color( 0xEAEAEA );
         const unsigned int GRAY400   = Color( 0xD3D3D3 );

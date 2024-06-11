@@ -13,6 +13,7 @@
 #endif
 
 #include "app.h"
+#include "color_theme.h"
 #include "embedded_files.h"
 #include "layers.h"
 #include "ui.h"
@@ -383,7 +384,10 @@ int SDL_AppIterate( void* appstate )
 
     wgpu::RenderPassColorAttachment renderPassColorAttachment;
     renderPassColorAttachment.view = nextTexture, renderPassColorAttachment.loadOp = wgpu::LoadOp::Clear,
-    renderPassColorAttachment.storeOp = wgpu::StoreOp::Store, renderPassColorAttachment.clearValue = wgpu::Color{ 0.949f, 0.929f, 0.898f, 1.0f };
+    renderPassColorAttachment.storeOp = wgpu::StoreOp::Store, renderPassColorAttachment.storeOp = wgpu::StoreOp::Store,
+    renderPassColorAttachment.clearValue =
+        wgpu::Color{ Spectrum::ColorR( Spectrum::Static::BONE ), Spectrum::ColorG( Spectrum::Static::BONE ), Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f };
+
 
     wgpu::RenderPassDescriptor renderPassDesc;
     renderPassDesc.colorAttachmentCount = 1;

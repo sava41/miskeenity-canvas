@@ -21,52 +21,49 @@ namespace mc
 
         ImVec4* colors = style.Colors;
 
-        colors[ImGuiCol_Text]                  = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY900 );
-        colors[ImGuiCol_TextDisabled]          = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY500 );
-        colors[ImGuiCol_WindowBg]              = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY100 );
-        colors[ImGuiCol_ChildBg]               = ImVec4( 0.00f, 0.00f, 0.00f, 0.00f );
-        colors[ImGuiCol_PopupBg]               = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY50 );
-        colors[ImGuiCol_Border]                = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY300 );
-        colors[ImGuiCol_BorderShadow]          = ImGui::ColorConvertU32ToFloat4( Spectrum::Static::NONE );
-        colors[ImGuiCol_FrameBg]               = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY75 );
-        colors[ImGuiCol_FrameBgHovered]        = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY50 );
-        colors[ImGuiCol_FrameBgActive]         = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY200 );
-        colors[ImGuiCol_TitleBg]               = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY300 );
-        colors[ImGuiCol_TitleBgActive]         = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY200 );
-        colors[ImGuiCol_TitleBgCollapsed]      = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY400 );
-        colors[ImGuiCol_MenuBarBg]             = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY100 );
-        colors[ImGuiCol_ScrollbarBg]           = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY100 );
-        colors[ImGuiCol_ScrollbarGrab]         = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY400 );
-        colors[ImGuiCol_ScrollbarGrabHovered]  = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY600 );
-        colors[ImGuiCol_ScrollbarGrabActive]   = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY700 );
-        colors[ImGuiCol_CheckMark]             = ImGui::ColorConvertU32ToFloat4( Spectrum::GREEN700 );
-        colors[ImGuiCol_SliderGrab]            = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY600 );
-        colors[ImGuiCol_SliderGrabActive]      = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY700 );
-        colors[ImGuiCol_Button]                = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY400 );
-        colors[ImGuiCol_ButtonHovered]         = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY50 );
-        colors[ImGuiCol_ButtonActive]          = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY200 );
-        colors[ImGuiCol_Header]                = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY400 );
-        colors[ImGuiCol_HeaderHovered]         = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY600 );
-        colors[ImGuiCol_HeaderActive]          = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY700 );
-        colors[ImGuiCol_Separator]             = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY400 );
-        colors[ImGuiCol_SeparatorHovered]      = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY600 );
-        colors[ImGuiCol_SeparatorActive]       = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY700 );
-        colors[ImGuiCol_ResizeGrip]            = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY400 );
-        colors[ImGuiCol_ResizeGripHovered]     = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY600 );
-        colors[ImGuiCol_ResizeGripActive]      = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY700 );
-        colors[ImGuiCol_PlotLines]             = ImGui::ColorConvertU32ToFloat4( Spectrum::BLUE400 );
-        colors[ImGuiCol_PlotLinesHovered]      = ImGui::ColorConvertU32ToFloat4( Spectrum::BLUE600 );
-        colors[ImGuiCol_PlotHistogram]         = ImGui::ColorConvertU32ToFloat4( Spectrum::BLUE400 );
-        colors[ImGuiCol_PlotHistogramHovered]  = ImGui::ColorConvertU32ToFloat4( Spectrum::BLUE600 );
-        colors[ImGuiCol_Tab]                   = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY50 );
-        colors[ImGuiCol_TabActive]             = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY400 );
-        colors[ImGuiCol_TabHovered]            = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY600 );
-        colors[ImGuiCol_TextSelectedBg]        = ImGui::ColorConvertU32ToFloat4( ( Spectrum::BLUE400 & 0x00FFFFFF ) | 0x33000000 );
-        colors[ImGuiCol_DragDropTarget]        = ImVec4( 1.00f, 1.00f, 0.00f, 0.90f );
-        colors[ImGuiCol_NavHighlight]          = ImGui::ColorConvertU32ToFloat4( ( Spectrum::GRAY900 & 0x00FFFFFF ) | 0x0A000000 );
-        colors[ImGuiCol_NavWindowingHighlight] = ImVec4( 1.00f, 1.00f, 1.00f, 0.70f );
-        colors[ImGuiCol_NavWindowingDimBg]     = ImVec4( 0.80f, 0.80f, 0.80f, 0.20f );
-        colors[ImGuiCol_ModalWindowDimBg]      = ImVec4( 0.20f, 0.20f, 0.20f, 0.35f );
+        colors[ImGuiCol_Text]                 = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY900 );
+        colors[ImGuiCol_TextDisabled]         = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY500 );
+        colors[ImGuiCol_WindowBg]             = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY100 );
+        colors[ImGuiCol_ChildBg]              = ImGui::ColorConvertU32ToFloat4( Spectrum::Static::NONE );
+        colors[ImGuiCol_PopupBg]              = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY50 );
+        colors[ImGuiCol_Border]               = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY300 );
+        colors[ImGuiCol_BorderShadow]         = ImGui::ColorConvertU32ToFloat4( Spectrum::Static::NONE );
+        colors[ImGuiCol_FrameBg]              = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY400 );
+        colors[ImGuiCol_FrameBgHovered]       = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY600 );
+        colors[ImGuiCol_FrameBgActive]        = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY50 );
+        colors[ImGuiCol_TitleBg]              = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY300 );
+        colors[ImGuiCol_TitleBgActive]        = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY200 );
+        colors[ImGuiCol_TitleBgCollapsed]     = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY400 );
+        colors[ImGuiCol_MenuBarBg]            = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY100 );
+        colors[ImGuiCol_ScrollbarBg]          = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY100 );
+        colors[ImGuiCol_ScrollbarGrab]        = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY400 );
+        colors[ImGuiCol_ScrollbarGrabHovered] = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY600 );
+        colors[ImGuiCol_ScrollbarGrabActive]  = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY700 );
+        colors[ImGuiCol_CheckMark]            = ImGui::ColorConvertU32ToFloat4( Spectrum::GREEN700 );
+        colors[ImGuiCol_SliderGrab]           = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY700 );
+        colors[ImGuiCol_SliderGrabActive]     = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY700 );
+        colors[ImGuiCol_Button]               = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY400 );
+        colors[ImGuiCol_ButtonHovered]        = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY600 );
+        colors[ImGuiCol_ButtonActive]         = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY50 );
+        colors[ImGuiCol_Header]               = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY300 );
+        colors[ImGuiCol_HeaderHovered]        = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY600 );
+        colors[ImGuiCol_HeaderActive]         = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY700 );
+        colors[ImGuiCol_Separator]            = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY400 );
+        colors[ImGuiCol_SeparatorHovered]     = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY600 );
+        colors[ImGuiCol_SeparatorActive]      = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY700 );
+        colors[ImGuiCol_ResizeGrip]           = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY400 );
+        colors[ImGuiCol_ResizeGripHovered]    = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY600 );
+        colors[ImGuiCol_ResizeGripActive]     = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY700 );
+        colors[ImGuiCol_PlotLines]            = ImGui::ColorConvertU32ToFloat4( Spectrum::BLUE400 );
+        colors[ImGuiCol_PlotLinesHovered]     = ImGui::ColorConvertU32ToFloat4( Spectrum::BLUE600 );
+        colors[ImGuiCol_PlotHistogram]        = ImGui::ColorConvertU32ToFloat4( Spectrum::BLUE400 );
+        colors[ImGuiCol_PlotHistogramHovered] = ImGui::ColorConvertU32ToFloat4( Spectrum::BLUE600 );
+        colors[ImGuiCol_Tab]                  = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY50 );
+        colors[ImGuiCol_TabActive]            = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY400 );
+        colors[ImGuiCol_TabHovered]           = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY600 );
+        colors[ImGuiCol_TextSelectedBg]       = ImGui::ColorConvertU32ToFloat4( ( Spectrum::BLUE400 & 0x00FFFFFF ) | 0x33000000 );
+        colors[ImGuiCol_DragDropTarget]       = ImGui::ColorConvertU32ToFloat4( Spectrum::YELLOW400 );
+        colors[ImGuiCol_NavHighlight]         = ImGui::ColorConvertU32ToFloat4( ( Spectrum::GRAY900 & 0x00FFFFFF ) | 0x0A000000 );
     }
 
     void setStylesUI( float dpiFactor )
@@ -82,12 +79,12 @@ namespace mc
         style.WindowTitleAlign          = ImVec2( 0.5f, 0.5f );
         style.WindowMenuButtonPosition  = ImGuiDir_None;
         style.ChildRounding             = 3.0f;
-        style.ChildBorderSize           = 1.0f;
+        style.ChildBorderSize           = 0.0f;
         style.PopupRounding             = 3.0f;
-        style.PopupBorderSize           = 0.0f;
+        style.PopupBorderSize           = 1.0f;
         style.FramePadding              = ImVec2( 6.0f, 6.0f );
         style.FrameRounding             = 4.0f;
-        style.FrameBorderSize           = 1.0f;
+        style.FrameBorderSize           = 0.0f;
         style.ItemSpacing               = ImVec2( 12.0f, 6.0f );
         style.ItemInnerSpacing          = ImVec2( 6.0f, 3.0f );
         style.CellPadding               = ImVec2( 12.0f, 6.0f );
@@ -114,7 +111,6 @@ namespace mc
         configRoboto.FontDataOwnedByAtlas = false;
         configRoboto.OversampleH          = 2;
         configRoboto.OversampleV          = 2;
-        configRoboto.RasterizerMultiply   = 1.5f;
         configRoboto.GlyphExtraSpacing    = ImVec2( 1.0f, 0 );
         ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<uint8_t*>( Roboto_ttf ), Roboto_ttf_size, 16.0f * dpiFactor, &configRoboto );
 
@@ -286,25 +282,31 @@ namespace mc
 
             glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerTR.y - mc::RotateHandleHeight );
 
+
+            drawList->AddRect( cornerTL, cornerBR, Spectrum::PURPLE400, 0.0, 0, ceilf( app->dpiFactor ) );
+            drawList->AddLine( rotHandlePos, ImVec2( screenSpaceCenterX, cornerTR.y ), Spectrum::PURPLE400, ceilf( app->dpiFactor ) );
+
             ImU32 color = Spectrum::PURPLE400;
 
-            drawList->AddRect( cornerTL, cornerBR, color, 0.0, 0, ceilf( app->dpiFactor ) );
-            drawList->AddLine( rotHandlePos, ImVec2( screenSpaceCenterX, cornerTR.y ), color, ceilf( app->dpiFactor ) );
+            drawList->AddCircleFilled( rotHandlePos, HandleHalfSize * app->dpiFactor, Spectrum::PURPLE400 );
+            color = glm::distance( app->mouseWindowPos, rotHandlePos ) < HandleHalfSize ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
+            drawList->AddCircleFilled( rotHandlePos, HandleHalfSize * app->dpiFactor - ceilf( app->dpiFactor ), color );
 
-            color = glm::distance( app->mouseWindowPos, rotHandlePos ) < HandleHalfSize ? Spectrum::ORANGE600 : Spectrum::PURPLE400;
-            drawList->AddCircleFilled( rotHandlePos, HandleHalfSize * app->dpiFactor, color );
+            drawList->AddCircleFilled( cornerBR, HandleHalfSize * app->dpiFactor, Spectrum::PURPLE400 );
+            color = glm::distance( app->mouseWindowPos, cornerBR ) < HandleHalfSize * app->dpiFactor ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
+            drawList->AddCircleFilled( cornerBR, HandleHalfSize * app->dpiFactor - ceilf( app->dpiFactor ), color );
 
-            color = glm::distance( app->mouseWindowPos, cornerBR ) < HandleHalfSize * app->dpiFactor ? Spectrum::ORANGE600 : Spectrum::PURPLE500;
-            drawList->AddCircleFilled( cornerBR, HandleHalfSize * app->dpiFactor, color );
+            drawList->AddCircleFilled( cornerBL, HandleHalfSize * app->dpiFactor, Spectrum::PURPLE400 );
+            color = glm::distance( app->mouseWindowPos, cornerBL ) < HandleHalfSize * app->dpiFactor ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
+            drawList->AddCircleFilled( cornerBL, HandleHalfSize * app->dpiFactor - ceilf( app->dpiFactor ), color );
 
-            color = glm::distance( app->mouseWindowPos, cornerBL ) < HandleHalfSize * app->dpiFactor ? Spectrum::ORANGE600 : Spectrum::PURPLE500;
-            drawList->AddCircleFilled( cornerBL, HandleHalfSize * app->dpiFactor, color );
+            drawList->AddCircleFilled( cornerTR, HandleHalfSize * app->dpiFactor, Spectrum::PURPLE400 );
+            color = glm::distance( app->mouseWindowPos, cornerTR ) < HandleHalfSize * app->dpiFactor ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
+            drawList->AddCircleFilled( cornerTR, HandleHalfSize * app->dpiFactor - ceilf( app->dpiFactor ), color );
 
-            color = glm::distance( app->mouseWindowPos, cornerTR ) < HandleHalfSize * app->dpiFactor ? Spectrum::ORANGE600 : Spectrum::PURPLE500;
-            drawList->AddCircleFilled( cornerTR, HandleHalfSize * app->dpiFactor, color );
-
-            color = glm::distance( app->mouseWindowPos, cornerTL ) < HandleHalfSize * app->dpiFactor ? Spectrum::ORANGE600 : Spectrum::PURPLE500;
-            drawList->AddCircleFilled( cornerTL, HandleHalfSize * app->dpiFactor, color );
+            drawList->AddCircleFilled( cornerTL, HandleHalfSize * app->dpiFactor, Spectrum::PURPLE400 );
+            color = glm::distance( app->mouseWindowPos, cornerTL ) < HandleHalfSize * app->dpiFactor ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
+            drawList->AddCircleFilled( cornerTL, HandleHalfSize * app->dpiFactor - ceilf( app->dpiFactor ), color );
         }
 
         ImGui::EndFrame();
