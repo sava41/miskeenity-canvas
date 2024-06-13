@@ -32,10 +32,21 @@ add_subdirectory(third_party/glm)
 add_subdirectory(third_party/stb)
 
 # Add resources
-embed_files(embedded_files ./resources/fonts/Lucide.ttf ./resources/fonts/Roboto.ttf ./resources/shaders/layers.wgsl ./resources/shaders/selection.wgsl)
+embed_files(embedded_files 
+    ./resources/fonts/Lucide.ttf 
+    ./resources/fonts/Roboto.ttf 
+    ./resources/shaders/layers.wgsl 
+    ./resources/shaders/selection.wgsl)
 
 # Setup executable
-add_executable(miskeenity-canvas source/main.cpp source/webgpu_utils.cpp source/layers.cpp source/ui.cpp source/image.cpp source/webgpu_surface.c )
+add_executable(miskeenity-canvas 
+    source/main.cpp 
+    source/webgpu_utils.cpp 
+    source/layers.cpp
+    source/ui.cpp
+    source/image.cpp
+    source/texture_manager.cpp
+    source/webgpu_surface.c)
 
 add_dependencies(miskeenity-canvas SDL3::SDL3 imgui glm::glm stb icon-font-headers embedded_files)
 target_link_libraries(miskeenity-canvas PRIVATE SDL3::SDL3 imgui glm::glm stb icon-font-headers embedded_files)

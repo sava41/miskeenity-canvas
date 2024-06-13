@@ -401,8 +401,14 @@ int SDL_AppIterate( void* appstate )
         renderPassEnc.SetVertexBuffer( 0, app->vertexBuf );
         renderPassEnc.SetVertexBuffer( 1, app->layerBuf );
         renderPassEnc.SetBindGroup( 0, app->globalBindGroup );
-        renderPassEnc.SetBindGroup( 1, app->mainBindGroup );
-        renderPassEnc.Draw( 6, app->layers.length(), 0, 0 );
+
+        // webgpu doesnt have texture arrays or bindless textures so we cant use batch rendering
+        // for now draw each layer with a seperate command
+        for( int i = 0; i < app->layers.length(); ++i )
+        {
+            app->textureManager.bind( app->layers.data()[i].texture, 1, renderPassEnc );
+            renderPassEnc.Draw( 6, 1, 0, i );
+        }
     }
 
     mc::drawUI( app, renderPassEnc );

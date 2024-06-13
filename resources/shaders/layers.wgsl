@@ -62,8 +62,8 @@ fn vs_main(vert: VertexInput, inst: InstanceInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let texColor = textureSample(texture, textureSampler, in.uv).rgb;
+    let texColor = textureSample(texture, textureSampler, in.uv).rgba;
     let selectColor = f32(modf(in.position.x / f32(15.0) + f32(modf(in.position.y / f32(15.0)).whole % 2)).whole % 2);
 
-    return vec4<f32>(texColor + vec3<f32>(selectColor * 0.1 - 0.05) * f32(in.flags & 1), in.color.a);
+    return vec4<f32>(texColor.rgb + vec3<f32>(selectColor * 0.1 - 0.05) * f32(in.flags & 1), texColor.a);
 }

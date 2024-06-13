@@ -1,6 +1,7 @@
 #pragma once
 
 #include "layers.h"
+#include "texture_manager.h"
 
 #include <SDL3/SDL.h>
 #include <glm/glm.hpp>
@@ -86,10 +87,6 @@ namespace mc
         wgpu::Buffer selectionMapBuf;
         wgpu::BindGroup globalBindGroup;
         wgpu::BindGroup selectionBindGroup;
-        wgpu::BindGroup mainBindGroup;
-        wgpu::Sampler sampler;
-        wgpu::Texture texture;
-        wgpu::TextureView textureView;
 
         Uniforms viewParams;
 
@@ -112,9 +109,8 @@ namespace mc
         glm::vec4 selectionBbox   = glm::vec4( 0.0 );
         glm::vec2 selectionCenter = glm::vec2( 0.0 );
 
-        Layers layers = mc::Layers( NumLayers );
-
-        unsigned char* textureData = nullptr;
+        Layers layers                 = Layers( NumLayers );
+        TextureManager textureManager = TextureManager( 100 );
     };
 
 } // namespace mc

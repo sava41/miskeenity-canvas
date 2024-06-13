@@ -28,35 +28,24 @@ namespace mc
                 if( filelist && filelist[0] )
                 {
                     int width, height, channels;
-                    unsigned char* image = stbi_load( filelist[0], &width, &height, &channels, 4 );
+                    unsigned char* imageData = stbi_load( filelist[0], &width, &height, &channels, 4 );
 
-                    if( image != nullptr )
+                    if( imageData != nullptr )
                     {
-                        if( app->textureData != nullptr )
+
+                        app->device.GetQueue().OnSubmittedWorkDone(
+                            0, []( WGPUQueueWorkDoneStatus status, void* imageData ) { stbi_image_free( imageData ); }, imageData );
+
+                        if( !app->textureManager.add( imageData, width, height, channels, app->device ) )
                         {
-                            stbi_image_free( app->textureData );
-                            app->textureData = nullptr;
+                            stbi_image_free( imageData );
+                            return;
                         }
-
-                        app->textureData = image;
-
-                        createTexture( app, width, height );
-                        uploadTexture( app->device.GetQueue(), app->texture, app->textureData, width, height, 4 );
-
-                        // temporary generate random color
-                        const uint32_t a = 1664525;
-                        const uint32_t c = 1013904223;
-
-                        const uint32_t color = a * app->layers.length() + c;
-                        const uint8_t red    = static_cast<uint8_t>( ( color >> 16 ) & 0xFF );
-                        const uint8_t green  = static_cast<uint8_t>( ( color >> 8 ) & 0xFF );
-                        const uint8_t blue   = static_cast<uint8_t>( color & 0xFF );
 
                         glm::vec2 pos = ( glm::vec2( app->width / 2.0, app->height / 2.0 ) - app->viewParams.canvasPos ) / app->viewParams.scale;
 
-                        app->layers.add( { pos, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( 0 ), 0, 0,
-                                           glm::u8vec4( red, green, blue, 255 ), 0 } );
-
+                        app->layers.add( { pos, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( 1.0 ),
+                                           static_cast<uint16_t>( app->textureManager.length() - 1 ), 0, glm::u8vec4( 255, 255, 255, 255 ), 0 } );
 
                         app->layersModified = true;
 

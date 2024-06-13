@@ -3,7 +3,6 @@
 #include <glm/glm.hpp>
 #include <memory>
 #include <unordered_set>
-#include <vector>
 
 namespace mc
 {
