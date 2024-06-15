@@ -33,14 +33,14 @@ namespace mc
                     if( imageData != nullptr )
                     {
 
-                        app->device.GetQueue().OnSubmittedWorkDone(
-                            0, []( WGPUQueueWorkDoneStatus status, void* imageData ) { stbi_image_free( imageData ); }, imageData );
-
                         if( !app->textureManager.add( imageData, width, height, channels, app->device ) )
                         {
                             stbi_image_free( imageData );
                             return;
                         }
+
+                        app->device.GetQueue().OnSubmittedWorkDone(
+                            0, []( WGPUQueueWorkDoneStatus status, void* imageData ) { stbi_image_free( imageData ); }, imageData );
 
                         glm::vec2 pos = ( glm::vec2( app->width / 2.0, app->height / 2.0 ) - app->viewParams.canvasPos ) / app->viewParams.scale;
 
