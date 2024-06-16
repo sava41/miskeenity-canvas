@@ -134,6 +134,7 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
         SDL_Log( "Backbuffer size: %ix%i", app->bbwidth, app->bbheight );
     }
 
+    app->textureManager.init( app->device );
     app->updateView = true;
 
     SDL_Log( "Application started successfully!" );
@@ -359,6 +360,15 @@ int SDL_AppIterate( void* appstate )
         }
         break;
         }
+    }
+    if( app->state == mc::State::Paint && app->mouseDown && app->mouseDelta != glm::vec2( 0.0 ) )
+    {
+        glm::vec2 basisA = app->mouseDelta * app->viewParams.scale + 2.0f * glm::normalize( app->mouseDelta ) * app->paintRadius;
+        glm::vec2 basisB = 2.0f * glm::normalize( glm::vec2( app->mouseDelta.y, -app->mouseDelta.x ) ) * app->paintRadius;
+
+        app->layers.add( { app->viewParams.mousePos - app->mouseDelta * 0.5f, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 1.0 ),
+                           static_cast<uint16_t>( 0 ), 0, app->paintColor, mc::HasPillAlphaTex } );
+        app->layersModified = true;
     }
     app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &app->viewParams, sizeof( mc::Uniforms ) );
 

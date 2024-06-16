@@ -117,7 +117,7 @@ namespace mc
         // Create global bind group layout
         std::array<wgpu::BindGroupLayoutEntry, 1> globalGroupLayoutEntries;
         globalGroupLayoutEntries[0].binding                 = 0;
-        globalGroupLayoutEntries[0].visibility              = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Compute;
+        globalGroupLayoutEntries[0].visibility              = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment | wgpu::ShaderStage::Compute;
         globalGroupLayoutEntries[0].buffer.hasDynamicOffset = false;
         globalGroupLayoutEntries[0].buffer.type             = wgpu::BufferBindingType::Uniform;
         globalGroupLayoutEntries[0].buffer.minBindingSize   = sizeof( mc::Uniforms );

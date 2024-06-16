@@ -193,25 +193,6 @@ namespace mc
         ImGui::SetNextWindowPos( ImVec2( 460, 20 ), ImGuiCond_FirstUseEver );
         ImGui::ShowDemoWindow();
 
-        // 4. Prepare and conditionally open the "Really Quit?" popup
-        if( ImGui::BeginPopupModal( "Really Quit?", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
-        {
-            ImGui::Text( "Do you really want to quit?\n" );
-            ImGui::Separator();
-            if( ImGui::Button( "OK", ImVec2( 120, 0 ) ) )
-            {
-                app->appQuit = true;
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::SetItemDefaultFocus();
-            ImGui::SameLine();
-            if( ImGui::Button( "Cancel", ImVec2( 120, 0 ) ) )
-            {
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndPopup();
-        }
-
         ImGui::Begin( "Toolbox", nullptr,
                       ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar |
                           ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoBringToFrontOnFocus );
@@ -264,6 +245,31 @@ namespace mc
         }
         ImGui::End();
 
+
+        if( app->state == mc::State::Paint )
+        {
+            ImGui::SetNextWindowPos( glm::vec2( 400 ) * app->dpiFactor, ImGuiCond_FirstUseEver );
+            ImGui::SetNextWindowSize( glm::vec2( 400, 150 ) * app->dpiFactor, ImGuiCond_FirstUseEver );
+
+            ImGui::Begin( "Paint Settings", nullptr, ImGuiWindowFlags_NoResize );
+            {
+                ImGui::SliderFloat( "Brush Size", &app->paintRadius, 0.0f, 200.0f );
+
+                static float paintColorFloat[3] = { app->paintColor.r / 255, app->paintColor.g / 255.0, app->paintColor.b / 255.0 };
+                ImGui::ColorEdit3( "Color", paintColorFloat );
+
+                app->paintColor.r = static_cast<uint8_t>( paintColorFloat[0] * 255 );
+                app->paintColor.g = static_cast<uint8_t>( paintColorFloat[1] * 255 );
+                app->paintColor.b = static_cast<uint8_t>( paintColorFloat[2] * 255 );
+
+                ImGui::Button( "Apply" );
+                ImGui::SameLine();
+                ImGui::Button( "Cancel" );
+            }
+            ImGui::End();
+        }
+
+
         ImDrawList* drawList = ImGui::GetBackgroundDrawList();
         if( app->state == State::Cursor && app->dragType == CursorDragType::Select && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
         {
@@ -307,6 +313,11 @@ namespace mc
             drawList->AddCircleFilled( cornerTL, HandleHalfSize * app->dpiFactor, Spectrum::PURPLE400 );
             color = glm::distance( app->mouseWindowPos, cornerTL ) < HandleHalfSize * app->dpiFactor ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
             drawList->AddCircleFilled( cornerTL, HandleHalfSize * app->dpiFactor - ceilf( app->dpiFactor ), color );
+        }
+
+        if( app->state == State::Paint && !captureMouseUI() )
+        {
+            drawList->AddCircle( app->mouseWindowPos, app->paintRadius * app->viewParams.scale, Spectrum::PURPLE400, 600, ceilf( app->dpiFactor ) );
         }
 
         ImGui::EndFrame();

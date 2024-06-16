@@ -33,9 +33,9 @@ struct Uniforms {
     canvasPos: vec2<f32>,
     mousePos: vec2<f32>,
     mouseSelectPos: vec2<f32>,
+    selectType: u32,
     windowSize: vec2<u32>,
     scale: f32,
-    selectType: u32,
 };
 
 @group(0) @binding(0)
@@ -60,8 +60,8 @@ fn vs_main(vert: VertexInput, inst: InstanceInput) -> VertexOutput {
     out.size.x = length(vec2<f32>(inst.basisAX, inst.basisAY));
     out.size.y = length(vec2<f32>(inst.basisBX, inst.basisBY));
     
-    out.screenSize.x = length(vec4<f32>(inst.basisAX + inst.offsetX, inst.basisAY + inst.offsetY, 0.0, 1.0)* uniforms.proj);
-    out.screenSize.y = length(vec4<f32>(inst.basisBX + inst.offsetX, inst.basisBY + inst.offsetY, 0.0, 1.0)* uniforms.proj);
+    out.screenSize.x = length(vec4<f32>(inst.basisAX - uniforms.canvasPos.x, inst.basisAY - uniforms.canvasPos.x, 0.0, 1.0)* uniforms.proj);
+    out.screenSize.y = length(vec4<f32>(inst.basisBX - uniforms.canvasPos.x, inst.basisBY - uniforms.canvasPos.y, 0.0, 1.0)* uniforms.proj);
 
     out.color = vec4<f32>(f32(inst.color.r) / 255.0, f32(inst.color.g) / 255.0, f32(inst.color.b) / 255.0, 1.0);
 
@@ -86,7 +86,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let selectColor: f32 = f32(((modf(in.position.x / f32(15.0) + f32(modf(in.position.y / f32(15.0)).whole % 2)).whole % 2) * 0.1 - 0.05) * f32(in.flags & 1));
 
-    let pillMask: f32 = select(1.0, smoothstep(0.0, 0.01 / max(in.screenSize.x, in.screenSize.y), -udRoundedBox((in.uv - 0.5) * aspect, vec2<f32>(0.5) * aspect, 0.5f)), bool(in.flags & (1 << 4)));
+    let pillMask: f32 = select(1.0, smoothstep(0.0, 1.1 / (max(in.size.x, in.size.y) * 1.0) , -udRoundedBox((in.uv - 0.5) * aspect, vec2<f32>(0.5) * aspect, 0.5f)), bool(in.flags & (1 << 4)));
 
     return vec4<f32>(texColor.rgb * in.color.rgb + vec3<f32>(selectColor), texColor.a * pillMask);
 }

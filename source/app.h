@@ -98,6 +98,8 @@ namespace mc
         bool layersModified     = true;
         bool appQuit            = false;
         bool resetSwapchain     = false;
+        float paintRadius       = 100.0;
+        glm::u8vec4 paintColor  = glm::u8vec4( 255, 0, 0, 255 );
 
         Selection* selectionData = nullptr;
 
