@@ -23,7 +23,9 @@ struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) uv: vec2<f32>,
     @location(1) color: vec4<f32>,
-    @location(2) @interpolate(flat) flags: u32,
+    @location(2) size: vec2<f32>,
+    @location(3) screenSize: vec2<f32>,
+    @location(4) @interpolate(flat) flags: u32,
 };
 
 struct Uniforms {
@@ -54,16 +56,37 @@ fn vs_main(vert: VertexInput, inst: InstanceInput) -> VertexOutput {
     out.position = vec4<f32>(vert.position, 0.0, 1.0) * model * uniforms.proj ;
     out.uv = vert.uv;
     out.flags = inst.flags;
+    
+    out.size.x = length(vec2<f32>(inst.basisAX, inst.basisAY));
+    out.size.y = length(vec2<f32>(inst.basisBX, inst.basisBY));
+    
+    out.screenSize.x = length(vec4<f32>(inst.basisAX + inst.offsetX, inst.basisAY + inst.offsetY, 0.0, 1.0)* uniforms.proj);
+    out.screenSize.y = length(vec4<f32>(inst.basisBX + inst.offsetX, inst.basisBY + inst.offsetY, 0.0, 1.0)* uniforms.proj);
 
     out.color = vec4<f32>(f32(inst.color.r) / 255.0, f32(inst.color.g) / 255.0, f32(inst.color.b) / 255.0, 1.0);
 
     return out;
 }
 
+fn sdRoundedBox( p: vec2<f32>, b: vec2<f32>, r: f32 ) -> f32 {
+    let q: vec2<f32> = abs(p) - b + r;
+    return min(max(q.x, q.y), 0.0) + length(max(q, vec2<f32>(0.0))) - r;
+}
+
+fn udRoundedBox( p: vec2<f32>, b: vec2<f32>, r: f32 ) -> f32
+{
+    return length(max(abs(p) - b + r, vec2<f32>(0.0))) - r;
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let texColor = textureSample(texture, textureSampler, in.uv).rgba;
-    let selectColor = f32(modf(in.position.x / f32(15.0) + f32(modf(in.position.y / f32(15.0)).whole % 2)).whole % 2);
+    let aspect: vec2<f32> = in.size / min(in.size.x, in.size.y);
 
-    return vec4<f32>(texColor.rgb + vec3<f32>(selectColor * 0.1 - 0.05) * f32(in.flags & 1), texColor.a);
+    let texColor: vec4<f32> = select(vec4<f32>(1.0), textureSample(texture, textureSampler, in.uv).rgba, bool(in.flags & (1 << 1)));
+
+    let selectColor: f32 = f32(((modf(in.position.x / f32(15.0) + f32(modf(in.position.y / f32(15.0)).whole % 2)).whole % 2) * 0.1 - 0.05) * f32(in.flags & 1));
+
+    let pillMask: f32 = select(1.0, smoothstep(0.0, 0.01 / max(in.screenSize.x, in.screenSize.y), -udRoundedBox((in.uv - 0.5) * aspect, vec2<f32>(0.5) * aspect, 0.5f)), bool(in.flags & (1 << 4)));
+
+    return vec4<f32>(texColor.rgb * in.color.rgb + vec3<f32>(selectColor), texColor.a * pillMask);
 }

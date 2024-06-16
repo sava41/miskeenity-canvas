@@ -20,6 +20,7 @@ namespace mc
         TextureManager( size_t maxTextures );
         ~TextureManager() = default;
 
+        void init( const wgpu::Device& device );
         bool add( void* imageBuffer, int width, int height, int channels, const wgpu::Device& device );
         // bool remove( int index );
         bool bind( int texHandle, int bindGroup, const wgpu::RenderPassEncoder& encoder );
@@ -27,8 +28,6 @@ namespace mc
         size_t length() const;
 
       private:
-        void init( const wgpu::Device& device );
-
         wgpu::Sampler m_sampler;
         wgpu::BindGroupLayout m_groupLayout;
 

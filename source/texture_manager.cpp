@@ -90,7 +90,7 @@ namespace mc
 
     bool TextureManager::add( void* imageBuffer, int width, int height, int channels, const wgpu::Device& device )
     {
-        if( m_curLength == 0 )
+        if( !m_defaultBindGroup )
         {
             init( device );
         }
