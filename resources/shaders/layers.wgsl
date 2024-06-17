@@ -34,7 +34,8 @@ struct Uniforms {
     mousePos: vec2<f32>,
     mouseSelectPos: vec2<f32>,
     selectType: u32,
-    windowSize: vec2<u32>,
+    windowWidth: u32,
+    windowHeight: u32,
     scale: f32,
 };
 
@@ -86,7 +87,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let selectColor: f32 = f32(((modf(in.position.x / f32(15.0) + f32(modf(in.position.y / f32(15.0)).whole % 2)).whole % 2) * 0.1 - 0.05) * f32(in.flags & 1));
 
-    let pillMask: f32 = select(1.0, smoothstep(0.0, 1.1 / (max(in.size.x, in.size.y) * 1.0) , -udRoundedBox((in.uv - 0.5) * aspect, vec2<f32>(0.5) * aspect, 0.5f)), bool(in.flags & (1 << 4)));
+    let pillMask: f32 = select(1.0, smoothstep(0.0, 2.0 / (max(in.size.x, in.size.y) * uniforms.scale) , -udRoundedBox((in.uv - 0.5) * aspect, vec2<f32>(0.5) * aspect, 0.5f)), bool(in.flags & (1 << 4)));
 
     return vec4<f32>(texColor.rgb * in.color.rgb + vec3<f32>(selectColor), texColor.a * pillMask);
 }
