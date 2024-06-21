@@ -101,6 +101,7 @@ namespace mc
         style.ColorButtonPosition       = ImGuiDir_Right;
         style.ButtonTextAlign           = ImVec2( 0.5f, 0.5f );
         style.SelectableTextAlign       = ImVec2( 0.0f, 0.0f );
+        style.HoverDelayNormal          = 0.8;
 
         style.ScaleAllSizes( dpiFactor );
 
@@ -196,6 +197,7 @@ namespace mc
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
         ImGui::Begin( "Toolbox", nullptr,
                       ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
+        ImGui::PopStyleVar( 1 );
         {
             const glm::vec2 buttonSize = glm::vec2( 50 ) * app->dpiFactor;
             const float buttonSpacing  = 10.0 * app->dpiFactor;
@@ -218,11 +220,14 @@ namespace mc
             {
                 addImage = false;
             }
+            if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
+                ImGui::SetItemTooltip( "Upload Image" );
 
             ImGui::PopID();
 
-            std::array<std::string, 4> tools = { ICON_LC_MOUSE_POINTER, ICON_LC_BRUSH, ICON_LC_TYPE, ICON_LC_HAND };
-            std::array<State, 4> states      = { State::Cursor, State::Paint, State::Text, State::Pan };
+            std::array<std::string, 4> tools    = { ICON_LC_MOUSE_POINTER, ICON_LC_BRUSH, ICON_LC_TYPE, ICON_LC_HAND };
+            std::array<std::string, 4> tooltips = { "Select [S]", "Paint Brush [B]", "Add Text [T]", "Pan [P]" };
+            std::array<State, 4> states         = { State::Cursor, State::Paint, State::Text, State::Pan };
 
             for( size_t i = 0; i < tools.size(); i++ )
             {
@@ -240,13 +245,14 @@ namespace mc
                     app->state = states[i];
                 }
                 ImGui::PopStyleColor( 1 );
+                if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
+                    ImGui::SetItemTooltip( tooltips[i].c_str() );
                 ImGui::PopID();
             }
             ImGui::PopStyleColor( 1 );
             ImGui::PopStyleVar( 1 );
         }
         ImGui::End();
-        ImGui::PopStyleVar( 1 );
 
 
         if( app->state == mc::State::Paint )
