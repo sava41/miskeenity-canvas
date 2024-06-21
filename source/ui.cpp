@@ -193,14 +193,15 @@ namespace mc
         ImGui::SetNextWindowPos( ImVec2( 460, 20 ), ImGuiCond_FirstUseEver );
         ImGui::ShowDemoWindow();
 
+        ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
         ImGui::Begin( "Toolbox", nullptr,
-                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar |
-                          ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoBringToFrontOnFocus );
+                      ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
         {
-            ImGui::SetWindowPos( glm::vec2( 10 ) * app->dpiFactor );
-            ImGui::SetWindowSize( glm::vec2( 80, 300 ) * app->dpiFactor );
-
             const glm::vec2 buttonSize = glm::vec2( 50 ) * app->dpiFactor;
+            const float buttonSpacing  = 10.0 * app->dpiFactor;
+
+            ImGui::SetWindowPos( glm::vec2( ( app->width - ( buttonSize.x * 5 + buttonSpacing * 4 ) ) * 0.5, app->height - buttonSpacing - buttonSize.y ) );
+            ImGui::SetWindowSize( glm::vec2( buttonSize.x * 5 + buttonSpacing * 4, buttonSize.y ) );
 
             ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
             ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
@@ -225,6 +226,7 @@ namespace mc
 
             for( size_t i = 0; i < tools.size(); i++ )
             {
+                ImGui::SameLine( 0.0, buttonSpacing );
                 ImGui::PushID( i );
                 ImVec4 color = ImGui::GetStyle().Colors[ImGuiCol_Button];
                 if( app->state == states[i] )
@@ -244,27 +246,34 @@ namespace mc
             ImGui::PopStyleVar( 1 );
         }
         ImGui::End();
+        ImGui::PopStyleVar( 1 );
 
 
         if( app->state == mc::State::Paint )
         {
-            ImGui::SetNextWindowPos( glm::vec2( 400 ) * app->dpiFactor, ImGuiCond_FirstUseEver );
-            ImGui::SetNextWindowSize( glm::vec2( 400, 150 ) * app->dpiFactor, ImGuiCond_FirstUseEver );
+            ImGui::SetNextWindowPos( glm::vec2( 400.0 ) * app->dpiFactor, ImGuiCond_FirstUseEver );
+            ImGui::SetNextWindowSize( glm::vec2( 400.0, 150.0 ) * app->dpiFactor, ImGuiCond_FirstUseEver );
 
-            ImGui::Begin( "Paint Settings", nullptr, ImGuiWindowFlags_NoResize );
+            ImGui::Begin( "Paint Brush Settings", nullptr, ImGuiWindowFlags_NoResize );
             {
-                ImGui::SliderFloat( "Brush Size", &app->paintRadius, 0.0f, 200.0f );
+                ImGui::PushItemWidth( -80 );
+
+                ImGui::SliderFloat( "Size", &app->paintRadius, 0.0f, 200.0f );
 
                 static float paintColorFloat[3] = { app->paintColor.r / 255, app->paintColor.g / 255.0, app->paintColor.b / 255.0 };
                 ImGui::ColorEdit3( "Color", paintColorFloat );
+
+                ImGui::PopItemWidth();
 
                 app->paintColor.r = static_cast<uint8_t>( paintColorFloat[0] * 255 );
                 app->paintColor.g = static_cast<uint8_t>( paintColorFloat[1] * 255 );
                 app->paintColor.b = static_cast<uint8_t>( paintColorFloat[2] * 255 );
 
-                ImGui::Button( "Apply" );
-                ImGui::SameLine();
-                ImGui::Button( "Cancel" );
+
+                float width = ( ImGui::GetContentRegionAvail().x - 80 - 8 ) * 0.5;
+                ImGui::Button( "Apply", glm::vec2( width, 0.0 ) );
+                ImGui::SameLine( 0.0, 8.0 );
+                ImGui::Button( "Cancel", glm::vec2( width, 0.0 ) );
             }
             ImGui::End();
         }
