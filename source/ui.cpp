@@ -202,7 +202,7 @@ namespace mc
                       ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
         ImGui::PopStyleVar( 1 );
         {
-            ImGui::SetWindowPos( glm::vec2( buttonSpacing ) );
+            ImGui::SetWindowPos( glm::vec2( buttonSpacing * 2 ) );
             ImGui::SetWindowSize( glm::vec2( buttonSize.x * 2 + buttonSpacing * 1, buttonSize.y ) );
 
             ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
@@ -219,6 +219,8 @@ namespace mc
             }
             if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
                 ImGui::SetItemTooltip( "TODO: Save Image" );
+            ImGui::PopStyleColor( 1 );
+            ImGui::PopStyleVar( 1 );
 
             if( ImGui::BeginPopup( "Menu" ) )
             {
@@ -234,7 +236,7 @@ namespace mc
                       ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
         ImGui::PopStyleVar( 1 );
         {
-            ImGui::SetWindowPos( glm::vec2( ( app->width - ( buttonSize.x * 5 + buttonSpacing * 4 ) ) * 0.5, app->height - buttonSpacing - buttonSize.y ) );
+            ImGui::SetWindowPos( glm::vec2( ( app->width - ( buttonSize.x * 5 + buttonSpacing * 4 ) ) * 0.5, app->height - buttonSpacing * 2 - buttonSize.y ) );
             ImGui::SetWindowSize( glm::vec2( buttonSize.x * 5 + buttonSpacing * 4, buttonSize.y ) );
 
             ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
