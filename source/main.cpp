@@ -167,47 +167,58 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
         if( !mc::captureMouseUI() )
         {
             app->mouseDragStart = app->mouseWindowPos;
+            app->mouseDown      = true;
 
-            glm::vec2 cornerTL = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
-            glm::vec2 cornerBR = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
-            glm::vec2 cornerTR = glm::vec2( cornerBR.x, cornerTL.y );
-            glm::vec2 cornerBL = glm::vec2( cornerTL.x, cornerBR.y );
+            if( app->state == mc::State::Paint )
+            {
+                glm::vec2 basisA = glm::vec2( 0.0, 2.0 ) * app->paintRadius;
+                glm::vec2 basisB = glm::vec2( 2.0, 0.0 ) * app->paintRadius;
 
-            float screenSpaceCenterX = ( cornerTL.x + cornerBR.x ) * 0.5f;
+                app->layers.add( { app->viewParams.mousePos, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 1.0 ), static_cast<uint16_t>( 0 ), 0,
+                                   app->paintColor, mc::HasPillAlphaTex } );
+                app->layersModified = true;
+            }
+            else if( app->state == mc::State::Cursor )
+            {
+                glm::vec2 cornerTL = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
+                glm::vec2 cornerBR = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
+                glm::vec2 cornerTR = glm::vec2( cornerBR.x, cornerTL.y );
+                glm::vec2 cornerBL = glm::vec2( cornerTL.x, cornerBR.y );
 
-            glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerTR.y - mc::RotateHandleHeight );
+                float screenSpaceCenterX = ( cornerTL.x + cornerBR.x ) * 0.5f;
 
-            if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, rotHandlePos ) < mc::HandleHalfSize * app->dpiFactor )
-            {
-                app->dragType = mc::CursorDragType::Rotate;
-            }
-            else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerTL ) < mc::HandleHalfSize * app->dpiFactor )
-            {
-                app->dragType = mc::CursorDragType::ScaleTL;
-            }
-            else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerBR ) < mc::HandleHalfSize * app->dpiFactor )
-            {
-                app->dragType = mc::CursorDragType::ScaleBR;
-            }
-            else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerTR ) < mc::HandleHalfSize * app->dpiFactor )
-            {
-                app->dragType = mc::CursorDragType::ScaleTR;
-            }
-            else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerBL ) < mc::HandleHalfSize * app->dpiFactor )
-            {
-                app->dragType = mc::CursorDragType::ScaleBL;
-            }
-            else if( app->selectionBbox.x > app->viewParams.mousePos.x && app->selectionBbox.y > app->viewParams.mousePos.y &&
-                     app->selectionBbox.z < app->viewParams.mousePos.x && app->selectionBbox.w < app->viewParams.mousePos.y )
-            {
-                app->dragType = mc::CursorDragType::Move;
-            }
-            else
-            {
-                app->dragType = mc::CursorDragType::Select;
-            }
+                glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerTR.y - mc::RotateHandleHeight );
 
-            app->mouseDown = true;
+                if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, rotHandlePos ) < mc::HandleHalfSize * app->dpiFactor )
+                {
+                    app->dragType = mc::CursorDragType::Rotate;
+                }
+                else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerTL ) < mc::HandleHalfSize * app->dpiFactor )
+                {
+                    app->dragType = mc::CursorDragType::ScaleTL;
+                }
+                else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerBR ) < mc::HandleHalfSize * app->dpiFactor )
+                {
+                    app->dragType = mc::CursorDragType::ScaleBR;
+                }
+                else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerTR ) < mc::HandleHalfSize * app->dpiFactor )
+                {
+                    app->dragType = mc::CursorDragType::ScaleTR;
+                }
+                else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerBL ) < mc::HandleHalfSize * app->dpiFactor )
+                {
+                    app->dragType = mc::CursorDragType::ScaleBL;
+                }
+                else if( app->selectionBbox.x > app->viewParams.mousePos.x && app->selectionBbox.y > app->viewParams.mousePos.y &&
+                         app->selectionBbox.z < app->viewParams.mousePos.x && app->selectionBbox.w < app->viewParams.mousePos.y )
+                {
+                    app->dragType = mc::CursorDragType::Move;
+                }
+                else
+                {
+                    app->dragType = mc::CursorDragType::Select;
+                }
+            }
         }
         break;
     case SDL_EVENT_MOUSE_BUTTON_UP:
@@ -363,10 +374,10 @@ int SDL_AppIterate( void* appstate )
     }
     if( app->state == mc::State::Paint && app->mouseDown && app->mouseDelta != glm::vec2( 0.0 ) )
     {
-        glm::vec2 basisA = app->mouseDelta * app->viewParams.scale + 2.0f * glm::normalize( app->mouseDelta ) * app->paintRadius;
+        glm::vec2 basisA = app->mouseDelta / app->viewParams.scale + 2.0f * glm::normalize( app->mouseDelta ) * app->paintRadius;
         glm::vec2 basisB = 2.0f * glm::normalize( glm::vec2( app->mouseDelta.y, -app->mouseDelta.x ) ) * app->paintRadius;
 
-        app->layers.add( { app->viewParams.mousePos - app->mouseDelta * 0.5f, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 1.0 ),
+        app->layers.add( { app->viewParams.mousePos - app->mouseDelta / app->viewParams.scale * 0.5f, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 1.0 ),
                            static_cast<uint16_t>( 0 ), 0, app->paintColor, mc::HasPillAlphaTex } );
         app->layersModified = true;
     }

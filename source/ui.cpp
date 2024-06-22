@@ -226,7 +226,7 @@ namespace mc
             ImGui::PopID();
 
             std::array<std::string, 4> tools    = { ICON_LC_MOUSE_POINTER, ICON_LC_BRUSH, ICON_LC_TYPE, ICON_LC_HAND };
-            std::array<std::string, 4> tooltips = { "Select [S]", "Paint Brush [B]", "Add Text [T]", "Pan [P]" };
+            std::array<std::string, 4> tooltips = { "Select [S]", "Paint Brush [B]", "TODO: Add Text [T]", "Pan [P]" };
             std::array<State, 4> states         = { State::Cursor, State::Paint, State::Text, State::Pan };
 
             for( size_t i = 0; i < tools.size(); i++ )
