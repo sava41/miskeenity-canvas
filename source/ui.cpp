@@ -198,7 +198,7 @@ namespace mc
         const float buttonSpacing  = 10.0 * app->dpiFactor;
 
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
-        ImGui::Begin( "Top Bar", nullptr,
+        ImGui::Begin( "Menu Bar", nullptr,
                       ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
         ImGui::PopStyleVar( 1 );
         {
@@ -230,6 +230,32 @@ namespace mc
                 ImGui::EndPopup();
             }
         }
+        ImGui::End();
+
+        ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
+        ImGui::Begin( "Undo Redo", nullptr,
+                      ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
+        ImGui::PopStyleVar( 1 );
+        {
+            ImGui::SetWindowPos( glm::vec2( ( app->width - ( buttonSize.x * 2 + buttonSpacing * 3 ) ), app->height - buttonSpacing * 2 - buttonSize.y ) );
+            ImGui::SetWindowSize( glm::vec2( buttonSize.x * 2 + buttonSpacing * 1, buttonSize.y ) );
+
+            ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
+            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
+            if( ImGui::Button( ICON_LC_UNDO, buttonSize ) )
+            {
+            }
+
+            ImGui::SameLine( 0.0, buttonSpacing );
+
+            if( ImGui::Button( ICON_LC_REDO, buttonSize ) )
+            {
+            }
+
+            ImGui::PopStyleColor( 1 );
+            ImGui::PopStyleVar( 1 );
+        }
+        ImGui::End();
 
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
         ImGui::Begin( "Toolbox", nullptr,
@@ -287,6 +313,37 @@ namespace mc
             ImGui::PopStyleVar( 1 );
         }
         ImGui::End();
+
+        if( app->layers.numSelected() > 0 )
+        {
+            ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
+            ImGui::Begin( "Context Bar", nullptr,
+                          ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
+            ImGui::PopStyleVar( 1 );
+            {
+                ImGui::SetWindowPos( glm::vec2( ( app->width - ( buttonSize.x * 5 + buttonSpacing * 4 ) ) * 0.5, buttonSpacing * 2 ) );
+                ImGui::SetWindowSize( glm::vec2( buttonSize.x * 5 + buttonSpacing * 4, buttonSize.y ) );
+
+                ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
+                ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
+
+                std::array<std::string, 5> tools    = { ICON_LC_ARROW_UP_NARROW_WIDE, ICON_LC_ARROW_DOWN_NARROW_WIDE, ICON_LC_FLIP_HORIZONTAL_2,
+                                                        ICON_LC_FLIP_VERTICAL_2, ICON_LC_CROP };
+                std::array<std::string, 5> tooltips = { "TODO: Bring To Front", "TODO: Move To Back", "TODO: Flip Horizontal", "TODO: Flip Vertical",
+                                                        "TODO: Crop" };
+
+                for( size_t i = 0; i < tools.size(); i++ )
+                {
+                    ImGui::Button( tools[i].c_str(), buttonSize );
+                    if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
+                        ImGui::SetItemTooltip( tooltips[i].c_str() );
+                    ImGui::SameLine( 0.0, buttonSpacing );
+                }
+                ImGui::PopStyleColor( 1 );
+                ImGui::PopStyleVar( 1 );
+            }
+            ImGui::End();
+        }
 
 
         if( app->state == mc::State::Paint )
