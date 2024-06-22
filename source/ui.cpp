@@ -194,14 +194,46 @@ namespace mc
         ImGui::SetNextWindowPos( ImVec2( 460, 20 ), ImGuiCond_FirstUseEver );
         ImGui::ShowDemoWindow();
 
+        const glm::vec2 buttonSize = glm::vec2( 50 ) * app->dpiFactor;
+        const float buttonSpacing  = 10.0 * app->dpiFactor;
+
+        ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
+        ImGui::Begin( "Top Bar", nullptr,
+                      ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
+        ImGui::PopStyleVar( 1 );
+        {
+            ImGui::SetWindowPos( glm::vec2( buttonSpacing ) );
+            ImGui::SetWindowSize( glm::vec2( buttonSize.x * 2 + buttonSpacing * 1, buttonSize.y ) );
+
+            ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
+            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
+            if( ImGui::Button( ICON_LC_INFO, buttonSize ) )
+            {
+                ImGui::OpenPopup( "Menu" );
+            }
+
+            ImGui::SameLine( 0.0, buttonSpacing );
+
+            if( ImGui::Button( ICON_LC_IMAGE_DOWN, buttonSize ) )
+            {
+            }
+            if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
+                ImGui::SetItemTooltip( "TODO: Save Image" );
+
+            if( ImGui::BeginPopup( "Menu" ) )
+            {
+                ImGui::Selectable( "TODO: About" );
+                ImGui::Selectable( "TODO: Github" );
+                ImGui::Selectable( "TODO: Help" );
+                ImGui::EndPopup();
+            }
+        }
+
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
         ImGui::Begin( "Toolbox", nullptr,
                       ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
         ImGui::PopStyleVar( 1 );
         {
-            const glm::vec2 buttonSize = glm::vec2( 50 ) * app->dpiFactor;
-            const float buttonSpacing  = 10.0 * app->dpiFactor;
-
             ImGui::SetWindowPos( glm::vec2( ( app->width - ( buttonSize.x * 5 + buttonSpacing * 4 ) ) * 0.5, app->height - buttonSpacing - buttonSize.y ) );
             ImGui::SetWindowSize( glm::vec2( buttonSize.x * 5 + buttonSpacing * 4, buttonSize.y ) );
 

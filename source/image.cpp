@@ -12,6 +12,7 @@
 namespace mc
 {
     constexpr static SDL_DialogFileFilter filters[] = {
+        { "All Supported Types", "jpg;jpeg;png" },
         { "JPEG (*.jpg;*.jpeg)", "jpg;jpeg" },
         { "PNG (*.png)", "png" },
         { nullptr, nullptr },
