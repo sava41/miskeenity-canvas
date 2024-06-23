@@ -80,13 +80,13 @@ namespace mc
             return;
         }
 
-        if( isSelected )
+        if( isSelected && !( m_array[index].flags & LayerFlags::Selected ) )
         {
-
             m_array[index].flags = m_array[index].flags | LayerFlags::Selected;
             m_numSelected += 1;
         }
-        else
+
+        if( !isSelected && ( m_array[index].flags & LayerFlags::Selected ) )
         {
             m_array[index].flags = m_array[index].flags & ~LayerFlags::Selected;
             m_numSelected -= 1;

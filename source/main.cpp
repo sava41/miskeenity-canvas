@@ -224,7 +224,7 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
     case SDL_EVENT_MOUSE_BUTTON_UP:
 
         // click selection if the mouse hasnt moved since mouse down
-        if( app->mouseWindowPos == app->mouseDragStart )
+        if( app->mouseWindowPos == app->mouseDragStart && app->state == mc::State::Cursor )
         {
             app->viewParams.selectDispatch = mc::SelectDispatch::Point;
         }
