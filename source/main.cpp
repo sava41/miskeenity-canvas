@@ -98,8 +98,17 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
     wgpu::DeviceDescriptor deviceDesc;
     deviceDesc.label = "Device";
     // deviceDesc.requiredLimits = &requiredLimits;
-    deviceDesc.defaultQueue.label = "Main Queue";
-    app->device                   = mc::requestDevice( app->adapter, &deviceDesc );
+    deviceDesc.defaultQueue.label                   = "Main Queue";
+    deviceDesc.uncapturedErrorCallbackInfo.callback = []( WGPUErrorType type, char const* message, void* userData )
+    {
+        SDL_Log( "Device error type: %d\n", type );
+        SDL_Log( "Device error message: %s\n", message );
+
+        mc::AppContext* app = static_cast<mc::AppContext*>( userData );
+        app->appQuit        = true;
+    };
+    deviceDesc.uncapturedErrorCallbackInfo.userdata = app;
+    app->device                                     = mc::requestDevice( app->adapter, &deviceDesc );
 
 #if defined( SDL_PLATFORM_EMSCRIPTEN )
     app->colorFormat = app->surface.GetPreferredFormat( app->adapter );
@@ -107,21 +116,10 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
     app->colorFormat = wgpu::TextureFormat::BGRA8Unorm;
 #endif()
 
-    app->device.SetUncapturedErrorCallback(
-        []( WGPUErrorType type, char const* message, void* userData )
-        {
-            SDL_Log( "Device error type: %d\n", type );
-            SDL_Log( "Device error message: %s\n", message );
-
-            mc::AppContext* app = static_cast<mc::AppContext*>( userData );
-            app->appQuit        = true;
-        },
-        app );
-
     SDL_GetWindowSize( app->window, &app->width, &app->height );
     SDL_GetWindowSizeInPixels( app->window, &app->bbwidth, &app->bbheight );
     app->dpiFactor = SDL_GetWindowDisplayScale( app->window );
-    mc::initSwapChain( app );
+    mc::configureSurface( app );
 
     mc::initUI( app );
 
@@ -155,7 +153,7 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
         break;
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-        app->resetSwapchain = true;
+        app->resetSurface = true;
         break;
     case SDL_EVENT_DISPLAY_CONTENT_SCALE_CHANGED:
     case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
@@ -267,13 +265,13 @@ int SDL_AppIterate( void* appstate )
 {
     mc::AppContext* app = reinterpret_cast<mc::AppContext*>( appstate );
 
-    if( app->resetSwapchain )
+    if( app->resetSurface )
     {
         SDL_GetWindowSize( app->window, &app->width, &app->height );
         SDL_GetWindowSizeInPixels( app->window, &app->bbwidth, &app->bbheight );
-        mc::initSwapChain( app );
+        mc::configureSurface( app );
 
-        app->resetSwapchain = false;
+        app->resetSurface = false;
     }
 
     // Update canvas offset
@@ -389,22 +387,16 @@ int SDL_AppIterate( void* appstate )
         app->layersModified = false;
     }
 
-    wgpu::TextureView nextTexture = app->swapchain.GetCurrentTextureView();
-    // Getting the texture may fail, in particular if the window has been resized
-    // and thus the target surface changed.
-    if( !nextTexture )
-    {
-        SDL_Log( "Cannot acquire next swap chain texture" );
-        return false;
-    }
-
     wgpu::CommandEncoderDescriptor commandEncoderDesc;
     commandEncoderDesc.label = "Casper";
 
     wgpu::CommandEncoder encoder = app->device.CreateCommandEncoder( &commandEncoderDesc );
 
+    wgpu::SurfaceTexture surfaceTexture;
+    app->surface.GetCurrentTexture( &surfaceTexture );
+
     wgpu::RenderPassColorAttachment renderPassColorAttachment;
-    renderPassColorAttachment.view = nextTexture, renderPassColorAttachment.loadOp = wgpu::LoadOp::Clear,
+    renderPassColorAttachment.view = surfaceTexture.texture.CreateView(), renderPassColorAttachment.loadOp = wgpu::LoadOp::Clear,
     renderPassColorAttachment.storeOp = wgpu::StoreOp::Store, renderPassColorAttachment.storeOp = wgpu::StoreOp::Store,
     renderPassColorAttachment.clearValue =
         wgpu::Color{ Spectrum::ColorR( Spectrum::Static::BONE ), Spectrum::ColorG( Spectrum::Static::BONE ), Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f };
@@ -518,7 +510,7 @@ int SDL_AppIterate( void* appstate )
     }
 
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )
-    app->swapchain.Present();
+    app->surface.Present();
     app->device.Tick();
 #endif
 

@@ -40,8 +40,8 @@ namespace mc
                             return;
                         }
 
-                        app->device.GetQueue().OnSubmittedWorkDone(
-                            0, []( WGPUQueueWorkDoneStatus status, void* imageData ) { stbi_image_free( imageData ); }, imageData );
+                        app->device.GetQueue().OnSubmittedWorkDone( []( WGPUQueueWorkDoneStatus status, void* imageData ) { stbi_image_free( imageData ); },
+                                                                    imageData );
 
                         glm::vec2 pos = ( glm::vec2( app->width / 2.0, app->height / 2.0 ) - app->viewParams.canvasPos ) / app->viewParams.scale;
 

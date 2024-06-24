@@ -284,17 +284,17 @@ namespace mc
         app->selectionBindGroup = app->device.CreateBindGroup( &computeBindGroupDesc );
     }
 
-    void initSwapChain( mc::AppContext* app )
+    void configureSurface( mc::AppContext* app )
     {
+        wgpu::SurfaceCapabilities capabilities;
+        app->surface.GetCapabilities( app->adapter, &capabilities );
 
-        wgpu::SwapChainDescriptor swapChainDesc;
-        swapChainDesc.width  = static_cast<uint32_t>( app->width );
-        swapChainDesc.height = static_cast<uint32_t>( app->height );
-
-        swapChainDesc.usage = wgpu::TextureUsage::RenderAttachment, swapChainDesc.format = app->colorFormat;
-        swapChainDesc.presentMode = wgpu::PresentMode::Fifo;
-
-        app->swapchain = app->device.CreateSwapChain( app->surface, &swapChainDesc );
+        wgpu::SurfaceConfiguration config;
+        config.device = app->device;
+        config.format = app->colorFormat;
+        config.width  = app->width;
+        config.height = app->height;
+        app->surface.Configure( &config );
 
         app->updateView = true;
     }

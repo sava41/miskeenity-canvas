@@ -75,7 +75,6 @@ namespace mc
         wgpu::Device device;
         wgpu::Adapter adapter;
 
-        wgpu::SwapChain swapchain;
         wgpu::TextureFormat colorFormat;
 
         wgpu::RenderPipeline mainPipeline;
@@ -97,7 +96,7 @@ namespace mc
         bool selectionReady     = true;
         bool layersModified     = true;
         bool appQuit            = false;
-        bool resetSwapchain     = false;
+        bool resetSurface       = false;
         float paintRadius       = 100.0;
         glm::u8vec4 paintColor  = glm::u8vec4( 255, 0, 0, 255 );
 
