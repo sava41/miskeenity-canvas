@@ -1,7 +1,7 @@
 #include "image.h"
 
 #include "app.h"
-#include "webgpu_utils.h"
+#include "graphics.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_dialog.h>

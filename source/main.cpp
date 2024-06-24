@@ -15,10 +15,10 @@
 #include "app.h"
 #include "color_theme.h"
 #include "embedded_files.h"
+#include "graphics.h"
 #include "layers.h"
 #include "ui.h"
 #include "webgpu_surface.h"
-#include "webgpu_utils.h"
 
 int SDL_Fail()
 {

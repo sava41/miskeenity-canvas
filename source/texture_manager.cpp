@@ -1,6 +1,6 @@
 #include "texture_manager.h"
 
-#include "webgpu_utils.h"
+#include "graphics.h"
 
 #include <array>
 
