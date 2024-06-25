@@ -7,6 +7,69 @@
 namespace mc
 {
 
+    bool initDevice( mc::AppContext* app )
+    {
+        wgpu::RequestAdapterOptions adapterOpts;
+        adapterOpts.compatibleSurface = app->surface;
+
+        app->adapter = mc::requestAdapter( app->instance, &adapterOpts );
+        if( !app->adapter )
+        {
+            return false;
+        }
+
+        wgpu::SupportedLimits supportedLimits;
+#if defined( SDL_PLATFORM_EMSCRIPTEN )
+        // Error in Chrome: Aborted(TODO: wgpuAdapterGetLimits unimplemented)
+        // (as of September 4, 2023), so we hardcode values:
+        // These work for 99.95% of clients (source: https://web3dsurvey.com/webgpu)
+        supportedLimits.limits.minStorageBufferOffsetAlignment = 256;
+        supportedLimits.limits.minUniformBufferOffsetAlignment = 256;
+#else
+        app->adapter.GetLimits( &supportedLimits );
+#endif
+
+        wgpu::RequiredLimits requiredLimits;
+        requiredLimits.limits.maxVertexAttributes = 4;
+        requiredLimits.limits.maxVertexBuffers    = 2;
+        // requiredLimits.limits.maxBufferSize = 150000 * sizeof(WGPUVertexAttributes);
+        // requiredLimits.limits.maxVertexBufferArrayStride = sizeof(WGPUVertexAttributes);
+        requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
+        requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
+        requiredLimits.limits.maxInterStageShaderComponents   = 8;
+        requiredLimits.limits.maxBindGroups                   = 4;
+        requiredLimits.limits.maxUniformBuffersPerShaderStage = 1;
+        requiredLimits.limits.maxUniformBufferBindingSize     = 16 * 4 * sizeof( float );
+        // Allow textures up to 2K
+        requiredLimits.limits.maxTextureDimension1D            = 2048;
+        requiredLimits.limits.maxTextureDimension2D            = 2048;
+        requiredLimits.limits.maxTextureArrayLayers            = 1;
+        requiredLimits.limits.maxSampledTexturesPerShaderStage = 1;
+        requiredLimits.limits.maxSamplersPerShaderStage        = 1;
+
+        wgpu::DeviceDescriptor deviceDesc;
+        deviceDesc.label = "Device";
+        // deviceDesc.requiredLimits = &requiredLimits;
+        deviceDesc.defaultQueue.label                   = "Main Queue";
+        deviceDesc.uncapturedErrorCallbackInfo.callback = []( WGPUErrorType type, char const* message, void* userData )
+        {
+            SDL_Log( "Device error type: %d\n", type );
+            SDL_Log( "Device error message: %s\n", message );
+
+            mc::AppContext* app = static_cast<mc::AppContext*>( userData );
+            app->appQuit        = true;
+        };
+        deviceDesc.uncapturedErrorCallbackInfo.userdata = app;
+        app->device                                     = mc::requestDevice( app->adapter, &deviceDesc );
+
+#if defined( SDL_PLATFORM_EMSCRIPTEN )
+        app->colorFormat = app->surface.GetPreferredFormat( app->adapter );
+#else()
+        app->colorFormat = wgpu::TextureFormat::BGRA8Unorm;
+#endif()
+        return true;
+    }
+
     void initMainPipeline( mc::AppContext* app )
     {
         // we have two vertex buffers, our one for verticies and the other for instances
@@ -129,22 +192,7 @@ namespace mc
         wgpu::BindGroupLayout globalGroupLayout = app->device.CreateBindGroupLayout( &globalGroupLayoutDesc );
 
         // Create main bind group layout
-        std::array<wgpu::BindGroupLayoutEntry, 2> mainGroupLayoutEntries;
-
-        mainGroupLayoutEntries[0].binding      = 0;
-        mainGroupLayoutEntries[0].visibility   = wgpu::ShaderStage::Fragment;
-        mainGroupLayoutEntries[0].sampler.type = wgpu::SamplerBindingType::Filtering;
-
-        mainGroupLayoutEntries[1].binding               = 1;
-        mainGroupLayoutEntries[1].visibility            = wgpu::ShaderStage::Fragment;
-        mainGroupLayoutEntries[1].texture.sampleType    = wgpu::TextureSampleType::Float;
-        mainGroupLayoutEntries[1].texture.viewDimension = wgpu::TextureViewDimension::e2D;
-
-        wgpu::BindGroupLayoutDescriptor mainGroupLayoutDesc;
-        mainGroupLayoutDesc.entryCount = static_cast<uint32_t>( mainGroupLayoutEntries.size() );
-        mainGroupLayoutDesc.entries    = mainGroupLayoutEntries.data();
-
-        wgpu::BindGroupLayout mainGroupLayout = app->device.CreateBindGroupLayout( &mainGroupLayoutDesc );
+        wgpu::BindGroupLayout mainGroupLayout = createTextureBindGroupLayout( app->device );
 
         // Create main pipeline
         std::array<wgpu::BindGroupLayout, 2> mainBindGroupLayouts = { globalGroupLayout, mainGroupLayout };
@@ -297,6 +345,49 @@ namespace mc
         app->surface.Configure( &config );
 
         app->updateView = true;
+    }
+
+    wgpu::RenderPassEncoder createRenderPassEncoder( const wgpu::Device& device, const wgpu::Surface& surface, const wgpu::Color& clearColor )
+    {
+        wgpu::CommandEncoderDescriptor commandEncoderDesc;
+        commandEncoderDesc.label = "Casper";
+
+        wgpu::CommandEncoder encoder = device.CreateCommandEncoder( &commandEncoderDesc );
+
+        wgpu::SurfaceTexture surfaceTexture;
+        surface.GetCurrentTexture( &surfaceTexture );
+
+        wgpu::RenderPassColorAttachment renderPassColorAttachment;
+        renderPassColorAttachment.view = surfaceTexture.texture.CreateView(), renderPassColorAttachment.loadOp = wgpu::LoadOp::Clear,
+        renderPassColorAttachment.storeOp = wgpu::StoreOp::Store, renderPassColorAttachment.storeOp = wgpu::StoreOp::Store,
+        renderPassColorAttachment.clearValue = clearColor;
+
+
+        wgpu::RenderPassDescriptor renderPassDesc;
+        renderPassDesc.colorAttachmentCount = 1;
+        renderPassDesc.colorAttachments     = &renderPassColorAttachment;
+
+        return encoder.BeginRenderPass( &renderPassDesc );
+    }
+
+    wgpu::BindGroupLayout createTextureBindGroupLayout( const wgpu::Device& device )
+    {
+        std::array<wgpu::BindGroupLayoutEntry, 2> groupLayoutEntries;
+
+        groupLayoutEntries[0].binding      = 0;
+        groupLayoutEntries[0].visibility   = wgpu::ShaderStage::Fragment;
+        groupLayoutEntries[0].sampler.type = wgpu::SamplerBindingType::Filtering;
+
+        groupLayoutEntries[1].binding               = 1;
+        groupLayoutEntries[1].visibility            = wgpu::ShaderStage::Fragment;
+        groupLayoutEntries[1].texture.sampleType    = wgpu::TextureSampleType::Float;
+        groupLayoutEntries[1].texture.viewDimension = wgpu::TextureViewDimension::e2D;
+
+        wgpu::BindGroupLayoutDescriptor groupLayoutDesc;
+        groupLayoutDesc.entryCount = static_cast<uint32_t>( groupLayoutEntries.size() );
+        groupLayoutDesc.entries    = groupLayoutEntries.data();
+
+        return device.CreateBindGroupLayout( &groupLayoutDesc );
     }
 
     void uploadTexture( const wgpu::Queue& queue, const wgpu::Texture& texture, void* data, int width, int height, int channels )

@@ -16,22 +16,7 @@ namespace mc
 
     void TextureManager::init( const wgpu::Device& device )
     {
-        std::array<wgpu::BindGroupLayoutEntry, 2> groupLayoutEntries;
-
-        groupLayoutEntries[0].binding      = 0;
-        groupLayoutEntries[0].visibility   = wgpu::ShaderStage::Fragment;
-        groupLayoutEntries[0].sampler.type = wgpu::SamplerBindingType::Filtering;
-
-        groupLayoutEntries[1].binding               = 1;
-        groupLayoutEntries[1].visibility            = wgpu::ShaderStage::Fragment;
-        groupLayoutEntries[1].texture.sampleType    = wgpu::TextureSampleType::Float;
-        groupLayoutEntries[1].texture.viewDimension = wgpu::TextureViewDimension::e2D;
-
-        wgpu::BindGroupLayoutDescriptor groupLayoutDesc;
-        groupLayoutDesc.entryCount = static_cast<uint32_t>( groupLayoutEntries.size() );
-        groupLayoutDesc.entries    = groupLayoutEntries.data();
-
-        m_groupLayout = device.CreateBindGroupLayout( &groupLayoutDesc );
+        m_groupLayout = createTextureBindGroupLayout( device );
 
         wgpu::SamplerDescriptor samplerDesc;
         samplerDesc.addressModeU  = wgpu::AddressMode::Repeat;

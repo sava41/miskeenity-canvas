@@ -57,64 +57,7 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
         return SDL_Fail();
     }
 
-    wgpu::RequestAdapterOptions adapterOpts;
-    adapterOpts.compatibleSurface = app->surface;
-
-    app->adapter = mc::requestAdapter( app->instance, &adapterOpts );
-    if( !app->adapter )
-    {
-        return SDL_Fail();
-    }
-
-    wgpu::SupportedLimits supportedLimits;
-#if defined( SDL_PLATFORM_EMSCRIPTEN )
-    // Error in Chrome: Aborted(TODO: wgpuAdapterGetLimits unimplemented)
-    // (as of September 4, 2023), so we hardcode values:
-    // These work for 99.95% of clients (source: https://web3dsurvey.com/webgpu)
-    supportedLimits.limits.minStorageBufferOffsetAlignment = 256;
-    supportedLimits.limits.minUniformBufferOffsetAlignment = 256;
-#else
-    app->adapter.GetLimits( &supportedLimits );
-#endif
-
-    wgpu::RequiredLimits requiredLimits;
-    requiredLimits.limits.maxVertexAttributes = 4;
-    requiredLimits.limits.maxVertexBuffers    = 2;
-    // requiredLimits.limits.maxBufferSize = 150000 * sizeof(WGPUVertexAttributes);
-    // requiredLimits.limits.maxVertexBufferArrayStride = sizeof(WGPUVertexAttributes);
-    requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
-    requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
-    requiredLimits.limits.maxInterStageShaderComponents   = 8;
-    requiredLimits.limits.maxBindGroups                   = 4;
-    requiredLimits.limits.maxUniformBuffersPerShaderStage = 1;
-    requiredLimits.limits.maxUniformBufferBindingSize     = 16 * 4 * sizeof( float );
-    // Allow textures up to 2K
-    requiredLimits.limits.maxTextureDimension1D            = 2048;
-    requiredLimits.limits.maxTextureDimension2D            = 2048;
-    requiredLimits.limits.maxTextureArrayLayers            = 1;
-    requiredLimits.limits.maxSampledTexturesPerShaderStage = 1;
-    requiredLimits.limits.maxSamplersPerShaderStage        = 1;
-
-    wgpu::DeviceDescriptor deviceDesc;
-    deviceDesc.label = "Device";
-    // deviceDesc.requiredLimits = &requiredLimits;
-    deviceDesc.defaultQueue.label                   = "Main Queue";
-    deviceDesc.uncapturedErrorCallbackInfo.callback = []( WGPUErrorType type, char const* message, void* userData )
-    {
-        SDL_Log( "Device error type: %d\n", type );
-        SDL_Log( "Device error message: %s\n", message );
-
-        mc::AppContext* app = static_cast<mc::AppContext*>( userData );
-        app->appQuit        = true;
-    };
-    deviceDesc.uncapturedErrorCallbackInfo.userdata = app;
-    app->device                                     = mc::requestDevice( app->adapter, &deviceDesc );
-
-#if defined( SDL_PLATFORM_EMSCRIPTEN )
-    app->colorFormat = app->surface.GetPreferredFormat( app->adapter );
-#else()
-    app->colorFormat = wgpu::TextureFormat::BGRA8Unorm;
-#endif()
+    mc::initDevice( app );
 
     SDL_GetWindowSize( app->window, &app->width, &app->height );
     SDL_GetWindowSizeInPixels( app->window, &app->bbwidth, &app->bbheight );

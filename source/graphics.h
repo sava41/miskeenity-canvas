@@ -6,8 +6,11 @@
 
 namespace mc
 {
+    bool initDevice( mc::AppContext* app );
     void initMainPipeline( mc::AppContext* app );
     void configureSurface( mc::AppContext* app );
+    wgpu::RenderPassEncoder createRenderPassEncoder( const wgpu::Device& device, const wgpu::Surface& surface, const wgpu::Color& clearColor );
+    wgpu::BindGroupLayout createTextureBindGroupLayout( const wgpu::Device& device );
     void uploadTexture( const wgpu::Queue& queue, const wgpu::Texture& texture, void* data, int width, int height, int channels );
     wgpu::Device requestDevice( const wgpu::Adapter& adapter, const wgpu::DeviceDescriptor* descriptor );
     wgpu::Adapter requestAdapter( const wgpu::Instance& instance, const wgpu::RequestAdapterOptions* options );
