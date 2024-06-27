@@ -355,7 +355,7 @@ namespace mc
             ImGui::SetNextWindowPos( glm::vec2( 400.0 ) * app->dpiFactor, ImGuiCond_FirstUseEver );
             ImGui::SetNextWindowSize( glm::vec2( 400.0, 150.0 ) * app->dpiFactor, ImGuiCond_FirstUseEver );
 
-            ImGui::Begin( "Paint Brush Settings", nullptr, ImGuiWindowFlags_NoResize );
+            ImGui::Begin( "Paint Brush Settings", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
             {
                 ImGui::PushItemWidth( -80 );
 
