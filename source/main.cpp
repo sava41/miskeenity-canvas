@@ -91,6 +91,10 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
 
     switch( event->type )
     {
+    case SDL_EVENT_USER:
+
+        delete event->user.data1;
+        break;
     case SDL_EVENT_QUIT:
         app->appQuit = true;
         break;

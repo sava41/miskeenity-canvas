@@ -41,7 +41,8 @@ embed_files(embedded_files
 # Setup executable
 add_executable(miskeenity-canvas 
     source/main.cpp 
-    source/graphics.cpp 
+    source/graphics.cpp
+    source/events.cpp
     source/layers.cpp
     source/ui.cpp
     source/image.cpp
