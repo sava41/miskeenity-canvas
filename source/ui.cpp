@@ -113,7 +113,7 @@ namespace mc
         configRoboto.OversampleH          = 2;
         configRoboto.OversampleV          = 2;
         configRoboto.GlyphExtraSpacing    = ImVec2( 1.0f, 0 );
-        ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<uint8_t*>( Roboto_ttf ), Roboto_ttf_size, 16.0f * dpiFactor, &configRoboto );
+        ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<uint8_t*>( Roboto_ttf ), Roboto_ttf_size, 17.0f * dpiFactor, &configRoboto );
 
         ImFontConfig configLucide;
         configLucide.FontDataOwnedByAtlas = false;
@@ -321,16 +321,20 @@ namespace mc
                           ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
             ImGui::PopStyleVar( 1 );
             {
-                ImGui::SetWindowPos( glm::vec2( ( app->width - ( buttonSize.x * 5 + buttonSpacing * 4 ) ) * 0.5, buttonSpacing * 2 ) );
-                ImGui::SetWindowSize( glm::vec2( buttonSize.x * 5 + buttonSpacing * 4, buttonSize.y ) );
+                ImGui::SetWindowPos( glm::vec2( ( app->width - ( buttonSize.x * 6 + buttonSpacing * 5 ) ) * 0.5, buttonSpacing * 2 ) );
+                ImGui::SetWindowSize( glm::vec2( buttonSize.x * 6 + buttonSpacing * 5, buttonSize.y ) );
 
                 ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
                 ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
 
-                std::array<std::string, 5> tools    = { ICON_LC_ARROW_UP_NARROW_WIDE, ICON_LC_ARROW_DOWN_NARROW_WIDE, ICON_LC_FLIP_HORIZONTAL_2,
-                                                        ICON_LC_FLIP_VERTICAL_2, ICON_LC_CROP };
-                std::array<std::string, 5> tooltips = { "TODO: Bring To Front", "TODO: Move To Back", "TODO: Flip Horizontal", "TODO: Flip Vertical",
-                                                        "TODO: Crop" };
+                std::array<std::string, 6> tools    = { ICON_LC_ARROW_UP_NARROW_WIDE,
+                                                        ICON_LC_ARROW_DOWN_NARROW_WIDE,
+                                                        ICON_LC_FLIP_HORIZONTAL_2,
+                                                        ICON_LC_FLIP_VERTICAL_2,
+                                                        ICON_LC_CROP,
+                                                        ICON_LC_TRASH_2 };
+                std::array<std::string, 6> tooltips = { "TODO: Bring To Front", "TODO: Move To Back", "TODO: Flip Horizontal",
+                                                        "TODO: Flip Vertical",  "TODO: Crop",         "TODO: Delete" };
 
                 for( size_t i = 0; i < tools.size(); i++ )
                 {
