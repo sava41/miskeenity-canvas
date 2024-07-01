@@ -13,15 +13,6 @@ namespace mc
     constexpr float ZoomScaleFactor = 0.5;
     constexpr size_t NumLayers      = 2048;
 
-    enum class State
-    {
-        Cursor,
-        Pan,
-        Paint,
-        Text,
-        Other
-    };
-
     enum class SelectDispatch : uint32_t
     {
         Box         = 0,
@@ -89,7 +80,6 @@ namespace mc
 
         Uniforms viewParams;
 
-        State state             = State::Cursor;
         CursorDragType dragType = CursorDragType::Select;
         bool mouseDown          = false;
         bool updateView         = false;
@@ -97,8 +87,6 @@ namespace mc
         bool layersModified     = true;
         bool appQuit            = false;
         bool resetSurface       = false;
-        float paintRadius       = 100.0;
-        glm::u8vec4 paintColor  = glm::u8vec4( 255, 0, 0, 255 );
 
         Selection* selectionData = nullptr;
 

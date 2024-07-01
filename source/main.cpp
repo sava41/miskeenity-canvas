@@ -1,5 +1,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <SDL3/SDL_misc.h>
 #include <algorithm>
 #include <glm/glm.hpp>
 #include <string>
@@ -15,7 +16,9 @@
 #include "app.h"
 #include "color_theme.h"
 #include "embedded_files.h"
+#include "events.h"
 #include "graphics.h"
+#include "image.h"
 #include "layers.h"
 #include "ui.h"
 #include "webgpu_surface.h"
@@ -83,16 +86,32 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
     return 0;
 }
 
+void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
+{
+    switch( static_cast<mc::Events>( event->user.code ) )
+    {
+    case mc::Events::AppQuit:
+        app->appQuit = true;
+        break;
+    case mc::Events::LoadImage:
+        mc::loadImageFromFile( app );
+        break;
+    case mc::Events::OpenGithub:
+        SDL_OpenURL( "https://github.com/sava41/miskeenity-canvas" );
+        break;
+    }
+}
+
 int SDL_AppEvent( void* appstate, const SDL_Event* event )
 {
     mc::AppContext* app = reinterpret_cast<mc::AppContext*>( appstate );
 
-    mc::processEventUI( event );
+    mc::processEventUI( app, event );
 
     switch( event->type )
     {
     case SDL_EVENT_USER:
-
+        proccessUserEvent( event, app );
         delete event->user.data1;
         break;
     case SDL_EVENT_QUIT:
@@ -109,48 +128,42 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
         break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
 
-        if( !mc::captureMouseUI() )
+        if( mc::getMouseLocationUI() != mc::MouseLocationUI::Window )
         {
             app->mouseDragStart = app->mouseWindowPos;
             app->mouseDown      = true;
 
-            if( app->state == mc::State::Paint )
+            if( mc::getAppMode() == mc::Mode::Paint )
             {
-                glm::vec2 basisA = glm::vec2( 0.0, 2.0 ) * app->paintRadius;
-                glm::vec2 basisB = glm::vec2( 2.0, 0.0 ) * app->paintRadius;
+                glm::vec2 basisA  = glm::vec2( 0.0, 2.0 ) * mc::getPaintRadius();
+                glm::vec2 basisB  = glm::vec2( 2.0, 0.0 ) * mc::getPaintRadius();
+                glm::u8vec4 color = glm::u8vec4( mc::getPaintColor() * 255.0f, 1.0 );
 
-                app->layers.add( { app->viewParams.mousePos, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 1.0 ), static_cast<uint16_t>( 0 ), 0,
-                                   app->paintColor, mc::HasPillAlphaTex } );
+                app->layers.add( { app->viewParams.mousePos, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 1.0 ), static_cast<uint16_t>( 0 ), 0, color,
+                                   mc::HasPillAlphaTex } );
                 app->layersModified = true;
             }
-            else if( app->state == mc::State::Cursor )
+            else if( mc::getAppMode() == mc::Mode::Cursor )
             {
-                glm::vec2 cornerTL = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
-                glm::vec2 cornerBR = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
-                glm::vec2 cornerTR = glm::vec2( cornerBR.x, cornerTL.y );
-                glm::vec2 cornerBL = glm::vec2( cornerTL.x, cornerBR.y );
+                mc::MouseLocationUI mouseLocation = mc::getMouseLocationUI();
 
-                float screenSpaceCenterX = ( cornerTL.x + cornerBR.x ) * 0.5f;
-
-                glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerTR.y - mc::RotateHandleHeight );
-
-                if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, rotHandlePos ) < mc::HandleHalfSize * app->dpiFactor )
+                if( mouseLocation == mc::MouseLocationUI::RotateHandle )
                 {
                     app->dragType = mc::CursorDragType::Rotate;
                 }
-                else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerTL ) < mc::HandleHalfSize * app->dpiFactor )
+                else if( mouseLocation == mc::MouseLocationUI::ScaleHandleTL )
                 {
                     app->dragType = mc::CursorDragType::ScaleTL;
                 }
-                else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerBR ) < mc::HandleHalfSize * app->dpiFactor )
+                else if( mouseLocation == mc::MouseLocationUI::ScaleHandleBR )
                 {
                     app->dragType = mc::CursorDragType::ScaleBR;
                 }
-                else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerTR ) < mc::HandleHalfSize * app->dpiFactor )
+                else if( mouseLocation == mc::MouseLocationUI::ScaleHandleTR )
                 {
                     app->dragType = mc::CursorDragType::ScaleTR;
                 }
-                else if( app->layers.numSelected() > 0 && glm::distance( app->mouseWindowPos, cornerBL ) < mc::HandleHalfSize * app->dpiFactor )
+                else if( mouseLocation == mc::MouseLocationUI::ScaleHandleBL )
                 {
                     app->dragType = mc::CursorDragType::ScaleBL;
                 }
@@ -169,7 +182,7 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
     case SDL_EVENT_MOUSE_BUTTON_UP:
 
         // click selection if the mouse hasnt moved since mouse down
-        if( app->mouseWindowPos == app->mouseDragStart && app->state == mc::State::Cursor )
+        if( app->mouseWindowPos == app->mouseDragStart && mc::getAppMode() == mc::Mode::Cursor )
         {
             app->viewParams.selectDispatch = mc::SelectDispatch::Point;
         }
@@ -184,7 +197,7 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
         app->mouseWindowPos = glm::vec2( event->motion.x, event->motion.y );
         app->mouseDelta += glm::vec2( event->motion.xrel, event->motion.yrel );
 
-        if( app->mouseDown && !mc::captureMouseUI() && app->state == mc::State::Pan )
+        if( app->mouseDown && mc::getMouseLocationUI() != mc::MouseLocationUI::Window && mc::getAppMode() == mc::Mode::Pan )
         {
             app->updateView = true;
         }
@@ -192,7 +205,7 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
     case SDL_EVENT_MOUSE_WHEEL:
         app->scrollDelta += glm::vec2( event->wheel.x, event->wheel.y );
 
-        if( !mc::captureMouseUI() )
+        if( mc::getMouseLocationUI() != mc::MouseLocationUI::Window )
         {
             app->updateView = true;
         }
@@ -222,7 +235,7 @@ int SDL_AppIterate( void* appstate )
     }
 
     // Update canvas offset
-    if( app->mouseDelta.length() > 0.0 && app->mouseDown && app->updateView && app->state == mc::State::Pan )
+    if( app->mouseDelta.length() > 0.0 && app->mouseDown && app->updateView && mc::getAppMode() == mc::Mode::Pan )
     {
         app->viewParams.canvasPos += app->mouseDelta;
     }
@@ -256,7 +269,7 @@ int SDL_AppIterate( void* appstate )
         app->updateView = false;
     }
 
-    if( app->state == mc::State::Cursor && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
+    if( mc::getAppMode() == mc::Mode::Cursor && app->mouseDown && app->mouseDragStart != app->mouseWindowPos && app->mouseDelta != glm::vec2( 0.0 ) )
     {
         switch( app->dragType )
         {
@@ -317,13 +330,14 @@ int SDL_AppIterate( void* appstate )
         break;
         }
     }
-    if( app->state == mc::State::Paint && app->mouseDown && app->mouseDelta != glm::vec2( 0.0 ) )
+    if( mc::getAppMode() == mc::Mode::Paint && app->mouseDown && app->mouseDelta != glm::vec2( 0.0 ) )
     {
-        glm::vec2 basisA = app->mouseDelta / app->viewParams.scale + 2.0f * glm::normalize( app->mouseDelta ) * app->paintRadius;
-        glm::vec2 basisB = 2.0f * glm::normalize( glm::vec2( app->mouseDelta.y, -app->mouseDelta.x ) ) * app->paintRadius;
+        glm::vec2 basisA  = app->mouseDelta / app->viewParams.scale + 2.0f * glm::normalize( app->mouseDelta ) * mc::getPaintRadius();
+        glm::vec2 basisB  = 2.0f * glm::normalize( glm::vec2( app->mouseDelta.y, -app->mouseDelta.x ) ) * mc::getPaintRadius();
+        glm::u8vec4 color = glm::u8vec4( mc::getPaintColor() * 255.0f, 1.0 );
 
         app->layers.add( { app->viewParams.mousePos - app->mouseDelta / app->viewParams.scale * 0.5f, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 1.0 ),
-                           static_cast<uint16_t>( 0 ), 0, app->paintColor, mc::HasPillAlphaTex } );
+                           static_cast<uint16_t>( 0 ), 0, color, mc::HasPillAlphaTex } );
         app->layersModified = true;
     }
     app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &app->viewParams, sizeof( mc::Uniforms ) );

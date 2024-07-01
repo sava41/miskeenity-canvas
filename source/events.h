@@ -5,12 +5,9 @@ namespace mc
 
     enum class Events
     {
-        ChangeMode,
         SelectionRequested,
         SelectionChanged,
         SelectionReady,
-        Scale,
-        Rotate,
         FlipHorizontal,
         FlipVertical,
         MoveFront,
@@ -19,7 +16,9 @@ namespace mc
         Undo,
         Redo,
         LoadImage,
-        SaveImage
+        SaveImage,
+        AppQuit,
+        OpenGithub
     };
 
     enum class EventDataType
