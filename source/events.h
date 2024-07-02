@@ -21,12 +21,6 @@ namespace mc
         OpenGithub
     };
 
-    enum class EventDataType
-    {
-        None,
-        ImageData
-    };
-
-    void submitEvent( const Events& event, const EventDataType& type = EventDataType::None, void* userData = nullptr );
+    void submitEvent( const Events& event, void* userData = nullptr );
 
 } // namespace mc

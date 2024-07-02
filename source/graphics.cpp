@@ -347,29 +347,6 @@ namespace mc
         app->updateView = true;
     }
 
-    wgpu::RenderPassEncoder createRenderPassEncoder( const wgpu::Device& device, const wgpu::Surface& surface, const wgpu::Color& clearColor )
-    {
-        wgpu::CommandEncoderDescriptor commandEncoderDesc;
-        commandEncoderDesc.label = "Casper";
-
-        wgpu::CommandEncoder encoder = device.CreateCommandEncoder( &commandEncoderDesc );
-
-        wgpu::SurfaceTexture surfaceTexture;
-        surface.GetCurrentTexture( &surfaceTexture );
-
-        wgpu::RenderPassColorAttachment renderPassColorAttachment;
-        renderPassColorAttachment.view = surfaceTexture.texture.CreateView(), renderPassColorAttachment.loadOp = wgpu::LoadOp::Clear,
-        renderPassColorAttachment.storeOp = wgpu::StoreOp::Store, renderPassColorAttachment.storeOp = wgpu::StoreOp::Store,
-        renderPassColorAttachment.clearValue = clearColor;
-
-
-        wgpu::RenderPassDescriptor renderPassDesc;
-        renderPassDesc.colorAttachmentCount = 1;
-        renderPassDesc.colorAttachments     = &renderPassColorAttachment;
-
-        return encoder.BeginRenderPass( &renderPassDesc );
-    }
-
     wgpu::BindGroupLayout createTextureBindGroupLayout( const wgpu::Device& device )
     {
         std::array<wgpu::BindGroupLayoutEntry, 2> groupLayoutEntries;

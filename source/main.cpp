@@ -99,6 +99,45 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
     case mc::Events::OpenGithub:
         SDL_OpenURL( "https://github.com/sava41/miskeenity-canvas" );
         break;
+    case mc::Events::SelectionChanged:
+    {
+        mc::Selection* selectionData = reinterpret_cast<mc::Selection*>( event->user.data1 );
+
+        app->selectionBbox = glm::vec4( -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
+                                        std::numeric_limits<float>::max() );
+
+        int numSelected = 0;
+
+        for( int i = app->layers.length() - 1; i >= 0; --i )
+        {
+            if( ( app->viewParams.selectDispatch != mc::SelectDispatch::ComputeBbox && selectionData[i].flags != mc::SelectionFlags::InsideBox ) ||
+                ( app->viewParams.selectDispatch == mc::SelectDispatch::Point && numSelected == 1 ) )
+            {
+                app->layers.changeSelection( i, false );
+                continue;
+            }
+
+            if( app->viewParams.selectDispatch != mc::SelectDispatch::ComputeBbox || app->layers.isSelected( i ) )
+            {
+                app->selectionBbox.x = std::max( app->selectionBbox.x, selectionData[i].bbox.x );
+                app->selectionBbox.y = std::max( app->selectionBbox.y, selectionData[i].bbox.y );
+                app->selectionBbox.z = std::min( app->selectionBbox.z, selectionData[i].bbox.z );
+                app->selectionBbox.w = std::min( app->selectionBbox.w, selectionData[i].bbox.w );
+
+                app->layers.changeSelection( i, true );
+                numSelected += 1;
+            }
+        }
+        app->selectionMapBuf.Unmap();
+
+        app->selectionCenter = ( glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) + glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) ) * 0.5f;
+
+        app->selectionReady            = true;
+        app->layersModified            = true;
+        app->viewParams.selectDispatch = mc::SelectDispatch::None;
+        app->dragType                  = mc::CursorDragType::Select;
+    }
+    break;
     }
 }
 
@@ -112,7 +151,6 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
     {
     case SDL_EVENT_USER:
         proccessUserEvent( event, app );
-        delete event->user.data1;
         break;
     case SDL_EVENT_QUIT:
         app->appQuit = true;
@@ -357,8 +395,9 @@ int SDL_AppIterate( void* appstate )
     app->surface.GetCurrentTexture( &surfaceTexture );
 
     wgpu::RenderPassColorAttachment renderPassColorAttachment;
-    renderPassColorAttachment.view = surfaceTexture.texture.CreateView(), renderPassColorAttachment.loadOp = wgpu::LoadOp::Clear,
-    renderPassColorAttachment.storeOp = wgpu::StoreOp::Store, renderPassColorAttachment.storeOp = wgpu::StoreOp::Store,
+    renderPassColorAttachment.view    = surfaceTexture.texture.CreateView();
+    renderPassColorAttachment.loadOp  = wgpu::LoadOp::Clear;
+    renderPassColorAttachment.storeOp = wgpu::StoreOp::Store;
     renderPassColorAttachment.clearValue =
         wgpu::Color{ Spectrum::ColorR( Spectrum::Static::BONE ), Spectrum::ColorG( Spectrum::Static::BONE ), Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f };
 
@@ -391,7 +430,8 @@ int SDL_AppIterate( void* appstate )
 
     // We only want to recompute the selection array if a selection is requested and any
     // previously requested computations have completed aka selection ready
-    if( app->viewParams.selectDispatch != mc::SelectDispatch::None && app->selectionReady && app->layers.length() > 0 )
+    bool computeSelection = app->viewParams.selectDispatch != mc::SelectDispatch::None && app->selectionReady && app->layers.length() > 0;
+    if( computeSelection )
     {
         encoder.ClearBuffer( app->selectionBuf, 0, app->layers.length() * sizeof( mc::Selection ) );
         wgpu::ComputePassEncoder computePassEnc = encoder.BeginComputePass();
@@ -415,7 +455,7 @@ int SDL_AppIterate( void* appstate )
     app->mouseDelta  = glm::vec2( 0.0 );
     app->scrollDelta = glm::vec2( 0.0 );
 
-    if( app->viewParams.selectDispatch != mc::SelectDispatch::None && app->selectionReady && app->layers.length() > 0 )
+    if( computeSelection )
     {
         app->selectionReady = false;
 
@@ -423,51 +463,16 @@ int SDL_AppIterate( void* appstate )
         {
             if( status == WGPUBufferMapAsyncStatus_Success )
             {
-                mc::AppContext* app = reinterpret_cast<mc::AppContext*>( userData );
-                const mc::Selection* selectionData =
-                    reinterpret_cast<const mc::Selection*>( ( app->selectionMapBuf.GetConstMappedRange( 0, app->layers.length() * sizeof( mc::Selection ) ) ) );
+                wgpu::Buffer* buffer      = reinterpret_cast<wgpu::Buffer*>( userData );
+                const void* selectionData = ( buffer->GetConstMappedRange( 0, mc::NumLayers * sizeof( mc::Selection ) ) );
 
                 if( selectionData == nullptr )
                     return;
 
-                app->selectionBbox = glm::vec4( -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
-                                                std::numeric_limits<float>::max() );
-
-                int numSelected = 0;
-
-                for( int i = app->layers.length() - 1; i >= 0; --i )
-                {
-                    if( ( app->viewParams.selectDispatch != mc::SelectDispatch::ComputeBbox && selectionData[i].flags != mc::SelectionFlags::InsideBox ) ||
-                        ( app->viewParams.selectDispatch == mc::SelectDispatch::Point && numSelected == 1 ) )
-                    {
-                        app->layers.changeSelection( i, false );
-                        continue;
-                    }
-
-                    if( app->viewParams.selectDispatch != mc::SelectDispatch::ComputeBbox || app->layers.isSelected( i ) )
-                    {
-                        app->selectionBbox.x = std::max( app->selectionBbox.x, selectionData[i].bbox.x );
-                        app->selectionBbox.y = std::max( app->selectionBbox.y, selectionData[i].bbox.y );
-                        app->selectionBbox.z = std::min( app->selectionBbox.z, selectionData[i].bbox.z );
-                        app->selectionBbox.w = std::min( app->selectionBbox.w, selectionData[i].bbox.w );
-
-                        app->layers.changeSelection( i, true );
-                        numSelected += 1;
-                    }
-                }
-
-                app->selectionCenter =
-                    ( glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) + glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) ) * 0.5f;
-
-                app->selectionReady            = true;
-                app->layersModified            = true;
-                app->viewParams.selectDispatch = mc::SelectDispatch::None;
-                app->dragType                  = mc::CursorDragType::Select;
-
-                app->selectionMapBuf.Unmap();
+                submitEvent( mc::Events::SelectionChanged, const_cast<void*>( selectionData ) );
             }
         };
-        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, app->layers.length() * sizeof( mc::Selection ), callback, app );
+        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, mc::NumLayers * sizeof( mc::Selection ), callback, &app->selectionMapBuf );
     }
 
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )
