@@ -221,6 +221,7 @@ namespace mc
 
     void drawUI( const AppContext* app, const wgpu::RenderPassEncoder& renderPass )
     {
+        computeMouseLocationUI( app, app->mouseWindowPos );
 
         ImGui_ImplWGPU_NewFrame();
         ImGui_ImplSDL3_NewFrame();
@@ -475,18 +476,11 @@ namespace mc
         ImGui::Render();
 
         ImGui_ImplWGPU_RenderDrawData( ImGui::GetDrawData(), renderPass.Get() );
-
-        computeMouseLocationUI( app, app->mouseWindowPos );
     }
 
     void processEventUI( const AppContext* app, const SDL_Event* event )
     {
         ImGui_ImplSDL3_ProcessEvent( event );
-
-        if( event->type == SDL_EVENT_MOUSE_MOTION )
-        {
-            computeMouseLocationUI( app, glm::vec2( event->motion.x, event->motion.y ) );
-        }
     }
 
     void shutdownUI()
