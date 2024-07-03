@@ -267,8 +267,9 @@ int SDL_AppIterate( void* appstate )
     {
         SDL_GetWindowSize( app->window, &app->width, &app->height );
         SDL_GetWindowSizeInPixels( app->window, &app->bbwidth, &app->bbheight );
+#if !defined( SDL_PLATFORM_EMSCRIPTEN )
         mc::configureSurface( app );
-
+#endif
         app->resetSurface = false;
     }
 

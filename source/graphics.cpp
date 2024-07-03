@@ -3,6 +3,10 @@
 #include "embedded_files.h"
 
 #include <array>
+#if defined( SDL_PLATFORM_EMSCRIPTEN )
+#include <emscripten/emscripten.h>
+#include <emscripten/html5_webgpu.h>
+#endif
 
 namespace mc
 {
@@ -51,6 +55,7 @@ namespace mc
         deviceDesc.label = "Device";
         // deviceDesc.requiredLimits = &requiredLimits;
         deviceDesc.defaultQueue.label                   = "Main Queue";
+#if !defined( SDL_PLATFORM_EMSCRIPTEN )
         deviceDesc.uncapturedErrorCallbackInfo.callback = []( WGPUErrorType type, char const* message, void* userData )
         {
             SDL_Log( "Device error type: %d\n", type );
@@ -60,10 +65,13 @@ namespace mc
             app->appQuit        = true;
         };
         deviceDesc.uncapturedErrorCallbackInfo.userdata = app;
+#endif
         app->device                                     = mc::requestDevice( app->adapter, &deviceDesc );
 
 #if defined( SDL_PLATFORM_EMSCRIPTEN )
-        app->colorFormat = app->surface.GetPreferredFormat( app->adapter );
+        wgpu::SurfaceCapabilities capabilities;
+        app->surface.GetCapabilities( app->adapter, &capabilities );
+        app->colorFormat = capabilities.formats[0];
 #else()
         app->colorFormat = wgpu::TextureFormat::BGRA8Unorm;
 #endif()
@@ -334,9 +342,6 @@ namespace mc
 
     void configureSurface( mc::AppContext* app )
     {
-        wgpu::SurfaceCapabilities capabilities;
-        app->surface.GetCapabilities( app->adapter, &capabilities );
-
         wgpu::SurfaceConfiguration config;
         config.device = app->device;
         config.format = app->colorFormat;
@@ -399,16 +404,16 @@ namespace mc
 
         auto onDeviceRequestEnded = []( WGPURequestDeviceStatus status, WGPUDevice device, char const* message, void* pUserData )
         {
-            UserData& userData = *reinterpret_cast<UserData*>( pUserData );
+            UserData* userData = reinterpret_cast<UserData*>( pUserData );
             if( status == WGPURequestDeviceStatus_Success )
             {
-                userData.device = wgpu::Device::Acquire( device );
+                userData->device = wgpu::Device::Acquire( device );
             }
             else
             {
                 SDL_Log( "Could not get WebGPU device: %s", message );
             }
-            userData.requestEnded = true;
+            userData->requestEnded = true;
         };
 
         adapter.RequestDevice( descriptor, onDeviceRequestEnded, reinterpret_cast<void*>( &userData ) );
@@ -432,16 +437,16 @@ namespace mc
 
         auto onAdapterRequestEnded = []( WGPURequestAdapterStatus status, WGPUAdapter adapter, char const* message, void* pUserData )
         {
-            UserData& userData = *reinterpret_cast<UserData*>( pUserData );
+            UserData* userData = reinterpret_cast<UserData*>( pUserData );
             if( status == WGPURequestAdapterStatus_Success )
             {
-                userData.adapter = wgpu::Adapter::Acquire( adapter );
+                userData->adapter = wgpu::Adapter::Acquire( adapter );
             }
             else
             {
                 SDL_Log( "Could not get WebGPU adapter %s", message );
             }
-            userData.requestEnded = true;
+            userData->requestEnded = true;
         };
 
         instance.RequestAdapter( options, onAdapterRequestEnded, (void*)&userData );
