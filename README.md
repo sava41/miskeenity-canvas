@@ -1,6 +1,6 @@
 # Miskeenity Canvas
 
-Cross platform image editor based on [dingboard.com](https://dingboard.com/).
+Cross platform 2d infinite canvas app inspired by [dingboard.com](https://dingboard.com/).
 
 ## Requirements:
 - CMake 3.28 or later
@@ -13,6 +13,8 @@ Cross platform image editor based on [dingboard.com](https://dingboard.com/).
 > cmake -B build -DCMAKE_BUILD_TYPE=<type>
 > cmake --build build
 ```
+
+currently there are issues building on macos
 
 ## Build and Run WASM/HTML version via Emscripten (Linux, macOS)
 
@@ -31,4 +33,15 @@ https://emscripten.org/docs/getting_started/downloads.html#installation-instruct
 > emsdk/upstream/emscripten/emcmake cmake . -B embuild -DCMAKE_BUILD_TYPE=<type>
 > cmake --build embuild
 ```
+
+## Planned Features
+- canvas history (undo/redo)
+- layer masking
+- text layers
+- export/save
+- copy/paste
+
+<p align="center">
+	<img src="resources/textures/miskeen_256.png" height="256" alt="Miskeenity Canvas Logo (bald man)">
+</p>
 
