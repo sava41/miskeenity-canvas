@@ -46,6 +46,7 @@ add_executable(miskeenity-canvas
     source/layers.cpp
     source/ui.cpp
     source/image.cpp
+    source/sdl_utils.cpp
     source/texture_manager.cpp
     source/webgpu_surface.c)
 
@@ -62,8 +63,9 @@ if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     # WASM+JS size optimizations
     #target_link_options(miskeenity-canvas PRIVATE -sNO_FILESYSTEM=1 -sASSERTIONS=0 -sMALLOC=emmalloc --closure=1)
 else()
+    embed_files(window_icon ./resources/textures/miskeen_32.png)
     add_dependencies(miskeenity-canvas webgpu_cpp webgpu_dawn)
-    target_link_libraries(miskeenity-canvas PRIVATE webgpu_cpp webgpu_dawn)
+    target_link_libraries(miskeenity-canvas PRIVATE webgpu_cpp webgpu_dawn window_icon)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)

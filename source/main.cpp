@@ -1,6 +1,5 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
-#include <SDL3/SDL_misc.h>
 #include <algorithm>
 #include <glm/glm.hpp>
 #include <string>
@@ -20,6 +19,7 @@
 #include "graphics.h"
 #include "image.h"
 #include "layers.h"
+#include "sdl_utils.h"
 #include "ui.h"
 #include "webgpu_surface.h"
 
@@ -69,7 +69,7 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
 
     mc::initUI( app );
 
-    initMainPipeline( app );
+    mc::initMainPipeline( app );
 
     // print some information about the window
     SDL_ShowWindow( app->window );
@@ -77,6 +77,8 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
         SDL_Log( "Window size: %ix%i", app->width, app->height );
         SDL_Log( "Backbuffer size: %ix%i", app->bbwidth, app->bbheight );
     }
+
+    mc::setWindowIcon( app->window );
 
     app->textureManager.init( app->device );
     app->updateView = true;
@@ -94,7 +96,7 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         app->appQuit = true;
         break;
     case mc::Events::LoadImage:
-        mc::loadImageFromFile( app );
+        mc::loadImageFromFileDialog( app );
         break;
     case mc::Events::OpenGithub:
         SDL_OpenURL( "https://github.com/sava41/miskeenity-canvas" );

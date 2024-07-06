@@ -18,7 +18,7 @@ namespace mc
         { nullptr, nullptr },
     };
 
-    void loadImageFromFile( AppContext* app )
+    void loadImageFromFileDialog( AppContext* app )
     {
 
         SDL_ShowOpenFileDialog(
@@ -55,5 +55,11 @@ namespace mc
                 }
             },
             app, nullptr, filters, nullptr, SDL_FALSE );
+    }
+
+    ImageData loadImageFromBuffer( const void* buffer, int len, int& width, int& height )
+    {
+        return std::move( ImageData( stbi_load_from_memory( static_cast<const unsigned char*>( buffer ), len, &width, &height, nullptr, 4 ),
+                                     []( unsigned char* data ) { stbi_image_free( data ); } ) );
     }
 } // namespace mc
