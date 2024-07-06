@@ -47,6 +47,7 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
     {
         return SDL_Fail();
     }
+    mc::setWindowIcon( app->window );
 
     app->instance = wgpu::CreateInstance();
     if( !app->instance.Get() )
@@ -77,8 +78,6 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
         SDL_Log( "Window size: %ix%i", app->width, app->height );
         SDL_Log( "Backbuffer size: %ix%i", app->bbwidth, app->bbheight );
     }
-
-    mc::setWindowIcon( app->window );
 
     app->textureManager.init( app->device );
     app->updateView = true;
