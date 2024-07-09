@@ -72,9 +72,9 @@ namespace mc
         wgpu::SurfaceCapabilities capabilities;
         app->surface.GetCapabilities( app->adapter, &capabilities );
         app->colorFormat = capabilities.formats[0];
-#else()
+#else
         app->colorFormat = wgpu::TextureFormat::BGRA8Unorm;
-#endif()
+#endif
         return true;
     }
 

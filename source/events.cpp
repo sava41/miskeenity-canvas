@@ -1,4 +1,4 @@
-#include "Events.h"
+#include "events.h"
 
 #include <SDL3/SDL.h>
 #include <memory>

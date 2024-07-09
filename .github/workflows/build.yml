@@ -22,4 +22,4 @@ jobs:
             with: 
                 name: miskeenity-canvas-${{ matrix.target }}-${{ matrix.arch }}
                 path: |
-                    build/Release/*.exe
+                    build/MinSizeRel/*.exe

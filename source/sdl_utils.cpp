@@ -1,7 +1,9 @@
 #include "sdl_utils.h"
 
 #include "image.h"
+#if !defined( SDL_PLATFORM_EMSCRIPTEN )
 #include "window_icon.h"
+#endif
 
 #include <SDL3/SDL_misc.h>
 
