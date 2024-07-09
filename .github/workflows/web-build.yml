@@ -22,7 +22,7 @@ jobs:
       - name: Prepare for upload
         run: |
            mkdir _site
-           mv build/index.html _site/index.html
+           mv build/miskeenity-canvas.html _site/index.html
            mv build/miskeenity-canvas* _site/
       - name: Fix permissions
         run: |
