@@ -18,7 +18,7 @@ jobs:
         run: |
           source emsdk/emsdk_env.sh
           emcmake cmake -B build -DCMAKE_BUILD_TYPE=MinsizeRel
-          cmake --build . --parallel
+          cmake --build build --parallel
       - name: Prepare for upload
         run: |
            mkdir _site
