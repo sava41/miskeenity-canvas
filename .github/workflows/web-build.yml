@@ -1,4 +1,4 @@
-name: Build Sample For Web
+name: Build and Deploy on Web
 on: [push, pull_request]
 
 jobs:

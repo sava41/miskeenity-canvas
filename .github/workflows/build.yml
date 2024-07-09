@@ -1,4 +1,4 @@
-name: Build Sample
+name: Desktop Build
 on: [push, pull_request]
 
 jobs:
