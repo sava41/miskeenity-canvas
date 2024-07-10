@@ -1,7 +1,7 @@
 # Miskeenity Canvas
 
 Cross platform 2d infinite canvas app inspired by [dingboard.com](https://dingboard.com/).
-![Miskeenity Canvas screenshot](resources\images\miskeenity-canvas-screenshot.png)
+![Miskeenity Canvas screenshot](./resources/images/miskeenity-canvas-screenshot.png)
 
 ## Requirements:
 - CMake 3.28 or later
