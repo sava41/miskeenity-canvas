@@ -103,7 +103,7 @@ WGPUSurface SDL_GetWGPUSurface( WGPUInstance instance, SDL_Window* window )
                                                                     .next  = NULL,
                                                                     .sType = WGPUSType_SurfaceDescriptorFromCanvasHTMLSelector,
                                                                 },
-                                                            .selector = "canvas",
+                                                            .selector = HTML_CANVAS_ID,
                                                         },
                                                 } );
 #endif

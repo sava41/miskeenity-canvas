@@ -41,6 +41,7 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
     }
 
     SDL_SetHint( SDL_HINT_IME_SHOW_UI, "1" );
+    SDL_SetHint( SDL_HINT_EMSCRIPTEN_CANVAS_SELECTOR, HTML_CANVAS_ID );
 
     app->window = SDL_CreateWindow( "Miskeenity Canvas", 640, 480, SDL_WINDOW_RESIZABLE | SDL_WINDOW_MAXIMIZED );
     if( !app->window )

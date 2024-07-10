@@ -7,6 +7,7 @@
 extern "C"
 {
 #endif
+#define HTML_CANVAS_ID "canvas"
 
     WGPUSurface SDL_GetWGPUSurface( WGPUInstance instance, SDL_Window* window );
 
