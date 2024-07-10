@@ -35,6 +35,8 @@ https://emscripten.org/docs/getting_started/downloads.html#installation-instruct
 > cmake --build embuild
 ```
 
+web version avalibale to try here: https://sava41.github.io/miskeenity-canvas/
+
 ## Planned Features
 - canvas history (undo/redo)
 - layer masking
