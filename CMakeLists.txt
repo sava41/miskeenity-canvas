@@ -30,6 +30,7 @@ add_subdirectory(third_party/sdl3)
 add_subdirectory(third_party/imgui)
 add_subdirectory(third_party/glm)
 add_subdirectory(third_party/stb)
+add_subdirectory(third_party/emscripten-browser-file)
 
 # Add resources
 embed_files(embedded_files 
@@ -56,12 +57,14 @@ target_compile_definitions(miskeenity-canvas PRIVATE SDL_MAIN_USE_CALLBACKS)
 
 if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
+    add_dependencies(miskeenity-canvas emscripten-browser-file)
+    target_link_libraries(miskeenity-canvas PRIVATE emscripten-browser-file)
     # use minimal shell.html
     target_link_options(miskeenity-canvas PRIVATE --shell-file ${PROJECT_SOURCE_DIR}/resources/shell/shell.html)
     # wasm options
-    target_link_options(miskeenity-canvas PRIVATE -sUSE_WEBGPU=1 -sALLOW_MEMORY_GROWTH=1 -sASYNCIFY)
+    target_link_options(miskeenity-canvas PRIVATE -sUSE_WEBGPU=1 -sEXPORTED_RUNTIME_METHODS=[ccall] -sEXPORTED_FUNCTIONS=[_main,_malloc,_free] -sALLOW_MEMORY_GROWTH=1 -sASYNCIFY)
     # WASM+JS size optimizations
-    #target_link_options(miskeenity-canvas PRIVATE -sNO_FILESYSTEM=1 -sASSERTIONS=0 -sMALLOC=emmalloc --closure=1)
+    target_link_options(miskeenity-canvas PRIVATE -sNO_FILESYSTEM=1 -sASSERTIONS=0 -sMALLOC=emmalloc --closure=1)
 else()
     embed_files(window_icon ./resources/textures/miskeen_32.png)
     add_dependencies(miskeenity-canvas webgpu_cpp webgpu_dawn)
