@@ -168,6 +168,8 @@ namespace mc
         ImGui::CreateContext();
         ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+        ImGui::GetIO().IniFilename = nullptr;
+        ImGui::GetIO().LogFilename = nullptr;
 
         setColorsUI();
         setStylesUI( app->dpiFactor );
@@ -228,6 +230,7 @@ namespace mc
 
         ImGui::NewFrame();
 
+#ifndef NDEBUG
         ImGui::Text( "Width: %d, Height: %d, Dpi factor: %.1f", app->width, app->height, app->dpiFactor );
         ImGui::Text( "Mouse x:%.1f Mouse y:%.1f Zoom:%.1f\n", app->viewParams.mousePos.x, app->viewParams.mousePos.y, app->viewParams.scale );
         ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate );
@@ -238,6 +241,7 @@ namespace mc
 
         ImGui::SetNextWindowPos( glm::vec2( 460, 20 ), ImGuiCond_FirstUseEver );
         ImGui::ShowDemoWindow();
+#endif
 
         const glm::vec2 buttonSize = glm::vec2( 50 ) * app->dpiFactor;
         const float buttonSpacing  = 10.0 * app->dpiFactor;
