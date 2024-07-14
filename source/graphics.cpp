@@ -54,7 +54,7 @@ namespace mc
         wgpu::DeviceDescriptor deviceDesc;
         deviceDesc.label = "Device";
         // deviceDesc.requiredLimits = &requiredLimits;
-        deviceDesc.defaultQueue.label                   = "Main Queue";
+        deviceDesc.defaultQueue.label = "Main Queue";
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )
         deviceDesc.uncapturedErrorCallbackInfo.callback = []( WGPUErrorType type, char const* message, void* userData )
         {
@@ -66,7 +66,7 @@ namespace mc
         };
         deviceDesc.uncapturedErrorCallbackInfo.userdata = app;
 #endif
-        app->device                                     = mc::requestDevice( app->adapter, &deviceDesc );
+        app->device = mc::requestDevice( app->adapter, &deviceDesc );
 
 #if defined( SDL_PLATFORM_EMSCRIPTEN )
         wgpu::SurfaceCapabilities capabilities;
@@ -420,7 +420,10 @@ namespace mc
 
         // request device is async on web so hacky solution for now is to sleep
 #if defined( SDL_PLATFORM_EMSCRIPTEN )
-        emscripten_sleep( 100 );
+        while( !userData.requestEnded )
+        {
+            emscripten_sleep( 50 );
+        }
 #endif
 
         return std::move( userData.device );
@@ -453,7 +456,10 @@ namespace mc
 
         // request adapter is async on web so hacky solution for now is to sleep
 #if defined( SDL_PLATFORM_EMSCRIPTEN )
-        emscripten_sleep( 100 );
+        while( !userData.requestEnded )
+        {
+            emscripten_sleep( 50 );
+        }
 #endif
 
         return std::move( userData.adapter );
