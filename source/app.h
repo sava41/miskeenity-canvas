@@ -1,6 +1,6 @@
 #pragma once
 
-#include "layers.h"
+#include "layer_manager.h"
 #include "texture_manager.h"
 
 #include <SDL3/SDL.h>
@@ -98,7 +98,7 @@ namespace mc
         glm::vec4 selectionBbox   = glm::vec4( 0.0 );
         glm::vec2 selectionCenter = glm::vec2( 0.0 );
 
-        Layers layers                 = Layers( NumLayers );
+        LayerManager layers           = LayerManager( NumLayers );
         TextureManager textureManager = TextureManager( 100 );
     };
 

@@ -34,9 +34,9 @@ add_subdirectory(third_party/emscripten-browser-file)
 
 # Add resources
 embed_files(embedded_files 
-    ./resources/fonts/Lucide.ttf 
-    ./resources/fonts/Roboto.ttf 
-    ./resources/shaders/layers.wgsl 
+    ./resources/fonts/Lucide.ttf
+    ./resources/fonts/Roboto.ttf
+    ./resources/shaders/layers.wgsl
     ./resources/shaders/selection.wgsl)
 
 # Setup executable
@@ -44,7 +44,8 @@ add_executable(miskeenity-canvas
     source/main.cpp 
     source/graphics.cpp
     source/events.cpp
-    source/layers.cpp
+    source/layer_manager.cpp
+    source/mesh_manager.cpp
     source/ui.cpp
     source/image.cpp
     source/sdl_utils.cpp

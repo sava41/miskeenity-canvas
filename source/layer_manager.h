@@ -49,11 +49,11 @@ namespace mc
     };
 #pragma pack( pop )
 
-    class Layers
+    class LayerManager
     {
       public:
-        Layers( size_t maxLayers );
-        ~Layers() = default;
+        LayerManager( size_t maxLayers );
+        ~LayerManager() = default;
 
         bool add( const Layer& layer );
         bool move( int to, int from );

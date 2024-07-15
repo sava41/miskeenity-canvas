@@ -18,7 +18,7 @@
 #include "events.h"
 #include "graphics.h"
 #include "image.h"
-#include "layers.h"
+#include "layer_manager.h"
 #include "sdl_utils.h"
 #include "ui.h"
 #include "webgpu_surface.h"

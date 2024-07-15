@@ -1,16 +1,16 @@
-#include "layers.h"
+#include "layer_manager.h"
 
 namespace mc
 {
 
-    Layers::Layers( size_t maxLayers )
+    LayerManager::LayerManager( size_t maxLayers )
         : m_curLength( 0 )
         , m_maxLength( maxLayers )
         , m_array( std::make_unique<Layer[]>( maxLayers ) )
     {
     }
 
-    bool Layers::add( const Layer& layer )
+    bool LayerManager::add( const Layer& layer )
     {
         if( m_curLength == m_maxLength )
         {
@@ -23,7 +23,7 @@ namespace mc
         return true;
     }
 
-    bool Layers::move( int to, int from )
+    bool LayerManager::move( int to, int from )
     {
         if( to < 0 || from < 0 || to > m_curLength || from > m_curLength || to == from )
         {
@@ -46,7 +46,7 @@ namespace mc
         return true;
     }
 
-    bool Layers::remove( int index )
+    bool LayerManager::remove( int index )
     {
         if( index < 0 || index >= m_curLength )
         {
@@ -63,17 +63,17 @@ namespace mc
         return true;
     }
 
-    size_t Layers::length() const
+    size_t LayerManager::length() const
     {
         return m_curLength;
     }
 
-    Layer* Layers::data() const
+    Layer* LayerManager::data() const
     {
         return m_array.get();
     }
 
-    void Layers::changeSelection( int index, bool isSelected )
+    void LayerManager::changeSelection( int index, bool isSelected )
     {
         if( index < 0 || index >= m_curLength )
         {
@@ -93,7 +93,7 @@ namespace mc
         }
     }
 
-    void Layers::clearSelection()
+    void LayerManager::clearSelection()
     {
         for( int i = 0; i < m_curLength; ++i )
         {
@@ -101,7 +101,7 @@ namespace mc
         }
     }
 
-    bool Layers::isSelected( int index ) const
+    bool LayerManager::isSelected( int index ) const
     {
         if( index < 0 || index >= m_curLength )
         {
@@ -111,12 +111,12 @@ namespace mc
         return m_array[index].flags & LayerFlags::Selected;
     }
 
-    size_t Layers::numSelected() const
+    size_t LayerManager::numSelected() const
     {
         return m_numSelected;
     }
 
-    void Layers::moveSelection( const glm::vec2& offset )
+    void LayerManager::moveSelection( const glm::vec2& offset )
     {
         for( int i = 0; i < m_curLength; ++i )
         {
@@ -127,7 +127,7 @@ namespace mc
         }
     }
 
-    void Layers::rotateSelection( const glm::vec2& center, float angle )
+    void LayerManager::rotateSelection( const glm::vec2& center, float angle )
     {
         float cos = std::cos( angle );
         float sin = std::sin( angle );
@@ -147,7 +147,7 @@ namespace mc
         }
     }
 
-    void Layers::scaleSelection( const glm::vec2& center, const glm::vec2& ammount )
+    void LayerManager::scaleSelection( const glm::vec2& center, const glm::vec2& ammount )
     {
         for( int i = 0; i < m_curLength; ++i )
         {
