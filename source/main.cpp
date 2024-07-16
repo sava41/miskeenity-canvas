@@ -83,6 +83,10 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
     app->textureManager.init( app->device );
     app->updateView = true;
 
+    // add unit square
+    app->meshManager.add( { { { -0.5, -0.5, 0.0, 0.0 }, { +0.5, -0.5, 1.0, 0.0 }, { +0.5, +0.5, 1.0, 1.0 } },
+                            { { -0.5, -0.5, 0.0, 0.0 }, { +0.5, +0.5, 1.0, 1.0 }, { -0.5, +0.5, 0.0, 1.0 } } } );
+
     SDL_Log( "Application started successfully!" );
 
     return 0;

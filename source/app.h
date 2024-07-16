@@ -1,6 +1,7 @@
 #pragma once
 
 #include "layer_manager.h"
+#include "mesh_manager.h"
 #include "texture_manager.h"
 
 #include <SDL3/SDL.h>
@@ -70,6 +71,8 @@ namespace mc
 
         wgpu::RenderPipeline mainPipeline;
         wgpu::ComputePipeline selectionPipeline;
+        wgpu::ComputePipeline vertexAssemblerPipeline;
+        wgpu::Buffer meshBuffer;
         wgpu::Buffer vertexBuf;
         wgpu::Buffer layerBuf;
         wgpu::Buffer viewParamBuf;
@@ -100,6 +103,7 @@ namespace mc
 
         LayerManager layers           = LayerManager( NumLayers );
         TextureManager textureManager = TextureManager( 100 );
+        MeshManager meshManager       = MeshManager();
     };
 
 } // namespace mc

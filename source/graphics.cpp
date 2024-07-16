@@ -38,6 +38,7 @@ namespace mc
         requiredLimits.limits.maxVertexBuffers    = 2;
         // requiredLimits.limits.maxBufferSize = 150000 * sizeof(WGPUVertexAttributes);
         // requiredLimits.limits.maxVertexBufferArrayStride = sizeof(WGPUVertexAttributes);
+        requiredLimits.limits.maxUniformBufferBindingSize     = mc::NumLayers * sizeof( mc::Layer );
         requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
         requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
         requiredLimits.limits.maxInterStageShaderComponents   = 8;
@@ -81,7 +82,7 @@ namespace mc
     void initMainPipeline( mc::AppContext* app )
     {
         // we have two vertex buffers, our one for verticies and the other for instances
-        std::array<wgpu::VertexBufferLayout, 2> vertexBufLayout;
+        std::array<wgpu::VertexBufferLayout, 1> vertexBufLayout;
 
         // we have two vertex attributes, uv and 2d position
         std::array<wgpu::VertexAttribute, 2> vertexAttr;
@@ -96,57 +97,6 @@ namespace mc
         vertexBufLayout[0].arrayStride    = 4 * sizeof( float );
         vertexBufLayout[0].attributeCount = static_cast<uint32_t>( vertexAttr.size() );
         vertexBufLayout[0].attributes     = vertexAttr.data();
-
-        // attributes as defined the in mc::Layer struct
-        std::array<wgpu::VertexAttribute, 11> instanceAttr;
-        instanceAttr[0].format         = wgpu::VertexFormat::Float32;
-        instanceAttr[0].offset         = 0;
-        instanceAttr[0].shaderLocation = 2;
-
-        instanceAttr[1].format         = wgpu::VertexFormat::Float32;
-        instanceAttr[1].offset         = 1 * sizeof( float );
-        instanceAttr[1].shaderLocation = 3;
-
-        instanceAttr[2].format         = wgpu::VertexFormat::Float32;
-        instanceAttr[2].offset         = 2 * sizeof( float );
-        instanceAttr[2].shaderLocation = 4;
-
-        instanceAttr[3].format         = wgpu::VertexFormat::Float32;
-        instanceAttr[3].offset         = 3 * sizeof( float );
-        instanceAttr[3].shaderLocation = 5;
-
-        instanceAttr[4].format         = wgpu::VertexFormat::Float32;
-        instanceAttr[4].offset         = 4 * sizeof( float );
-        instanceAttr[4].shaderLocation = 6;
-
-        instanceAttr[5].format         = wgpu::VertexFormat::Float32;
-        instanceAttr[5].offset         = 5 * sizeof( float );
-        instanceAttr[5].shaderLocation = 7;
-
-        instanceAttr[6].format         = wgpu::VertexFormat::Uint16x2;
-        instanceAttr[6].offset         = 6 * sizeof( float );
-        instanceAttr[6].shaderLocation = 8;
-
-        instanceAttr[7].format         = wgpu::VertexFormat::Uint16x2;
-        instanceAttr[7].offset         = 6 * sizeof( float ) + 2 * sizeof( uint16_t );
-        instanceAttr[7].shaderLocation = 9;
-
-        instanceAttr[8].format         = wgpu::VertexFormat::Uint16x2;
-        instanceAttr[8].offset         = 6 * sizeof( float ) + 4 * sizeof( uint16_t );
-        instanceAttr[8].shaderLocation = 10;
-
-        instanceAttr[9].format         = wgpu::VertexFormat::Uint8x4;
-        instanceAttr[9].offset         = 6 * sizeof( float ) + 6 * sizeof( uint16_t );
-        instanceAttr[9].shaderLocation = 11;
-
-        instanceAttr[10].format         = wgpu::VertexFormat::Uint32;
-        instanceAttr[10].offset         = 6 * sizeof( float ) + 6 * sizeof( uint16_t ) + 4 * sizeof( uint8_t );
-        instanceAttr[10].shaderLocation = 12;
-
-        vertexBufLayout[1].stepMode       = wgpu::VertexStepMode::Instance;
-        vertexBufLayout[1].arrayStride    = sizeof( mc::Layer );
-        vertexBufLayout[1].attributeCount = static_cast<uint32_t>( instanceAttr.size() );
-        vertexBufLayout[1].attributes     = instanceAttr.data();
 
         wgpu::ShaderModuleWGSLDescriptor shaderCodeDesc;
         shaderCodeDesc.code = reinterpret_cast<const char*>( layers_wgsl );
@@ -186,12 +136,18 @@ namespace mc
         vertexState.buffers       = vertexBufLayout.data();
 
         // Create global bind group layout
-        std::array<wgpu::BindGroupLayoutEntry, 1> globalGroupLayoutEntries;
+        std::array<wgpu::BindGroupLayoutEntry, 2> globalGroupLayoutEntries;
         globalGroupLayoutEntries[0].binding                 = 0;
         globalGroupLayoutEntries[0].visibility              = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment | wgpu::ShaderStage::Compute;
         globalGroupLayoutEntries[0].buffer.hasDynamicOffset = false;
         globalGroupLayoutEntries[0].buffer.type             = wgpu::BufferBindingType::Uniform;
         globalGroupLayoutEntries[0].buffer.minBindingSize   = sizeof( mc::Uniforms );
+
+        globalGroupLayoutEntries[1].binding                 = 1;
+        globalGroupLayoutEntries[1].visibility              = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment | wgpu::ShaderStage::Compute;
+        globalGroupLayoutEntries[1].buffer.hasDynamicOffset = false;
+        globalGroupLayoutEntries[1].buffer.type             = wgpu::BufferBindingType::ReadOnlyStorage;
+        globalGroupLayoutEntries[1].buffer.minBindingSize   = sizeof( mc::Layer );
 
         wgpu::BindGroupLayoutDescriptor globalGroupLayoutDesc;
         globalGroupLayoutDesc.entryCount = static_cast<uint32_t>( globalGroupLayoutEntries.size() );
@@ -235,7 +191,7 @@ namespace mc
         wgpu::BufferDescriptor layerBufDesc;
         layerBufDesc.mappedAtCreation = false;
         layerBufDesc.size             = mc::NumLayers * sizeof( mc::Layer );
-        layerBufDesc.usage            = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Storage;
+        layerBufDesc.usage            = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
         app->layerBuf                 = app->device.CreateBuffer( &layerBufDesc );
 
         wgpu::BufferDescriptor selectionOutputBufDesc;
@@ -247,11 +203,15 @@ namespace mc
         selectionOutputBufDesc.usage = wgpu::BufferUsage::MapRead | wgpu::BufferUsage::CopyDst;
         app->selectionMapBuf         = app->device.CreateBuffer( &selectionOutputBufDesc );
 
-        // Create the bind group for the uniform and shared buffers
-        std::array<wgpu::BindGroupEntry, 1> globalGroupEntries;
+        // Create the bind group for the global data
+        std::array<wgpu::BindGroupEntry, 2> globalGroupEntries;
         globalGroupEntries[0].binding = 0;
         globalGroupEntries[0].buffer  = app->viewParamBuf;
         globalGroupEntries[0].size    = uboBufDesc.size;
+
+        globalGroupEntries[1].binding = 1;
+        globalGroupEntries[1].buffer  = app->layerBuf;
+        globalGroupEntries[1].size    = layerBufDesc.size;
 
         wgpu::BindGroupDescriptor bindGroupDesc;
         bindGroupDesc.layout     = globalGroupLayout;
@@ -284,19 +244,13 @@ namespace mc
 
         wgpu::ShaderModule computeShaderModule = app->device.CreateShaderModule( &computeShaderModuleDesc );
 
-        std::array<wgpu::BindGroupLayoutEntry, 2> computeGroupLayoutEntries;
+        std::array<wgpu::BindGroupLayoutEntry, 1> computeGroupLayoutEntries;
 
         computeGroupLayoutEntries[0].binding                 = 0;
         computeGroupLayoutEntries[0].visibility              = wgpu::ShaderStage::Compute;
         computeGroupLayoutEntries[0].buffer.hasDynamicOffset = false;
         computeGroupLayoutEntries[0].buffer.type             = wgpu::BufferBindingType::Storage;
         computeGroupLayoutEntries[0].buffer.minBindingSize   = sizeof( mc::Selection );
-
-        computeGroupLayoutEntries[1].binding                 = 1;
-        computeGroupLayoutEntries[1].visibility              = wgpu::ShaderStage::Compute;
-        computeGroupLayoutEntries[1].buffer.hasDynamicOffset = false;
-        computeGroupLayoutEntries[1].buffer.type             = wgpu::BufferBindingType::ReadOnlyStorage;
-        computeGroupLayoutEntries[1].buffer.minBindingSize   = sizeof( mc::Layer );
 
         wgpu::BindGroupLayoutDescriptor computeBindGroupLayoutDesc;
         computeBindGroupLayoutDesc.entryCount = static_cast<uint32_t>( computeGroupLayoutEntries.size() );
@@ -320,17 +274,12 @@ namespace mc
 
         app->selectionPipeline = app->device.CreateComputePipeline( &computePipelineDesc );
 
-        std::array<wgpu::BindGroupEntry, 2> computeGroupEntries;
+        std::array<wgpu::BindGroupEntry, 1> computeGroupEntries;
 
         computeGroupEntries[0].binding = 0;
         computeGroupEntries[0].buffer  = app->selectionBuf;
         computeGroupEntries[0].offset  = 0;
         computeGroupEntries[0].size    = selectionOutputBufDesc.size;
-
-        computeGroupEntries[1].binding = 1;
-        computeGroupEntries[1].buffer  = app->layerBuf;
-        computeGroupEntries[1].offset  = 0;
-        computeGroupEntries[1].size    = layerBufDesc.size;
 
         wgpu::BindGroupDescriptor computeBindGroupDesc;
         computeBindGroupDesc.layout     = computeGroupLayout;

@@ -8,7 +8,7 @@ struct Uniforms {
     scale: f32,
 };
 
-struct InstanceInput {
+struct Layer {
     offsetX: f32,
     offsetY: f32,
     basisAX: f32,
@@ -32,11 +32,11 @@ struct Selection {
 
 @group(0) @binding(0)
 var<uniform> uniforms: Uniforms;
+@group(0) @binding(1)
+var<storage,read> layerBuff: array<Layer>;
 
 @group(1) @binding(0)
 var<storage,read_write> outBuffer: array<Selection>;
-@group(1) @binding(1)
-var<storage, read> instBuff: array<InstanceInput>;
 
 fn barycentric(v1: vec4<f32>, v2: vec4<f32>, v3: vec4<f32>, p: vec2<f32>) -> vec3<f32> {
     let u = cross(
@@ -66,8 +66,8 @@ fn cs_main(@builtin(global_invocation_id) id_global : vec3<u32>, @builtin(local_
     let maxX = max(uniforms.mousePos.x, uniforms.mouseSelectPos.x);
     let maxY = max(uniforms.mousePos.y, uniforms.mouseSelectPos.y);
 
-    let model = mat4x4<f32>(instBuff[layer].basisAX,    instBuff[layer].basisBX,    0.0, instBuff[layer].offsetX,
-                            instBuff[layer].basisAY,    instBuff[layer].basisBY,    0.0, instBuff[layer].offsetY,
+    let model = mat4x4<f32>(layerBuff[layer].basisAX,    layerBuff[layer].basisBX,    0.0, layerBuff[layer].offsetX,
+                            layerBuff[layer].basisAY,    layerBuff[layer].basisBY,    0.0, layerBuff[layer].offsetY,
                             0.0,                        0.0,                        1.0, 0.0,
                             0.0,                        0.0,                        0.0, 1.0);
 
