@@ -60,7 +60,7 @@ namespace mc
             },
             app );
 #else
-        SDL_DialogFileFilter filters[] = {
+        static SDL_DialogFileFilter filters[] = {
             { "All Supported Types", "jpg;jpeg;png" },
             { "JPEG (*.jpg;*.jpeg)", "jpg;jpeg" },
             { "PNG (*.png)", "png" },
