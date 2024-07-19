@@ -14,7 +14,6 @@
 
 #include "app.h"
 #include "color_theme.h"
-#include "embedded_files.h"
 #include "events.h"
 #include "graphics.h"
 #include "image.h"

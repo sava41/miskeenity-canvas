@@ -1,8 +1,8 @@
 #include "ui.h"
 
 #include "app.h"
+#include "battery/embed.hpp"
 #include "color_theme.h"
-#include "embedded_files.h"
 #include "events.h"
 #include "imgui_config.h"
 #include "lucide.h"
@@ -120,7 +120,8 @@ namespace mc
         configRoboto.OversampleH          = 2;
         configRoboto.OversampleV          = 2;
         configRoboto.GlyphExtraSpacing    = glm::vec2( 1.0f, 0 );
-        ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<uint8_t*>( Roboto_ttf ), Roboto_ttf_size, 17.0f * dpiFactor, &configRoboto );
+        ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( b::embed<"./resources/fonts/Roboto.ttf">().data() ),
+                                                    b::embed<"./resources/fonts/Roboto.ttf">().size(), 17.0f * dpiFactor, &configRoboto );
 
         ImFontConfig configLucide;
         configLucide.FontDataOwnedByAtlas = false;
@@ -157,7 +158,8 @@ namespace mc
         ImVector<ImWchar> iconRanges;
         builder.BuildRanges( &iconRanges );
 
-        ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<uint8_t*>( Lucide_ttf ), Lucide_ttf_size, 24.0f * dpiFactor, &configLucide, iconRanges.Data );
+        ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( b::embed<"./resources/fonts/Lucide.ttf">().data() ),
+                                                    b::embed<"./resources/fonts/Lucide.ttf">().size(), 24.0f * dpiFactor, &configLucide, iconRanges.Data );
 
         ImGui::GetIO().Fonts->Build();
     }

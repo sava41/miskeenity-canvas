@@ -8,10 +8,6 @@ endif()
 include(FetchContent)
 set(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/third_party)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
-include(ExternalProject)
-include(${PROJECT_SOURCE_DIR}/cmake/EmbedFile.cmake)
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_C_STANDARD 11)
 
@@ -31,13 +27,7 @@ add_subdirectory(third_party/imgui)
 add_subdirectory(third_party/glm)
 add_subdirectory(third_party/stb)
 add_subdirectory(third_party/emscripten-browser-file)
-
-# Add resources
-embed_files(embedded_files 
-    ./resources/fonts/Lucide.ttf
-    ./resources/fonts/Roboto.ttf
-    ./resources/shaders/layers.wgsl
-    ./resources/shaders/selection.wgsl)
+add_subdirectory(third_party/embed)
 
 # Setup executable
 add_executable(miskeenity-canvas 
@@ -52,24 +42,34 @@ add_executable(miskeenity-canvas
     source/texture_manager.cpp
     source/webgpu_surface.c)
 
-add_dependencies(miskeenity-canvas SDL3::SDL3 imgui glm::glm stb icon-font-headers embedded_files)
-target_link_libraries(miskeenity-canvas PRIVATE SDL3::SDL3 imgui glm::glm stb icon-font-headers embedded_files)
-target_compile_definitions(miskeenity-canvas PRIVATE SDL_MAIN_USE_CALLBACKS)
+# Add resources
+b_embed(miskeenity-canvas ./resources/fonts/Lucide.ttf)
+b_embed(miskeenity-canvas ./resources/fonts/Roboto.ttf)
+b_embed(miskeenity-canvas ./resources/shaders/layers.wgsl)
+b_embed(miskeenity-canvas ./resources/shaders/selection.wgsl)
+
+add_dependencies(miskeenity-canvas SDL3::SDL3 imgui glm::glm stb icon-font-headers)
+target_link_libraries(miskeenity-canvas PRIVATE SDL3::SDL3 imgui glm::glm stb icon-font-headers)
+target_compile_definitions(miskeenity-canvas PRIVATE
+    SDL_MAIN_USE_CALLBACKS
+    $<$<NOT:$<CONFIG:Debug>>:B_PRODUCTION_MODE>
+)
 
 if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
     add_dependencies(miskeenity-canvas emscripten-browser-file)
     target_link_libraries(miskeenity-canvas PRIVATE emscripten-browser-file)
+    target_compile_definitions(miskeenity-canvas PRIVATE B_OS_WEB)
     # use minimal shell.html
     target_link_options(miskeenity-canvas PRIVATE --shell-file ${PROJECT_SOURCE_DIR}/resources/shell/shell.html)
     # wasm options
     target_link_options(miskeenity-canvas PRIVATE -sUSE_WEBGPU=1 -sEXPORTED_RUNTIME_METHODS=[ccall] -sEXPORTED_FUNCTIONS=[_main,_malloc,_free] -sALLOW_MEMORY_GROWTH=1 -sASYNCIFY)
     # WASM+JS size optimizations
-    target_link_options(miskeenity-canvas PRIVATE -sNO_FILESYSTEM=1 -sASSERTIONS=0 -sMALLOC=emmalloc )#--closure=1)
+    target_link_options(miskeenity-canvas PRIVATE -sNO_FILESYSTEM=1 -sASSERTIONS=1 -sMALLOC=emmalloc )#--closure=1)
 else()
-    embed_files(window_icon ./resources/textures/miskeen_32.png)
+    b_embed(miskeenity-canvas ./resources/textures/miskeen_32.png)
     add_dependencies(miskeenity-canvas webgpu_cpp webgpu_dawn)
-    target_link_libraries(miskeenity-canvas PRIVATE webgpu_cpp webgpu_dawn window_icon)
+    target_link_libraries(miskeenity-canvas PRIVATE webgpu_cpp webgpu_dawn)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)

@@ -1,6 +1,6 @@
 #include "graphics.h"
 
-#include "embedded_files.h"
+#include "battery/embed.hpp"
 
 #include <array>
 #if defined( SDL_PLATFORM_EMSCRIPTEN )
@@ -99,7 +99,7 @@ namespace mc
         vertexBufLayout[0].attributes     = vertexAttr.data();
 
         wgpu::ShaderModuleWGSLDescriptor shaderCodeDesc;
-        shaderCodeDesc.code = reinterpret_cast<const char*>( layers_wgsl );
+        shaderCodeDesc.code = b::embed<"./resources/shaders/layers.wgsl">().data();
 
         wgpu::ShaderModuleDescriptor shaderDesc;
         shaderDesc.nextInChain = &shaderCodeDesc;
@@ -237,7 +237,7 @@ namespace mc
 
         // Set up compute shader used to compute selection
         wgpu::ShaderModuleWGSLDescriptor computeShaderCodeDesc;
-        computeShaderCodeDesc.code = reinterpret_cast<const char*>( selection_wgsl );
+        computeShaderCodeDesc.code = b::embed<"./resources/shaders/selection.wgsl">().data();
 
         wgpu::ShaderModuleDescriptor computeShaderModuleDesc;
         computeShaderModuleDesc.nextInChain = &computeShaderCodeDesc;
