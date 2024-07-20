@@ -65,7 +65,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     # wasm options
     target_link_options(miskeenity-canvas PRIVATE -sUSE_WEBGPU=1 -sEXPORTED_RUNTIME_METHODS=[ccall] -sEXPORTED_FUNCTIONS=[_main,_malloc,_free] -sALLOW_MEMORY_GROWTH=1 -sASYNCIFY)
     # WASM+JS size optimizations
-    target_link_options(miskeenity-canvas PRIVATE -sNO_FILESYSTEM=1 -sASSERTIONS=1 -sMALLOC=emmalloc )#--closure=1)
+    target_link_options(miskeenity-canvas PRIVATE -sNO_FILESYSTEM=1 -sASSERTIONS=0 -sMALLOC=emmalloc )#--closure=1)
 else()
     b_embed(miskeenity-canvas ./resources/textures/miskeen_32.png)
     add_dependencies(miskeenity-canvas webgpu_cpp webgpu_dawn)
