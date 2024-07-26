@@ -71,8 +71,8 @@ namespace mc
 
         wgpu::RenderPipeline mainPipeline;
         wgpu::ComputePipeline selectionPipeline;
-        wgpu::ComputePipeline vertexAssemblerPipeline;
-        wgpu::Buffer meshBuffer;
+        wgpu::ComputePipeline meshPipeline;
+        wgpu::Buffer meshBuf;
         wgpu::Buffer vertexBuf;
         wgpu::Buffer layerBuf;
         wgpu::Buffer viewParamBuf;
@@ -80,6 +80,7 @@ namespace mc
         wgpu::Buffer selectionMapBuf;
         wgpu::BindGroup globalBindGroup;
         wgpu::BindGroup selectionBindGroup;
+        wgpu::BindGroup meshBindGroup;
 
         Uniforms viewParams;
 

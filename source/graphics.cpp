@@ -81,7 +81,8 @@ namespace mc
 
     void initMainPipeline( mc::AppContext* app )
     {
-        // we have two vertex buffers, our one for verticies and the other for instances
+        // we have one vertex buffers
+        // the vertex buffer is populated in the mesh assember compute shader
         std::array<wgpu::VertexBufferLayout, 1> vertexBufLayout;
 
         // we have two vertex attributes, uv and 2d position
@@ -155,7 +156,8 @@ namespace mc
 
         wgpu::BindGroupLayout globalGroupLayout = app->device.CreateBindGroupLayout( &globalGroupLayoutDesc );
 
-        // Create main bind group layout
+        // Create texture bind group layout for main pipeline
+        // we might add more non texture stuff to this pipeline in the future
         wgpu::BindGroupLayout mainGroupLayout = createTextureBindGroupLayout( app->device );
 
         // Create main pipeline
@@ -207,11 +209,11 @@ namespace mc
         std::array<wgpu::BindGroupEntry, 2> globalGroupEntries;
         globalGroupEntries[0].binding = 0;
         globalGroupEntries[0].buffer  = app->viewParamBuf;
-        globalGroupEntries[0].size    = uboBufDesc.size;
+        globalGroupEntries[0].size    = app->viewParamBuf.GetSize();
 
         globalGroupEntries[1].binding = 1;
         globalGroupEntries[1].buffer  = app->layerBuf;
-        globalGroupEntries[1].size    = layerBufDesc.size;
+        globalGroupEntries[1].size    = app->layerBuf.GetSize();
 
         wgpu::BindGroupDescriptor bindGroupDesc;
         bindGroupDesc.layout     = globalGroupLayout;
@@ -227,66 +229,134 @@ namespace mc
             -0.5, -0.5, 0.0, 0.0, +0.5, +0.5, 1.0, 1.0, -0.5, +0.5, 0.0, 1.0,
         };
 
-        wgpu::BufferDescriptor bufferDesc;
-        bufferDesc.mappedAtCreation = true;
-        bufferDesc.size             = SquareVertexData.size() * sizeof( float );
-        bufferDesc.usage            = wgpu::BufferUsage::Vertex;
-        app->vertexBuf              = app->device.CreateBuffer( &bufferDesc );
-        std::memcpy( app->vertexBuf.GetMappedRange(), SquareVertexData.data(), bufferDesc.size );
+        wgpu::BufferDescriptor vertexBufferDesc;
+        vertexBufferDesc.mappedAtCreation = true;
+        vertexBufferDesc.size             = SquareVertexData.size() * sizeof( float );
+        vertexBufferDesc.usage            = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::Storage;
+        app->vertexBuf                    = app->device.CreateBuffer( &vertexBufferDesc );
+        std::memcpy( app->vertexBuf.GetMappedRange(), SquareVertexData.data(), vertexBufferDesc.size );
         app->vertexBuf.Unmap();
 
         // Set up compute shader used to compute selection
-        wgpu::ShaderModuleWGSLDescriptor computeShaderCodeDesc;
-        computeShaderCodeDesc.code = b::embed<"./resources/shaders/selection.wgsl">().data();
+        {
+            wgpu::ShaderModuleWGSLDescriptor selectionShaderCodeDesc;
+            selectionShaderCodeDesc.code = b::embed<"./resources/shaders/selection.wgsl">().data();
 
-        wgpu::ShaderModuleDescriptor computeShaderModuleDesc;
-        computeShaderModuleDesc.nextInChain = &computeShaderCodeDesc;
+            wgpu::ShaderModuleDescriptor selectionShaderModuleDesc;
+            selectionShaderModuleDesc.nextInChain = &selectionShaderCodeDesc;
 
-        wgpu::ShaderModule computeShaderModule = app->device.CreateShaderModule( &computeShaderModuleDesc );
+            wgpu::ShaderModule selectionShaderModule = app->device.CreateShaderModule( &selectionShaderModuleDesc );
 
-        std::array<wgpu::BindGroupLayoutEntry, 1> computeGroupLayoutEntries;
+            std::array<wgpu::BindGroupLayoutEntry, 1> selectionGroupLayoutEntries;
 
-        computeGroupLayoutEntries[0].binding                 = 0;
-        computeGroupLayoutEntries[0].visibility              = wgpu::ShaderStage::Compute;
-        computeGroupLayoutEntries[0].buffer.hasDynamicOffset = false;
-        computeGroupLayoutEntries[0].buffer.type             = wgpu::BufferBindingType::Storage;
-        computeGroupLayoutEntries[0].buffer.minBindingSize   = sizeof( mc::Selection );
+            selectionGroupLayoutEntries[0].binding                 = 0;
+            selectionGroupLayoutEntries[0].visibility              = wgpu::ShaderStage::Compute;
+            selectionGroupLayoutEntries[0].buffer.hasDynamicOffset = false;
+            selectionGroupLayoutEntries[0].buffer.type             = wgpu::BufferBindingType::Storage;
+            selectionGroupLayoutEntries[0].buffer.minBindingSize   = sizeof( mc::Selection );
 
-        wgpu::BindGroupLayoutDescriptor computeBindGroupLayoutDesc;
-        computeBindGroupLayoutDesc.entryCount = static_cast<uint32_t>( computeGroupLayoutEntries.size() );
-        computeBindGroupLayoutDesc.entries    = computeGroupLayoutEntries.data();
+            wgpu::BindGroupLayoutDescriptor selectionBindGroupLayoutDesc;
+            selectionBindGroupLayoutDesc.entryCount = static_cast<uint32_t>( selectionGroupLayoutEntries.size() );
+            selectionBindGroupLayoutDesc.entries    = selectionGroupLayoutEntries.data();
 
-        wgpu::BindGroupLayout computeGroupLayout = app->device.CreateBindGroupLayout( &computeBindGroupLayoutDesc );
+            wgpu::BindGroupLayout selectionGroupLayout = app->device.CreateBindGroupLayout( &selectionBindGroupLayoutDesc );
 
-        std::array<wgpu::BindGroupLayout, 2> computeBindGroupLayouts = { globalGroupLayout, computeGroupLayout };
+            std::array<wgpu::BindGroupLayout, 2> selectionBindGroupLayouts = { globalGroupLayout, selectionGroupLayout };
 
-        wgpu::PipelineLayoutDescriptor computePipelineLayoutDesc;
-        computePipelineLayoutDesc.bindGroupLayoutCount = static_cast<uint32_t>( computeBindGroupLayouts.size() );
-        computePipelineLayoutDesc.bindGroupLayouts     = computeBindGroupLayouts.data();
+            wgpu::PipelineLayoutDescriptor selectionPipelineLayoutDesc;
+            selectionPipelineLayoutDesc.bindGroupLayoutCount = static_cast<uint32_t>( selectionBindGroupLayouts.size() );
+            selectionPipelineLayoutDesc.bindGroupLayouts     = selectionBindGroupLayouts.data();
 
-        wgpu::PipelineLayout computePipelineLayout = app->device.CreatePipelineLayout( &computePipelineLayoutDesc );
+            wgpu::PipelineLayout selectionPipelineLayout = app->device.CreatePipelineLayout( &selectionPipelineLayoutDesc );
 
-        wgpu::ComputePipelineDescriptor computePipelineDesc;
-        computePipelineDesc.label              = "Canvas Selection";
-        computePipelineDesc.layout             = computePipelineLayout;
-        computePipelineDesc.compute.module     = computeShaderModule;
-        computePipelineDesc.compute.entryPoint = "cs_main";
+            wgpu::ComputePipelineDescriptor selectionPipelineDesc;
+            selectionPipelineDesc.label              = "Canvas Selection";
+            selectionPipelineDesc.layout             = selectionPipelineLayout;
+            selectionPipelineDesc.compute.module     = selectionShaderModule;
+            selectionPipelineDesc.compute.entryPoint = "cs_main";
 
-        app->selectionPipeline = app->device.CreateComputePipeline( &computePipelineDesc );
+            app->selectionPipeline = app->device.CreateComputePipeline( &selectionPipelineDesc );
 
-        std::array<wgpu::BindGroupEntry, 1> computeGroupEntries;
+            std::array<wgpu::BindGroupEntry, 1> selectionGroupEntries;
 
-        computeGroupEntries[0].binding = 0;
-        computeGroupEntries[0].buffer  = app->selectionBuf;
-        computeGroupEntries[0].offset  = 0;
-        computeGroupEntries[0].size    = selectionOutputBufDesc.size;
+            selectionGroupEntries[0].binding = 0;
+            selectionGroupEntries[0].buffer  = app->selectionBuf;
+            selectionGroupEntries[0].offset  = 0;
+            selectionGroupEntries[0].size    = app->selectionBuf.GetSize();
 
-        wgpu::BindGroupDescriptor computeBindGroupDesc;
-        computeBindGroupDesc.layout     = computeGroupLayout;
-        computeBindGroupDesc.entryCount = static_cast<uint32_t>( computeGroupEntries.size() );
-        computeBindGroupDesc.entries    = computeGroupEntries.data();
+            wgpu::BindGroupDescriptor selectionBindGroupDesc;
+            selectionBindGroupDesc.layout     = selectionGroupLayout;
+            selectionBindGroupDesc.entryCount = static_cast<uint32_t>( selectionGroupEntries.size() );
+            selectionBindGroupDesc.entries    = selectionGroupEntries.data();
 
-        app->selectionBindGroup = app->device.CreateBindGroup( &computeBindGroupDesc );
+            app->selectionBindGroup = app->device.CreateBindGroup( &selectionBindGroupDesc );
+        }
+
+        // Set up compute shader used to assemble the vertex buffer
+        {
+
+            wgpu::ShaderModuleWGSLDescriptor meshShaderCodeDesc;
+            meshShaderCodeDesc.code = b::embed<"./resources/shaders/mesh.wgsl">().data();
+
+            wgpu::ShaderModuleDescriptor meshShaderModuleDesc;
+            meshShaderModuleDesc.nextInChain = &meshShaderCodeDesc;
+
+            wgpu::ShaderModule meshShaderModule = app->device.CreateShaderModule( &meshShaderModuleDesc );
+
+            std::array<wgpu::BindGroupLayoutEntry, 2> meshGroupLayoutEntries;
+
+            meshGroupLayoutEntries[0].binding                 = 0;
+            meshGroupLayoutEntries[0].visibility              = wgpu::ShaderStage::Compute;
+            meshGroupLayoutEntries[0].buffer.hasDynamicOffset = false;
+            meshGroupLayoutEntries[0].buffer.type             = wgpu::BufferBindingType::Storage;
+
+            meshGroupLayoutEntries[1].binding                 = 1;
+            meshGroupLayoutEntries[1].visibility              = wgpu::ShaderStage::Compute;
+            meshGroupLayoutEntries[1].buffer.hasDynamicOffset = false;
+            meshGroupLayoutEntries[1].buffer.type             = wgpu::BufferBindingType::Storage;
+
+            wgpu::BindGroupLayoutDescriptor meshBindGroupLayoutDesc;
+            meshBindGroupLayoutDesc.entryCount = static_cast<uint32_t>( meshGroupLayoutEntries.size() );
+            meshBindGroupLayoutDesc.entries    = meshGroupLayoutEntries.data();
+
+            wgpu::BindGroupLayout meshGroupLayout = app->device.CreateBindGroupLayout( &meshBindGroupLayoutDesc );
+
+            std::array<wgpu::BindGroupLayout, 2> meshBindGroupLayouts = { globalGroupLayout, meshGroupLayout };
+
+            wgpu::PipelineLayoutDescriptor meshPipelineLayoutDesc;
+            meshPipelineLayoutDesc.bindGroupLayoutCount = static_cast<uint32_t>( meshBindGroupLayouts.size() );
+            meshPipelineLayoutDesc.bindGroupLayouts     = meshBindGroupLayouts.data();
+
+            wgpu::PipelineLayout meshPipelineLayout = app->device.CreatePipelineLayout( &meshPipelineLayoutDesc );
+
+
+            wgpu::ComputePipelineDescriptor meshPipelineDesc;
+            meshPipelineDesc.label              = "Mesh Assembler";
+            meshPipelineDesc.layout             = meshPipelineLayout;
+            meshPipelineDesc.compute.module     = meshShaderModule;
+            meshPipelineDesc.compute.entryPoint = "ma_main";
+
+            app->meshPipeline = app->device.CreateComputePipeline( &meshPipelineDesc );
+
+            // std::array<wgpu::BindGroupEntry, 2> meshGroupEntries;
+
+            // meshGroupEntries[0].binding = 0;
+            // meshGroupEntries[0].buffer  = app->meshBuf;
+            // meshGroupEntries[0].offset  = 0;
+            // meshGroupEntries[0].size    = 0;
+
+            // meshGroupEntries[1].binding = 1;
+            // meshGroupEntries[1].buffer  = app->vertexBuf;
+            // meshGroupEntries[1].offset  = 0;
+            // meshGroupEntries[1].size    = vertexBufferDesc.size;
+
+            // wgpu::BindGroupDescriptor meshBindGroupDesc;
+            // meshBindGroupDesc.layout     = meshGroupLayout;
+            // meshBindGroupDesc.entryCount = static_cast<uint32_t>( meshGroupEntries.size() );
+            // meshBindGroupDesc.entries    = meshGroupEntries.data();
+
+            // app->meshBindGroup = app->device.CreateBindGroup( &meshBindGroupDesc );
+        }
     }
 
     void configureSurface( mc::AppContext* app )
@@ -299,6 +369,55 @@ namespace mc
         app->surface.Configure( &config );
 
         app->updateView = true;
+    }
+
+    void updateMeshBuffers( mc::AppContext* app )
+    {
+        if( app->meshBuf == nullptr || app->meshBuf.GetSize() != app->meshManager.size() )
+        {
+            if( app->meshBuf )
+            {
+                app->meshBuf.Destroy();
+            }
+
+            wgpu::BufferDescriptor meshBufDesc;
+            meshBufDesc.mappedAtCreation = true;
+            meshBufDesc.size             = app->meshManager.size();
+            meshBufDesc.usage            = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
+            app->meshBuf                 = app->device.CreateBuffer( &meshBufDesc );
+
+            std::memcpy( app->meshBuf.GetMappedRange(), app->meshManager.data(), app->meshManager.size() );
+            app->meshBuf.Unmap();
+        }
+
+        if( app->vertexBuf == nullptr )
+        {
+            // wgpu::BufferDescriptor vertexBufDesc;
+            // vertexBufDesc.mappedAtCreation = false;
+            // vertexBufDesc.size             = app->meshManager.length();
+            // vertexBufDesc.usage            = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
+            // app->vertexBuf                 = app->device.CreateBuffer( &vertexBufDesc );
+        }
+
+        std::array<wgpu::BindGroupEntry, 2> meshGroupEntries;
+
+        meshGroupEntries[0].binding = 0;
+        meshGroupEntries[0].buffer  = app->meshBuf;
+        meshGroupEntries[0].offset  = 0;
+        meshGroupEntries[0].size    = app->meshBuf.GetSize();
+
+        meshGroupEntries[1].binding = 1;
+        meshGroupEntries[1].buffer  = app->vertexBuf;
+        meshGroupEntries[1].offset  = 0;
+        meshGroupEntries[1].size    = app->vertexBuf.GetSize();
+        ;
+
+        wgpu::BindGroupDescriptor meshBindGroupDesc;
+        meshBindGroupDesc.layout     = app->meshPipeline.GetBindGroupLayout( 1 );
+        meshBindGroupDesc.entryCount = static_cast<uint32_t>( meshGroupEntries.size() );
+        meshBindGroupDesc.entries    = meshGroupEntries.data();
+
+        app->meshBindGroup = app->device.CreateBindGroup( &meshBindGroupDesc );
     }
 
     wgpu::BindGroupLayout createTextureBindGroupLayout( const wgpu::Device& device )

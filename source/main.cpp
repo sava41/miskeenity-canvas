@@ -80,11 +80,11 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
     }
 
     app->textureManager.init( app->device );
-    app->updateView = true;
 
     // add unit square
     app->meshManager.add( { { { -0.5, -0.5, 0.0, 0.0 }, { +0.5, -0.5, 1.0, 0.0 }, { +0.5, +0.5, 1.0, 1.0 } },
                             { { -0.5, -0.5, 0.0, 0.0 }, { +0.5, +0.5, 1.0, 1.0 }, { -0.5, +0.5, 0.0, 1.0 } } } );
+    app->updateView = true;
 
     SDL_Log( "Application started successfully!" );
 
@@ -386,16 +386,27 @@ int SDL_AppIterate( void* appstate )
     }
     app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &app->viewParams, sizeof( mc::Uniforms ) );
 
-    if( app->layersModified )
-    {
-        app->device.GetQueue().WriteBuffer( app->layerBuf, 0, app->layers.data(), app->layers.length() * sizeof( mc::Layer ) );
-        app->layersModified = false;
-    }
-
     wgpu::CommandEncoderDescriptor commandEncoderDesc;
     commandEncoderDesc.label = "Casper";
 
     wgpu::CommandEncoder encoder = app->device.CreateCommandEncoder( &commandEncoderDesc );
+
+    if( app->layersModified )
+    {
+        app->device.GetQueue().WriteBuffer( app->layerBuf, 0, app->layers.data(), app->layers.length() * sizeof( mc::Layer ) );
+
+        updateMeshBuffers( app );
+
+        wgpu::ComputePassEncoder computePassEnc = encoder.BeginComputePass();
+        computePassEnc.SetPipeline( app->meshPipeline );
+        computePassEnc.SetBindGroup( 0, app->globalBindGroup );
+        computePassEnc.SetBindGroup( 1, app->meshBindGroup );
+
+        computePassEnc.DispatchWorkgroups( ( app->meshManager.numTriangles() + 256 - 1 ) / 256, 1, 1 );
+        computePassEnc.End();
+
+        app->layersModified = false;
+    }
 
     wgpu::SurfaceTexture surfaceTexture;
     app->surface.GetCurrentTexture( &surfaceTexture );

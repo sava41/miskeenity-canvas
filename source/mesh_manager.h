@@ -15,6 +15,7 @@ namespace mc
         size_t length;
     };
 
+#pragma pack( push )
     struct Vertex
     {
         float x;
@@ -22,13 +23,16 @@ namespace mc
         float u;
         float v;
     };
+#pragma pack( pop )
 
+#pragma pack( push )
     struct Triangle
     {
         Vertex v1;
         Vertex v2;
         Vertex v3;
     };
+#pragma pack( pop )
 
     class MeshManager
     {
@@ -38,7 +42,8 @@ namespace mc
 
         void add( const std::vector<Triangle>& meshBuffer );
 
-        size_t length() const;
+        size_t size() const;
+        size_t numTriangles() const;
         size_t numMeshes() const;
         MeshInfo getMeshInfo( int index ) const;
         Triangle* data() const;

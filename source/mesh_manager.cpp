@@ -17,13 +17,20 @@ namespace mc
         size_t newLength                         = m_length + meshBuffer.size();
         std::unique_ptr<Triangle[]> newMeshArray = std::make_unique<Triangle[]>( newLength );
 
-        std::memcpy( newMeshArray.get(), m_meshArray.get(), m_length );
+        std::memcpy( newMeshArray.get(), m_meshArray.get(), m_length * sizeof( Triangle ) );
         m_meshArray = std::move( newMeshArray );
+
+        std::memcpy( m_meshArray.get() + m_length * sizeof( Triangle ), meshBuffer.data(), meshBuffer.size() * sizeof( Triangle ) );
 
         m_length = newLength;
     }
 
-    size_t MeshManager::length() const
+    size_t MeshManager::size() const
+    {
+        return m_length * sizeof( Triangle );
+    }
+
+    size_t MeshManager::numTriangles() const
     {
         return m_length;
     }

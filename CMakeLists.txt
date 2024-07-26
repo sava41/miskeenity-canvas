@@ -47,6 +47,7 @@ b_embed(miskeenity-canvas ./resources/fonts/Lucide.ttf)
 b_embed(miskeenity-canvas ./resources/fonts/Roboto.ttf)
 b_embed(miskeenity-canvas ./resources/shaders/layers.wgsl)
 b_embed(miskeenity-canvas ./resources/shaders/selection.wgsl)
+b_embed(miskeenity-canvas ./resources/shaders/mesh.wgsl)
 
 add_dependencies(miskeenity-canvas SDL3::SDL3 imgui glm::glm stb icon-font-headers)
 target_link_libraries(miskeenity-canvas PRIVATE SDL3::SDL3 imgui glm::glm stb icon-font-headers)

@@ -72,7 +72,7 @@ fn vs_main(vert: VertexInput) -> VertexOutput {
     out.screenSize.x = length(vec4<f32>(layerBuff[vert.instanceId].basisAX - uniforms.canvasPos.x, layerBuff[vert.instanceId].basisAY - uniforms.canvasPos.x, 0.0, 1.0)* uniforms.proj);
     out.screenSize.y = length(vec4<f32>(layerBuff[vert.instanceId].basisBX - uniforms.canvasPos.x, layerBuff[vert.instanceId].basisBY - uniforms.canvasPos.y, 0.0, 1.0)* uniforms.proj);
 
-    out.color = colorU32tovec4(layerBuff[vert.instanceId].color);//vec4<f32>(f32(layerBuff[vert.instanceId].color & ) / 255.0, f32(layerBuff[vert.instanceId].color.g) / 255.0, f32(layerBuff[vert.instanceId].color.b) / 255.0, 1.0);
+    out.color = colorU32tovec4(layerBuff[vert.instanceId].color);
 
     return out;
 }
