@@ -200,7 +200,7 @@ namespace mc
 
             glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerTR.y - mc::RotateHandleHeight );
 
-            if( glm::distance( mouseWindowPos, rotHandlePos ) * app->dpiFactor < HandleHalfSize )
+            if( glm::distance( mouseWindowPos, rotHandlePos ) < HandleHalfSize * app->dpiFactor )
             {
                 g_mouseLocationUI = MouseLocationUI::RotateHandle;
             }
