@@ -82,7 +82,7 @@ namespace mc
         style.DisabledAlpha             = 1.0f;
         style.WindowPadding             = glm::vec2( 12.0f, 12.0f );
         style.WindowRounding            = 3.0f;
-        style.WindowBorderSize          = 1.0f;
+        style.WindowBorderSize          = 0.0f;
         style.WindowMinSize             = glm::vec2( 20.0f, 20.0f );
         style.WindowTitleAlign          = glm::vec2( 0.5f, 0.5f );
         style.WindowMenuButtonPosition  = ImGuiDir_None;
@@ -274,7 +274,7 @@ namespace mc
             ImGui::PopStyleColor( 1 );
             ImGui::PopStyleVar( 1 );
 
-            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing * 2, buttonSpacing * 2 + buttonSize.y ) );
+            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing * 2, buttonSpacing * 2 + buttonSize.y + 5.0f ) );
             if( ImGui::BeginPopup( "Menu" ) )
             {
 
