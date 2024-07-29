@@ -56,6 +56,19 @@ target_compile_definitions(miskeenity-canvas PRIVATE
     $<$<NOT:$<CONFIG:Debug>>:B_PRODUCTION_MODE>
 )
 
+# Add git hash to build
+set(GIT_HASH_VALUE "Uknown Version")
+find_package(Git QUIET)
+if(GIT_FOUND)
+    execute_process(
+        COMMAND git log -1 --pretty=format:%h
+        OUTPUT_VARIABLE GIT_HASH_VALUE
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+endif()
+target_compile_definitions(miskeenity-canvas PRIVATE MC_GIT_HASH="${GIT_HASH_VALUE}")
+
 if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
     add_dependencies(miskeenity-canvas emscripten-browser-file)

@@ -20,7 +20,8 @@ namespace mc
     MouseLocationUI g_mouseLocationUI;
     glm::vec3 g_paintColor = glm::vec3( 1.0, 0.0, 0.0 );
     float g_paintRadius    = 100;
-    bool g_addImage        = false;
+    bool g_showAbout       = false;
+    bool g_showHelp        = false;
 
     void setColorsUI()
     {
@@ -276,12 +277,20 @@ namespace mc
             ImGui::SetNextWindowPos( glm::vec2( buttonSpacing * 2, buttonSpacing * 2 + buttonSize.y ) );
             if( ImGui::BeginPopup( "Menu" ) )
             {
-                ImGui::Selectable( "TODO: About" );
-                if( ImGui::Selectable( "Github" ) )
+
+                if( ImGui::MenuItem( "About" ) )
+                {
+                    g_showAbout = true;
+                }
+                if( ImGui::MenuItem( "Github" ) )
                 {
                     submitEvent( Events::OpenGithub );
-                };
-                ImGui::Selectable( "TODO: Help" );
+                }
+                if( ImGui::MenuItem( "Help" ) )
+                {
+                    g_showHelp = true;
+                }
+
                 ImGui::EndPopup();
             }
         }
@@ -325,15 +334,7 @@ namespace mc
             ImGui::PushID( "Upload Image Button" );
             if( ImGui::Button( ICON_LC_IMAGE_UP, buttonSize ) )
             {
-                if( !g_addImage )
-                {
-                    submitEvent( Events::LoadImage );
-                    g_addImage = true;
-                }
-            }
-            else
-            {
-                g_addImage = false;
+                submitEvent( Events::LoadImage );
             }
             if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
                 ImGui::SetItemTooltip( "Upload Image" );
@@ -404,6 +405,46 @@ namespace mc
             ImGui::End();
         }
 
+        ImGui::SetNextWindowPos( ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, glm::vec2( 0.5f, 0.5f ) );
+        if( ImGui::BeginPopupModal( "About", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
+        {
+            ImGui::Text( "Miskeenity Canvas %s", MC_GIT_HASH );
+            ImGui::Text( "By Sava" );
+            ImGui::Separator();
+
+            if( ImGui::Button( "OK", ImVec2( 120, 0 ) ) )
+            {
+                ImGui::CloseCurrentPopup();
+                g_showAbout = false;
+            }
+            ImGui::SetItemDefaultFocus();
+
+            ImGui::EndPopup();
+        }
+        if( g_showAbout )
+        {
+            ImGui::OpenPopup( "About" );
+        }
+
+        ImGui::SetNextWindowPos( ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, glm::vec2( 0.5f, 0.5f ) );
+        if( ImGui::BeginPopupModal( "Help", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
+        {
+            ImGui::Text( "Will add tool descriptions and a list of shortcut keys here at some point" );
+            ImGui::Separator();
+
+            if( ImGui::Button( "OK", ImVec2( 120, 0 ) ) )
+            {
+                ImGui::CloseCurrentPopup();
+                g_showHelp = false;
+            }
+            ImGui::SetItemDefaultFocus();
+
+            ImGui::EndPopup();
+        }
+        if( g_showHelp )
+        {
+            ImGui::OpenPopup( "Help" );
+        }
 
         if( g_appMode == mc::Mode::Paint )
         {
