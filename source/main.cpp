@@ -291,7 +291,9 @@ int SDL_AppIterate( void* appstate )
     // For zoom, we want to center it around the mouse position
     if( app->scrollDelta.y != 0.0 && app->updateView )
     {
-        float newScale        = std::max<float>( 1.0, app->scrollDelta.y * mc::ZoomScaleFactor + app->viewParams.scale );
+        float zoomFactor = std::exp( app->scrollDelta.y * mc::ZoomScaleFactor );
+        float newScale   = std::max<float>( std::numeric_limits<float>::min(), app->viewParams.scale * zoomFactor );
+
         float deltaScale      = newScale - app->viewParams.scale;
         app->viewParams.scale = newScale;
         app->viewParams.canvasPos -= app->viewParams.mousePos * deltaScale;

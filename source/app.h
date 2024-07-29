@@ -11,7 +11,7 @@
 namespace mc
 {
 
-    constexpr float ZoomScaleFactor = 0.5;
+    constexpr float ZoomScaleFactor = 0.3;
     constexpr size_t NumLayers      = 2048;
 
     enum class SelectDispatch : uint32_t
