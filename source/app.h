@@ -11,8 +11,9 @@
 namespace mc
 {
 
-    constexpr float ZoomScaleFactor = 0.3;
-    constexpr size_t NumLayers      = 2048;
+    constexpr float ZoomScaleFactor             = 0.3;
+    constexpr size_t NumLayers                  = 2048;
+    constexpr unsigned long resetSurfaceDelayMs = 150;
 
     enum class SelectDispatch : uint32_t
     {
@@ -84,13 +85,14 @@ namespace mc
 
         Uniforms viewParams;
 
-        CursorDragType dragType = CursorDragType::Select;
-        bool mouseDown          = false;
-        bool updateView         = false;
-        bool selectionReady     = true;
-        bool layersModified     = true;
-        bool appQuit            = false;
-        bool resetSurface       = false;
+        CursorDragType dragType        = CursorDragType::Select;
+        bool mouseDown                 = false;
+        bool updateView                = false;
+        bool selectionReady            = true;
+        bool layersModified            = true;
+        bool appQuit                   = false;
+        bool resetSurface              = false;
+        unsigned long resetSurfaceTime = 0;
 
         Selection* selectionData = nullptr;
 

@@ -1,5 +1,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <SDL3/SDL_timer.h>
 #include <algorithm>
 #include <glm/glm.hpp>
 #include <string>
@@ -162,7 +163,8 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
         break;
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-        app->resetSurface = true;
+        app->resetSurface     = true;
+        app->resetSurfaceTime = SDL_GetTicks();
         break;
     case SDL_EVENT_DISPLAY_CONTENT_SCALE_CHANGED:
     case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
@@ -268,7 +270,7 @@ int SDL_AppIterate( void* appstate )
 {
     mc::AppContext* app = reinterpret_cast<mc::AppContext*>( appstate );
 
-    if( app->resetSurface )
+    if( app->resetSurface && SDL_GetTicks() - app->resetSurfaceTime > mc::resetSurfaceDelayMs )
     {
         SDL_GetWindowSize( app->window, &app->width, &app->height );
         SDL_GetWindowSizeInPixels( app->window, &app->bbwidth, &app->bbheight );
@@ -276,6 +278,11 @@ int SDL_AppIterate( void* appstate )
         mc::configureSurface( app );
 #endif
         app->resetSurface = false;
+    }
+
+    if( app->resetSurface )
+    {
+        return 0;
     }
 
     // Update canvas offset
