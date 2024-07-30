@@ -1,5 +1,7 @@
 #include "layer_manager.h"
 
+#include <SDL3/SDL.h>
+
 namespace mc
 {
 
@@ -161,6 +163,57 @@ namespace mc
                 m_array[i].offset += center;
             }
         }
+    }
+
+    void LayerManager::bringFrontSelection( bool reverse )
+    {
+        if( m_numSelected == 0 || m_numSelected == m_curLength )
+        {
+            return;
+        }
+
+        size_t unselectedIndex = reverse ? m_numSelected : 0;
+        size_t selectedIndex   = reverse ? 0 : m_curLength - m_numSelected;
+
+        std::unique_ptr<Layer[]> newArray = std::make_unique<Layer[]>( m_maxLength );
+
+        for( int i = 0; i < m_curLength; ++i )
+        {
+            if( isSelected( i ) )
+            {
+                newArray[selectedIndex++] = m_array[i];
+            }
+            else
+            {
+                newArray[unselectedIndex++] = m_array[i];
+            }
+        }
+
+        m_array = std::move( newArray );
+    }
+
+    void LayerManager::removeSelection()
+    {
+        if( m_numSelected == 0 )
+        {
+            return;
+        }
+
+        size_t writeIndex = 0;
+        for( size_t readIndex = 0; readIndex < m_curLength; ++readIndex )
+        {
+            if( !isSelected( readIndex ) )
+            {
+                if( writeIndex != readIndex )
+                {
+                    m_array[writeIndex] = m_array[readIndex];
+                }
+                ++writeIndex;
+            }
+        }
+
+        m_curLength -= m_numSelected;
+        m_numSelected = 0;
     }
 
 } // namespace mc

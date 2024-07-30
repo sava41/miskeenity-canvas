@@ -144,6 +144,26 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         app->dragType                  = mc::CursorDragType::Select;
     }
     break;
+    case mc::Events::FlipHorizontal:
+        app->layers.scaleSelection( app->selectionCenter, glm::vec2( -1.0, 1.0 ) );
+        app->layersModified = true;
+        break;
+    case mc::Events::FlipVertical:
+        app->layers.scaleSelection( app->selectionCenter, glm::vec2( 1.0, -1.0 ) );
+        app->layersModified = true;
+        break;
+    case mc::Events::MoveFront:
+        app->layers.bringFrontSelection();
+        app->layersModified = true;
+        break;
+    case mc::Events::MoveBack:
+        app->layers.bringFrontSelection( true );
+        app->layersModified = true;
+        break;
+    case mc::Events::Delete:
+        app->layers.removeSelection();
+        app->layersModified = true;
+        break;
     }
 }
 

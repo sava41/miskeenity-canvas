@@ -389,12 +389,16 @@ namespace mc
                                                         ICON_LC_FLIP_VERTICAL_2,
                                                         ICON_LC_CROP,
                                                         ICON_LC_TRASH_2 };
-                std::array<std::string, 6> tooltips = { "TODO: Bring To Front", "TODO: Move To Back", "TODO: Flip Horizontal",
-                                                        "TODO: Flip Vertical",  "TODO: Crop",         "TODO: Delete" };
+                std::array<std::string, 6> tooltips = { "Bring To Front", "Move To Back", "Flip Horizontal", "Flip Vertical", "TODO: Crop", "TODO: Delete" };
+                std::array<mc::Events, 6> events    = { mc::Events::MoveFront,    mc::Events::MoveBack, mc::Events::FlipHorizontal,
+                                                        mc::Events::FlipVertical, mc::Events::Crop,     mc::Events::Delete };
 
                 for( size_t i = 0; i < tools.size(); i++ )
                 {
-                    ImGui::Button( tools[i].c_str(), buttonSize );
+                    if( ImGui::Button( tools[i].c_str(), buttonSize ) )
+                    {
+                        submitEvent( events[i] );
+                    }
                     if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
                         ImGui::SetItemTooltip( tooltips[i].c_str() );
                     ImGui::SameLine( 0.0, buttonSpacing );

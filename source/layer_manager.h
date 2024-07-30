@@ -70,6 +70,8 @@ namespace mc
         void moveSelection( const glm::vec2& offset );
         void rotateSelection( const glm::vec2& center, float angle );
         void scaleSelection( const glm::vec2& center, const glm::vec2& ammount );
+        void bringFrontSelection( bool reverse = false );
+        void removeSelection();
 
       private:
         size_t m_maxLength;

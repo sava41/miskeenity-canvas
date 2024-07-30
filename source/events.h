@@ -12,6 +12,7 @@ namespace mc
         FlipVertical,
         MoveFront,
         MoveBack,
+        Crop,
         Delete,
         Undo,
         Redo,
