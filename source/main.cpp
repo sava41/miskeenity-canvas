@@ -298,6 +298,7 @@ int SDL_AppIterate( void* appstate )
         mc::configureSurface( app );
 #endif
         app->resetSurface = false;
+        app->updateView   = true;
     }
 
     if( app->resetSurface )

@@ -367,8 +367,6 @@ namespace mc
         config.width  = app->width;
         config.height = app->height;
         app->surface.Configure( &config );
-
-        app->updateView = true;
     }
 
     void updateMeshBuffers( mc::AppContext* app )
