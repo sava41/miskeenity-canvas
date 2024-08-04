@@ -1,8 +1,10 @@
 struct VertexInput {
     @builtin(vertex_index) vertexId: u32,
-    @builtin(instance_index) instanceId: u32,
     @location(0) position: vec2<f32>,
     @location(1) uv: vec2<f32>,
+    @location(2) size: vec2<f32>,
+    @location(3) color: vec4<f32>,
+    @location(4) layer: u32,
 };
 
 struct VertexOutput {
@@ -23,6 +25,7 @@ struct Uniforms {
     windowWidth: u32,
     windowHeight: u32,
     scale: f32,
+    numLayers: u32,
 };
 
 struct Layer {
@@ -34,9 +37,10 @@ struct Layer {
     basisBY: f32,
     uvTop: u32,
     uvBot: u32,
-    imageMaskIds: u32,
     color: u32,
     flags: u32,
+    meshOffsetLength: u32,
+    imageMaskIds: u32,
 };
 
 @group(0) @binding(0)
@@ -50,29 +54,29 @@ var<storage,read> layerBuff: array<Layer>;
 fn colorU32tovec4(c: u32)->vec4<f32> {
     let s = f32(1.0f / 255.0f);
 
-    return vec4(f32(( c >> 0 ) & 0xFF ) * s ,f32(( c >> 8 ) & 0xFF ) * s ,f32(( c >> 16 ) & 0xFF ) * s ,f32(( c >> 24 ) & 0xFF ) * s);
+    return vec4(f32(( c >> 0 ) & 0xFF ) * s, f32(( c >> 8 ) & 0xFF ) * s, f32(( c >> 16 ) & 0xFF ) * s, f32(( c >> 24 ) & 0xFF ) * s);
 }
+
+fn U32toVec2(a: u32)->vec2<u32> {
+    return vec2(u32(( a >> 0 ) & 0xFFFF ), u32(( a >> 16 ) & 0xFFFF ));
+}
+
 
 @vertex
 fn vs_main(vert: VertexInput) -> VertexOutput {
     var out: VertexOutput;
 
-    let model = mat4x4<f32>(layerBuff[vert.instanceId].basisAX, layerBuff[vert.instanceId].basisBX, 0.0, layerBuff[vert.instanceId].offsetX,
-                            layerBuff[vert.instanceId].basisAY, layerBuff[vert.instanceId].basisBY, 0.0, layerBuff[vert.instanceId].offsetY,
-                            0.0,            0.0,            1.0, 0.0,
-                            0.0,            0.0,            0.0, 1.0);
-
-    out.position = vec4<f32>(vert.position, 0.0, 1.0) * model * uniforms.proj ;
+    out.position = vec4<f32>(vert.position, 0.0, 1.0) * uniforms.proj ;
     out.uv = vert.uv;
-    out.flags = layerBuff[vert.instanceId].flags;
+    out.flags = layerBuff[vert.layer].flags;
     
-    out.size.x = length(vec2<f32>(layerBuff[vert.instanceId].basisAX, layerBuff[vert.instanceId].basisAY));
-    out.size.y = length(vec2<f32>(layerBuff[vert.instanceId].basisBX, layerBuff[vert.instanceId].basisBY));
+    out.size.x = length(vec2<f32>(layerBuff[vert.layer].basisAX, layerBuff[vert.layer].basisAY));
+    out.size.y = length(vec2<f32>(layerBuff[vert.layer].basisBX, layerBuff[vert.layer].basisBY));
     
-    out.screenSize.x = length(vec4<f32>(layerBuff[vert.instanceId].basisAX - uniforms.canvasPos.x, layerBuff[vert.instanceId].basisAY - uniforms.canvasPos.x, 0.0, 1.0)* uniforms.proj);
-    out.screenSize.y = length(vec4<f32>(layerBuff[vert.instanceId].basisBX - uniforms.canvasPos.x, layerBuff[vert.instanceId].basisBY - uniforms.canvasPos.y, 0.0, 1.0)* uniforms.proj);
+    out.screenSize.x = length(vec4<f32>(layerBuff[vert.layer].basisAX - uniforms.canvasPos.x, layerBuff[vert.layer].basisAY - uniforms.canvasPos.x, 0.0, 1.0)* uniforms.proj);
+    out.screenSize.y = length(vec4<f32>(layerBuff[vert.layer].basisBX - uniforms.canvasPos.x, layerBuff[vert.layer].basisBY - uniforms.canvasPos.y, 0.0, 1.0)* uniforms.proj);
 
-    out.color = colorU32tovec4(layerBuff[vert.instanceId].color);
+    out.color = colorU32tovec4(layerBuff[vert.layer].color);
 
     return out;
 }

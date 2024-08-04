@@ -45,8 +45,9 @@ namespace mc
         uint32_t width;
         uint32_t height;
         float scale = 1.0;
+        uint32_t numLayers = 0;
 
-        float _pad[6];
+        float _pad[5];
     };
 #pragma pack( pop )
     // Have the compiler check byte alignment
@@ -69,6 +70,7 @@ namespace mc
         wgpu::Adapter adapter;
 
         wgpu::TextureFormat colorFormat;
+        uint64_t maxVertexBufferSize;
 
         wgpu::RenderPipeline mainPipeline;
         wgpu::ComputePipeline selectionPipeline;

@@ -10,6 +10,7 @@
 
 namespace mc
 {
+    constexpr int MaxVertexBufferSize = 8 * 4 * 3 * std::numeric_limits<uint16_t>::max();
 
     bool initDevice( mc::AppContext* app )
     {
@@ -23,20 +24,14 @@ namespace mc
         }
 
         wgpu::SupportedLimits supportedLimits;
-#if defined( SDL_PLATFORM_EMSCRIPTEN )
-        // Error in Chrome: Aborted(TODO: wgpuAdapterGetLimits unimplemented)
-        // (as of September 4, 2023), so we hardcode values:
-        // These work for 99.95% of clients (source: https://web3dsurvey.com/webgpu)
-        supportedLimits.limits.minStorageBufferOffsetAlignment = 256;
-        supportedLimits.limits.minUniformBufferOffsetAlignment = 256;
-#else
         app->adapter.GetLimits( &supportedLimits );
-#endif
+
+        app->maxVertexBufferSize = std::min<uint64_t>( MaxVertexBufferSize, supportedLimits.limits.maxBufferSize );
 
         wgpu::RequiredLimits requiredLimits;
-        requiredLimits.limits.maxVertexAttributes = 4;
-        requiredLimits.limits.maxVertexBuffers    = 2;
-        // requiredLimits.limits.maxBufferSize = 150000 * sizeof(WGPUVertexAttributes);
+        requiredLimits.limits.maxVertexAttributes = 6;
+        requiredLimits.limits.maxVertexBuffers    = 1;
+        requiredLimits.limits.maxBufferSize       = app->maxVertexBufferSize;
         // requiredLimits.limits.maxVertexBufferArrayStride = sizeof(WGPUVertexAttributes);
         requiredLimits.limits.maxUniformBufferBindingSize     = mc::NumLayers * sizeof( mc::Layer );
         requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
@@ -54,7 +49,7 @@ namespace mc
 
         wgpu::DeviceDescriptor deviceDesc;
         deviceDesc.label = "Device";
-        // deviceDesc.requiredLimits = &requiredLimits;
+        deviceDesc.requiredLimits     = &requiredLimits;
         deviceDesc.defaultQueue.label = "Main Queue";
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )
         deviceDesc.uncapturedErrorCallbackInfo.callback = []( WGPUErrorType type, char const* message, void* userData )
@@ -85,8 +80,8 @@ namespace mc
         // the vertex buffer is populated in the mesh assember compute shader
         std::array<wgpu::VertexBufferLayout, 1> vertexBufLayout;
 
-        // we have two vertex attributes, uv and 2d position
-        std::array<wgpu::VertexAttribute, 2> vertexAttr;
+        // we have 5 vertex attributes, 2d position, uv, size, color, layer id
+        std::array<wgpu::VertexAttribute, 5> vertexAttr;
         vertexAttr[0].format         = wgpu::VertexFormat::Float32x2;
         vertexAttr[0].offset         = 0;
         vertexAttr[0].shaderLocation = 0;
@@ -95,7 +90,19 @@ namespace mc
         vertexAttr[1].offset         = 2 * sizeof( float );
         vertexAttr[1].shaderLocation = 1;
 
-        vertexBufLayout[0].arrayStride    = 4 * sizeof( float );
+        vertexAttr[2].format         = wgpu::VertexFormat::Float32x2;
+        vertexAttr[2].offset         = 2 * sizeof( float ) + 2 * sizeof( float );
+        vertexAttr[2].shaderLocation = 2;
+
+        vertexAttr[3].format         = wgpu::VertexFormat::Unorm8x4;
+        vertexAttr[3].offset         = 2 * sizeof( float ) + 2 * sizeof( float ) + 2 * sizeof( float );
+        vertexAttr[3].shaderLocation = 3;
+
+        vertexAttr[4].format         = wgpu::VertexFormat::Uint32;
+        vertexAttr[4].offset         = 2 * sizeof( float ) + 2 * sizeof( float ) + 2 * sizeof( float ) + sizeof( float );
+        vertexAttr[4].shaderLocation = 4;
+
+        vertexBufLayout[0].arrayStride    = 8 * sizeof( float );
         vertexBufLayout[0].attributeCount = static_cast<uint32_t>( vertexAttr.size() );
         vertexBufLayout[0].attributes     = vertexAttr.data();
 
@@ -222,20 +229,11 @@ namespace mc
 
         app->globalBindGroup = app->device.CreateBindGroup( &bindGroupDesc );
 
-        // Create layer quad vertex buffer
-        const std::vector<float> SquareVertexData{
-            -0.5, -0.5, 0.0, 0.0, +0.5, -0.5, 1.0, 0.0, +0.5, +0.5, 1.0, 1.0,
-
-            -0.5, -0.5, 0.0, 0.0, +0.5, +0.5, 1.0, 1.0, -0.5, +0.5, 0.0, 1.0,
-        };
-
         wgpu::BufferDescriptor vertexBufferDesc;
-        vertexBufferDesc.mappedAtCreation = true;
-        vertexBufferDesc.size             = SquareVertexData.size() * sizeof( float );
+        vertexBufferDesc.mappedAtCreation = false;
+        vertexBufferDesc.size             = app->maxVertexBufferSize;
         vertexBufferDesc.usage            = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::Storage;
         app->vertexBuf                    = app->device.CreateBuffer( &vertexBufferDesc );
-        std::memcpy( app->vertexBuf.GetMappedRange(), SquareVertexData.data(), vertexBufferDesc.size );
-        app->vertexBuf.Unmap();
 
         // Set up compute shader used to compute selection
         {
@@ -308,7 +306,7 @@ namespace mc
             meshGroupLayoutEntries[0].binding                 = 0;
             meshGroupLayoutEntries[0].visibility              = wgpu::ShaderStage::Compute;
             meshGroupLayoutEntries[0].buffer.hasDynamicOffset = false;
-            meshGroupLayoutEntries[0].buffer.type             = wgpu::BufferBindingType::Storage;
+            meshGroupLayoutEntries[0].buffer.type             = wgpu::BufferBindingType::ReadOnlyStorage;
 
             meshGroupLayoutEntries[1].binding                 = 1;
             meshGroupLayoutEntries[1].visibility              = wgpu::ShaderStage::Compute;
@@ -408,7 +406,6 @@ namespace mc
         meshGroupEntries[1].buffer  = app->vertexBuf;
         meshGroupEntries[1].offset  = 0;
         meshGroupEntries[1].size    = app->vertexBuf.GetSize();
-        ;
 
         wgpu::BindGroupDescriptor meshBindGroupDesc;
         meshBindGroupDesc.layout     = app->meshPipeline.GetBindGroupLayout( 1 );

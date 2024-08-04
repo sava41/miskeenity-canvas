@@ -30,8 +30,10 @@ namespace mc
 
             glm::vec2 pos = ( glm::vec2( app->width / 2.0, app->height / 2.0 ) - app->viewParams.canvasPos ) / app->viewParams.scale;
 
-            app->layers.add( { pos, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( 1.0 ),
-                               static_cast<uint16_t>( app->textureManager.length() - 1 ), 0, glm::u8vec4( 255, 255, 255, 255 ), mc::HasColorTex } );
+            mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
+
+            app->layers.add( { pos, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( 1.0 ), glm::u8vec4( 255, 255, 255, 255 ),
+                               mc::HasColorTex, meshInfo.start, meshInfo.length, static_cast<uint16_t>( app->textureManager.length() - 1 ), 0 } );
 
             app->layersModified = true;
 

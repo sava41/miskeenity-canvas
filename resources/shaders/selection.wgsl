@@ -4,8 +4,10 @@ struct Uniforms {
     mousePos: vec2<f32>,
     mouseSelectPos: vec2<f32>,
     selectType: u32,
-    windowSize: vec2<u32>,
+    windowWidth: u32,
+    windowHeight: u32,
     scale: f32,
+    numLayers: u32,
 };
 
 struct Layer {
@@ -17,9 +19,10 @@ struct Layer {
     basisBY: f32,
     uvTop: u32,
     uvBot: u32,
-    imageMaskIds: u32,
     color: u32,
     flags: u32,
+    meshOffsetLength: u32,
+    imageMaskIds: u32,
 };
 
 struct Selection {
@@ -74,7 +77,8 @@ fn cs_main(@builtin(global_invocation_id) id_global : vec3<u32>, @builtin(local_
     // We have 3 possible scenarios with regards to intersection:
     // Ractangle is fully inside selection box
     // Rectangle is fully outside selection box
-    // Rectangle is partially inside selection box in which case we need to rasterize
+    // Rectangle is partially inside selection box and uses a texture mask in which case we need to rasterize to determine selection
+    // We cant implement mask rasteriaztion right now since we cant bind all mask textures at once so for now use box section
 
     // We have 3 posible selection modes:
     // mouse select pos == (0.0 0.0) : recalculate bboxes without modifying selection

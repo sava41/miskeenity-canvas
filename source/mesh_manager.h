@@ -8,22 +8,28 @@ namespace mc
 {
     // we need to store all our meshes in one array since webgpu doesnt have bind arrays right now.
     // for now only grow this array since our meshes are relatively small
+    constexpr int UnitSquareMeshIndex = 0;
 
     struct MeshInfo
     {
-        size_t start;
-        size_t length;
+        uint16_t start;
+        uint16_t length;
     };
 
-#pragma pack( push )
+#pragma pack( push, 16 )
     struct Vertex
     {
         float x;
         float y;
         float u;
         float v;
+        float sizex;
+        float sizey;
+        uint32_t color;
+        uint32_t pad;
     };
 #pragma pack( pop )
+    static_assert( sizeof( Vertex ) % 16 == 0 );
 
 #pragma pack( push )
     struct Triangle
@@ -33,6 +39,9 @@ namespace mc
         Vertex v3;
     };
 #pragma pack( pop )
+
+    constexpr size_t MaxMeshBufferTriangles = std::numeric_limits<uint16_t>::max();
+    constexpr size_t MaxMeshBufferSize      = std::numeric_limits<uint16_t>::max() * sizeof( Triangle );
 
     class MeshManager
     {

@@ -82,9 +82,6 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
 
     app->textureManager.init( app->device );
 
-    // add unit square
-    app->meshManager.add( { { { -0.5, -0.5, 0.0, 0.0 }, { +0.5, -0.5, 1.0, 0.0 }, { +0.5, +0.5, 1.0, 1.0 } },
-                            { { -0.5, -0.5, 0.0, 0.0 }, { +0.5, +0.5, 1.0, 1.0 }, { -0.5, +0.5, 0.0, 1.0 } } } );
     app->updateView = true;
 
     SDL_Log( "Application started successfully!" );
@@ -203,9 +200,10 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
                 glm::vec2 basisA  = glm::vec2( 0.0, 2.0 ) * mc::getPaintRadius();
                 glm::vec2 basisB  = glm::vec2( 2.0, 0.0 ) * mc::getPaintRadius();
                 glm::u8vec4 color = glm::u8vec4( mc::getPaintColor() * 255.0f, 1.0 );
+                mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
-                app->layers.add( { app->viewParams.mousePos, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 1.0 ), static_cast<uint16_t>( 0 ), 0, color,
-                                   mc::HasPillAlphaTex } );
+                app->layers.add( { app->viewParams.mousePos, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 1.0 ), color, mc::HasPillAlphaTex, meshInfo.start,
+                                   meshInfo.length, 0, 0 } );
                 app->layersModified = true;
             }
             else if( mc::getAppMode() == mc::Mode::Cursor )
@@ -409,10 +407,26 @@ int SDL_AppIterate( void* appstate )
         glm::vec2 basisA  = app->mouseDelta / app->viewParams.scale + 2.0f * glm::normalize( app->mouseDelta ) * mc::getPaintRadius();
         glm::vec2 basisB  = 2.0f * glm::normalize( glm::vec2( app->mouseDelta.y, -app->mouseDelta.x ) ) * mc::getPaintRadius();
         glm::u8vec4 color = glm::u8vec4( mc::getPaintColor() * 255.0f, 1.0 );
+        mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
-        app->layers.add( { app->viewParams.mousePos - app->mouseDelta / app->viewParams.scale * 0.5f, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 1.0 ),
-                           static_cast<uint16_t>( 0 ), 0, color, mc::HasPillAlphaTex } );
+        app->layers.add( {
+            app->viewParams.mousePos - app->mouseDelta / app->viewParams.scale * 0.5f,
+            basisA,
+            basisB,
+            glm::u16vec2( 0 ),
+            glm::u16vec2( 1.0 ),
+            color,
+            mc::HasPillAlphaTex,
+            meshInfo.start,
+            meshInfo.length,
+            0,
+            0,
+        } );
         app->layersModified = true;
+    }
+    if( app->layersModified )
+    {
+        app->viewParams.numLayers = static_cast<uint32_t>( app->layers.length() );
     }
     app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &app->viewParams, sizeof( mc::Uniforms ) );
 
@@ -432,7 +446,7 @@ int SDL_AppIterate( void* appstate )
         computePassEnc.SetBindGroup( 0, app->globalBindGroup );
         computePassEnc.SetBindGroup( 1, app->meshBindGroup );
 
-        computePassEnc.DispatchWorkgroups( ( app->meshManager.numTriangles() + 256 - 1 ) / 256, 1, 1 );
+        computePassEnc.DispatchWorkgroups( ( app->layers.getTotalTriCount() + 256 - 1 ) / 256, 1, 1 );
         computePassEnc.End();
 
         app->layersModified = false;
@@ -464,10 +478,12 @@ int SDL_AppIterate( void* appstate )
 
         // webgpu doesnt have texture arrays or bindless textures so we cant use batch rendering
         // for now draw each layer with a seperate command
+        int offset = 0;
         for( int i = 0; i < app->layers.length(); ++i )
         {
             app->textureManager.bind( app->layers.data()[i].texture, 1, renderPassEnc );
-            renderPassEnc.Draw( 6, 1, 0, i );
+            renderPassEnc.Draw( app->layers.data()[i].meshBuffLength * 3, 1, offset );
+            offset += app->layers.data()[i].meshBuffLength * 3;
         }
     }
 

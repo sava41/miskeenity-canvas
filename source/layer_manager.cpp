@@ -70,6 +70,18 @@ namespace mc
         return m_curLength;
     }
 
+    size_t LayerManager::getTotalTriCount() const
+    {
+        size_t count = 0;
+
+        for( int i = 0; i < m_curLength; ++i )
+        {
+            count += m_array[i].meshBuffLength;
+        }
+
+        return count;
+    }
+
     Layer* LayerManager::data() const
     {
         return m_array.get();

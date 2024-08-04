@@ -8,11 +8,23 @@ namespace mc
     MeshManager::MeshManager()
         : m_length( 0 )
     {
+        // add unit square mesh
+        add( { { { -0.5, -0.5, 0.0, 0.0, 1.0, 1.0, 0xFFFFFFFF, 0 },
+                 { +0.5, -0.5, 1.0, 0.0, 1.0, 1.0, 0xFFFFFFFF, 0 },
+                 { +0.5, +0.5, 1.0, 1.0, 1.0, 1.0, 0xFFFFFFFF, 0 } },
+               { { -0.5, -0.5, 0.0, 0.0, 1.0, 1.0, 0xFFFFFFFF, 0 },
+                 { +0.5, +0.5, 1.0, 1.0, 1.0, 1.0, 0xFFFFFFFF, 0 },
+                 { -0.5, +0.5, 0.0, 1.0, 1.0, 1.0, 0xFFFFFFFF, 0 } } } );
     }
 
     void MeshManager::add( const std::vector<Triangle>& meshBuffer )
     {
-        m_meshInfoArray.push_back( { m_length, meshBuffer.size() } );
+        if( m_length + meshBuffer.size() > MaxMeshBufferTriangles )
+        {
+            return;
+        }
+
+        m_meshInfoArray.push_back( { static_cast<uint16_t>( m_length ), static_cast<uint16_t>( meshBuffer.size() ) } );
 
         size_t newLength                         = m_length + meshBuffer.size();
         std::unique_ptr<Triangle[]> newMeshArray = std::make_unique<Triangle[]>( newLength );

@@ -26,12 +26,14 @@ namespace mc
         glm::u16vec2 uvTop;
         glm::u16vec2 uvBottom;
 
+        glm::u8vec4 color;
+        uint32_t flags;
+
+        uint16_t meshBuffOffset;
+        uint16_t meshBuffLength;
+
         uint16_t texture;
         uint16_t mask;
-
-        glm::u8vec4 color;
-
-        uint32_t flags;
     };
 #pragma pack( pop )
 
@@ -60,12 +62,14 @@ namespace mc
         bool remove( int index );
 
         size_t length() const;
+        size_t getTotalTriCount() const;
         Layer* data() const;
 
         void changeSelection( int index, bool isSelected );
         void clearSelection();
         bool isSelected( int index ) const;
         size_t numSelected() const;
+
 
         void moveSelection( const glm::vec2& offset );
         void rotateSelection( const glm::vec2& center, float angle );
