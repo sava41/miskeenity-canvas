@@ -359,6 +359,7 @@ namespace mc
                 if( ImGui::Button( tools[i].c_str(), buttonSize ) && modes[i] != Mode::Other )
                 {
                     g_appMode = modes[i];
+                    submitEvent( Events::ModeChanged );
                 }
                 ImGui::PopStyleColor( 1 );
                 if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
@@ -466,9 +467,17 @@ namespace mc
                 ImGui::PopItemWidth();
 
                 float width = ( ImGui::GetContentRegionAvail().x - 80 - 8 ) * 0.5;
-                ImGui::Button( "Apply", glm::vec2( width, 0.0 ) );
+                if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
+                {
+                    g_appMode = Mode::Cursor;
+                    submitEvent( Events::ContextAccept );
+                }
                 ImGui::SameLine( 0.0, 8.0 );
-                ImGui::Button( "Cancel", glm::vec2( width, 0.0 ) );
+                if( ImGui::Button( "Cancel", glm::vec2( width, 0.0 ) ) )
+                {
+                    g_appMode = Mode::Cursor;
+                    submitEvent( Events::ContextCancel );
+                }
             }
             ImGui::End();
         }

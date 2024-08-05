@@ -19,7 +19,11 @@ namespace mc
         LoadImage,
         SaveImage,
         AppQuit,
-        OpenGithub
+        OpenGithub,
+        ModeChanged,
+        StartCrop,
+        ContextAccept,
+        ContextCancel
     };
 
     void submitEvent( const Events& event, void* userData = nullptr );

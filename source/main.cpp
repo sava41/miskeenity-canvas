@@ -161,6 +161,19 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         app->layers.removeSelection();
         app->layersModified = true;
         break;
+    case mc::Events::ModeChanged:
+        app->layerEditStart = app->layers.length();
+        break;
+    case mc::Events::ContextAccept:
+        app->layersModified = true;
+        break;
+    case mc::Events::ContextCancel:
+        for( int i = app->layers.length() - 1; i >= app->layerEditStart; --i )
+        {
+            app->layers.remove( i );
+        }
+        app->layersModified = true;
+        break;
     }
 }
 

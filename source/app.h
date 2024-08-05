@@ -44,7 +44,7 @@ namespace mc
         SelectDispatch selectDispatch = SelectDispatch::None;
         uint32_t width;
         uint32_t height;
-        float scale = 1.0;
+        float scale        = 1.0;
         uint32_t numLayers = 0;
 
         float _pad[5];
@@ -109,6 +109,7 @@ namespace mc
         LayerManager layers           = LayerManager( NumLayers );
         TextureManager textureManager = TextureManager( 100 );
         MeshManager meshManager       = MeshManager();
+        int layerEditStart            = 0;
     };
 
 } // namespace mc
