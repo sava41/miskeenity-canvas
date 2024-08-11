@@ -12,8 +12,7 @@ struct VertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) color: vec4<f32>,
     @location(2) size: vec2<f32>,
-    @location(3) screenSize: vec2<f32>,
-    @location(4) @interpolate(flat) flags: u32,
+    @location(3) @interpolate(flat) flags: u32,
 };
 
 struct Uniforms {
@@ -51,12 +50,6 @@ var<storage,read> layerBuff: array<Layer>;
 @group(1) @binding(0) var textureSampler: sampler;
 @group(1) @binding(1) var texture: texture_2d<f32>;
 
-fn colorU32tovec4(c: u32)->vec4<f32> {
-    let s = f32(1.0f / 255.0f);
-
-    return vec4(f32(( c >> 0 ) & 0xFF ) * s, f32(( c >> 8 ) & 0xFF ) * s, f32(( c >> 16 ) & 0xFF ) * s, f32(( c >> 24 ) & 0xFF ) * s);
-}
-
 fn U32toVec2(a: u32)->vec2<u32> {
     return vec2(u32(( a >> 0 ) & 0xFFFF ), u32(( a >> 16 ) & 0xFFFF ));
 }
@@ -68,15 +61,9 @@ fn vs_main(vert: VertexInput) -> VertexOutput {
 
     out.position = vec4<f32>(vert.position, 0.0, 1.0) * uniforms.proj ;
     out.uv = vert.uv;
+    out.size = vert.size;
     out.flags = layerBuff[vert.layer].flags;
-    
-    out.size.x = length(vec2<f32>(layerBuff[vert.layer].basisAX, layerBuff[vert.layer].basisAY));
-    out.size.y = length(vec2<f32>(layerBuff[vert.layer].basisBX, layerBuff[vert.layer].basisBY));
-    
-    out.screenSize.x = length(vec4<f32>(layerBuff[vert.layer].basisAX - uniforms.canvasPos.x, layerBuff[vert.layer].basisAY - uniforms.canvasPos.x, 0.0, 1.0)* uniforms.proj);
-    out.screenSize.y = length(vec4<f32>(layerBuff[vert.layer].basisBX - uniforms.canvasPos.x, layerBuff[vert.layer].basisBY - uniforms.canvasPos.y, 0.0, 1.0)* uniforms.proj);
-
-    out.color = colorU32tovec4(layerBuff[vert.layer].color);
+    out.color = vert.color;
 
     return out;
 }

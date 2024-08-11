@@ -49,7 +49,8 @@ namespace mc
         MeshManager();
         ~MeshManager() = default;
 
-        void add( const std::vector<Triangle>& meshBuffer );
+        bool add( const std::vector<Triangle>& meshBuffer );
+        bool add( const Triangle* meshBuffer, size_t size );
 
         size_t size() const;
         size_t numTriangles() const;

@@ -36,6 +36,7 @@ add_executable(miskeenity-canvas
     source/events.cpp
     source/layer_manager.cpp
     source/mesh_manager.cpp
+    source/layer_mesh_utils.cpp
     source/ui.cpp
     source/image.cpp
     source/sdl_utils.cpp

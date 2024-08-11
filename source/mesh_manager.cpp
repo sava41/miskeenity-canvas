@@ -17,24 +17,32 @@ namespace mc
                  { -0.5, +0.5, 0.0, 1.0, 1.0, 1.0, 0xFFFFFFFF, 0 } } } );
     }
 
-    void MeshManager::add( const std::vector<Triangle>& meshBuffer )
+    bool MeshManager::add( const Triangle* meshBuffer, size_t length )
     {
-        if( m_length + meshBuffer.size() > MaxMeshBufferTriangles )
+        size_t newLength = m_length + length;
+
+        if( newLength > MaxMeshBufferTriangles )
         {
-            return;
+            return false;
         }
 
-        m_meshInfoArray.push_back( { static_cast<uint16_t>( m_length ), static_cast<uint16_t>( meshBuffer.size() ) } );
+        m_meshInfoArray.push_back( { static_cast<uint16_t>( m_length ), static_cast<uint16_t>( length ) } );
 
-        size_t newLength                         = m_length + meshBuffer.size();
         std::unique_ptr<Triangle[]> newMeshArray = std::make_unique<Triangle[]>( newLength );
 
         std::memcpy( newMeshArray.get(), m_meshArray.get(), m_length * sizeof( Triangle ) );
         m_meshArray = std::move( newMeshArray );
 
-        std::memcpy( m_meshArray.get() + m_length * sizeof( Triangle ), meshBuffer.data(), meshBuffer.size() * sizeof( Triangle ) );
+        std::memcpy( m_meshArray.get() + m_length, meshBuffer, length * sizeof( Triangle ) );
 
         m_length = newLength;
+
+        return true;
+    }
+
+    bool MeshManager::add( const std::vector<Triangle>& meshBuffer )
+    {
+        return add( meshBuffer.data(), meshBuffer.size() );
     }
 
     size_t MeshManager::size() const

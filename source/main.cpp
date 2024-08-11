@@ -19,6 +19,7 @@
 #include "graphics.h"
 #include "image.h"
 #include "layer_manager.h"
+#include "layer_mesh_utils.h"
 #include "sdl_utils.h"
 #include "ui.h"
 #include "webgpu_surface.h"
@@ -141,6 +142,33 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         app->dragType                  = mc::CursorDragType::Select;
     }
     break;
+    case mc::Events::MergeTopLayers:
+    {
+        const mc::Triangle* meshData = reinterpret_cast<const mc::Triangle*>( app->vertexCopyBuf.GetConstMappedRange( 0, app->newMeshSize ) );
+
+        if( meshData == nullptr )
+        {
+            app->vertexCopyBuf.Unmap();
+            return;
+        }
+
+        mc::removeTopLayers( app->layers, app->layerEditStart );
+        app->layersModified = true;
+
+        bool ret = app->meshManager.add( meshData, app->newMeshSize / sizeof( mc::Triangle ) );
+
+        app->vertexCopyBuf.Unmap();
+
+        if( !ret )
+        {
+            return;
+        }
+
+        mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( app->meshManager.numMeshes() - 1 );
+        app->layers.add( { glm::vec2( 0.0 ), glm::vec2( 1.0, 0.0 ), glm::vec2( 0.0, 1.0 ), glm::u16vec2( 0 ), glm::u16vec2( 1.0 ), glm::u8vec4( 255 ),
+                           mc::HasPillAlphaTex, meshInfo.start, meshInfo.length, 0, 0 } );
+    }
+    break;
     case mc::Events::FlipHorizontal:
         app->layers.scaleSelection( app->selectionCenter, glm::vec2( -1.0, 1.0 ) );
         app->layersModified = true;
@@ -165,13 +193,10 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         app->layerEditStart = app->layers.length();
         break;
     case mc::Events::ContextAccept:
-        app->layersModified = true;
+        app->mergeTopLayers = true;
         break;
     case mc::Events::ContextCancel:
-        for( int i = app->layers.length() - 1; i >= app->layerEditStart; --i )
-        {
-            app->layers.remove( i );
-        }
+        mc::removeTopLayers( app->layers, app->layerEditStart );
         app->layersModified = true;
         break;
     }
@@ -210,9 +235,9 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
 
             if( mc::getAppMode() == mc::Mode::Paint )
             {
-                glm::vec2 basisA  = glm::vec2( 0.0, 2.0 ) * mc::getPaintRadius();
-                glm::vec2 basisB  = glm::vec2( 2.0, 0.0 ) * mc::getPaintRadius();
-                glm::u8vec4 color = glm::u8vec4( mc::getPaintColor() * 255.0f, 1.0 );
+                glm::vec2 basisA      = glm::vec2( 0.0, 2.0 ) * mc::getPaintRadius();
+                glm::vec2 basisB      = glm::vec2( 2.0, 0.0 ) * mc::getPaintRadius();
+                glm::u8vec4 color     = glm::u8vec4( mc::getPaintColor() * 255.0f, 255 );
                 mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
                 app->layers.add( { app->viewParams.mousePos, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 1.0 ), color, mc::HasPillAlphaTex, meshInfo.start,
@@ -417,9 +442,9 @@ int SDL_AppIterate( void* appstate )
     }
     if( mc::getAppMode() == mc::Mode::Paint && app->mouseDown && app->mouseDelta != glm::vec2( 0.0 ) )
     {
-        glm::vec2 basisA  = app->mouseDelta / app->viewParams.scale + 2.0f * glm::normalize( app->mouseDelta ) * mc::getPaintRadius();
-        glm::vec2 basisB  = 2.0f * glm::normalize( glm::vec2( app->mouseDelta.y, -app->mouseDelta.x ) ) * mc::getPaintRadius();
-        glm::u8vec4 color = glm::u8vec4( mc::getPaintColor() * 255.0f, 1.0 );
+        glm::vec2 basisA      = app->mouseDelta / app->viewParams.scale + 2.0f * glm::normalize( app->mouseDelta ) * mc::getPaintRadius();
+        glm::vec2 basisB      = 2.0f * glm::normalize( glm::vec2( app->mouseDelta.y, -app->mouseDelta.x ) ) * mc::getPaintRadius();
+        glm::u8vec4 color     = glm::u8vec4( mc::getPaintColor() * 255.0f, 255 );
         mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
         app->layers.add( {
@@ -463,6 +488,33 @@ int SDL_AppIterate( void* appstate )
         computePassEnc.End();
 
         app->layersModified = false;
+    }
+
+    if( app->mergeTopLayers )
+    {
+        int newMeshOffset = 0;
+        app->newMeshSize  = 0;
+        for( int i = 0; i < app->layers.length(); ++i )
+        {
+            if( i < app->layerEditStart )
+            {
+                newMeshOffset += app->layers.data()[i].meshBuffLength * sizeof( mc::Triangle );
+            }
+            else
+            {
+                app->newMeshSize += app->layers.data()[i].meshBuffLength * sizeof( mc::Triangle );
+            }
+        }
+        if( app->newMeshSize + app->meshManager.size() > mc::MaxMeshBufferSize )
+        {
+            // cant merge because our mesh manager buffer will overflow
+            submitEvent( mc::Events::ContextCancel );
+            app->mergeTopLayers = false;
+        }
+        else
+        {
+            encoder.CopyBufferToBuffer( app->vertexBuf, newMeshOffset, app->vertexCopyBuf, 0, app->newMeshSize );
+        }
     }
 
     wgpu::SurfaceTexture surfaceTexture;
@@ -531,6 +583,24 @@ int SDL_AppIterate( void* appstate )
     app->mouseDelta  = glm::vec2( 0.0 );
     app->scrollDelta = glm::vec2( 0.0 );
 
+    if( app->mergeTopLayers )
+    {
+        wgpu::BufferMapCallback callback = []( WGPUBufferMapAsyncStatus status, void* userData )
+        {
+            if( status == WGPUBufferMapAsyncStatus_Success )
+            {
+                submitEvent( mc::Events::MergeTopLayers );
+            }
+            else
+            {
+                submitEvent( mc::Events::ContextCancel );
+            }
+        };
+        app->vertexCopyBuf.MapAsync( wgpu::MapMode::Read, 0, app->newMeshSize, callback, &app->vertexCopyBuf );
+
+        app->mergeTopLayers = false;
+    }
+
     if( computeSelection )
     {
         app->selectionReady = false;
@@ -540,10 +610,13 @@ int SDL_AppIterate( void* appstate )
             if( status == WGPUBufferMapAsyncStatus_Success )
             {
                 wgpu::Buffer* buffer      = reinterpret_cast<wgpu::Buffer*>( userData );
-                const void* selectionData = ( buffer->GetConstMappedRange( 0, mc::NumLayers * sizeof( mc::Selection ) ) );
+                const void* selectionData = buffer->GetConstMappedRange( 0, mc::NumLayers * sizeof( mc::Selection ) );
 
                 if( selectionData == nullptr )
+                {
+                    buffer->Unmap();
                     return;
+                }
 
                 submitEvent( mc::Events::SelectionChanged, const_cast<void*>( selectionData ) );
             }

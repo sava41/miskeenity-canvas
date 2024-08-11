@@ -23,7 +23,8 @@ namespace mc
         ModeChanged,
         StartCrop,
         ContextAccept,
-        ContextCancel
+        ContextCancel,
+        MergeTopLayers
     };
 
     void submitEvent( const Events& event, void* userData = nullptr );

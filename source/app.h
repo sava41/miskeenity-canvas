@@ -77,6 +77,7 @@ namespace mc
         wgpu::ComputePipeline meshPipeline;
         wgpu::Buffer meshBuf;
         wgpu::Buffer vertexBuf;
+        wgpu::Buffer vertexCopyBuf;
         wgpu::Buffer layerBuf;
         wgpu::Buffer viewParamBuf;
         wgpu::Buffer selectionBuf;
@@ -92,6 +93,7 @@ namespace mc
         bool updateView                = false;
         bool selectionReady            = true;
         bool layersModified            = true;
+        bool mergeTopLayers            = false;
         bool appQuit                   = false;
         bool resetSurface              = false;
         unsigned long resetSurfaceTime = 0;
@@ -110,6 +112,7 @@ namespace mc
         TextureManager textureManager = TextureManager( 100 );
         MeshManager meshManager       = MeshManager();
         int layerEditStart            = 0;
+        int newMeshSize               = 0;
     };
 
 } // namespace mc

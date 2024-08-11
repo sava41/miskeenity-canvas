@@ -48,7 +48,7 @@ namespace mc
         requiredLimits.limits.maxSamplersPerShaderStage        = 1;
 
         wgpu::DeviceDescriptor deviceDesc;
-        deviceDesc.label = "Device";
+        deviceDesc.label              = "Device";
         deviceDesc.requiredLimits     = &requiredLimits;
         deviceDesc.defaultQueue.label = "Main Queue";
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )
@@ -232,8 +232,11 @@ namespace mc
         wgpu::BufferDescriptor vertexBufferDesc;
         vertexBufferDesc.mappedAtCreation = false;
         vertexBufferDesc.size             = app->maxVertexBufferSize;
-        vertexBufferDesc.usage            = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::Storage;
+        vertexBufferDesc.usage            = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc;
         app->vertexBuf                    = app->device.CreateBuffer( &vertexBufferDesc );
+
+        vertexBufferDesc.usage = wgpu::BufferUsage::MapRead | wgpu::BufferUsage::CopyDst;
+        app->vertexCopyBuf     = app->device.CreateBuffer( &vertexBufferDesc );
 
         // Set up compute shader used to compute selection
         {
@@ -335,25 +338,6 @@ namespace mc
             meshPipelineDesc.compute.entryPoint = "ma_main";
 
             app->meshPipeline = app->device.CreateComputePipeline( &meshPipelineDesc );
-
-            // std::array<wgpu::BindGroupEntry, 2> meshGroupEntries;
-
-            // meshGroupEntries[0].binding = 0;
-            // meshGroupEntries[0].buffer  = app->meshBuf;
-            // meshGroupEntries[0].offset  = 0;
-            // meshGroupEntries[0].size    = 0;
-
-            // meshGroupEntries[1].binding = 1;
-            // meshGroupEntries[1].buffer  = app->vertexBuf;
-            // meshGroupEntries[1].offset  = 0;
-            // meshGroupEntries[1].size    = vertexBufferDesc.size;
-
-            // wgpu::BindGroupDescriptor meshBindGroupDesc;
-            // meshBindGroupDesc.layout     = meshGroupLayout;
-            // meshBindGroupDesc.entryCount = static_cast<uint32_t>( meshGroupEntries.size() );
-            // meshBindGroupDesc.entries    = meshGroupEntries.data();
-
-            // app->meshBindGroup = app->device.CreateBindGroup( &meshBindGroupDesc );
         }
     }
 
@@ -384,15 +368,6 @@ namespace mc
 
             std::memcpy( app->meshBuf.GetMappedRange(), app->meshManager.data(), app->meshManager.size() );
             app->meshBuf.Unmap();
-        }
-
-        if( app->vertexBuf == nullptr )
-        {
-            // wgpu::BufferDescriptor vertexBufDesc;
-            // vertexBufDesc.mappedAtCreation = false;
-            // vertexBufDesc.size             = app->meshManager.length();
-            // vertexBufDesc.usage            = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
-            // app->vertexBuf                 = app->device.CreateBuffer( &vertexBufDesc );
         }
 
         std::array<wgpu::BindGroupEntry, 2> meshGroupEntries;

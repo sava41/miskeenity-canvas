@@ -52,8 +52,27 @@ var<storage, read> meshVertexBuff: array<MeshVertex>;
 @group(1) @binding(1)
 var<storage, read_write> vertexBuff: array<Vertex>;
 
-fn U32toVec2(a: u32)->vec2<u32> {
+fn u32toVec2(a: u32)->vec2<u32> {
     return vec2(u32(( a >> 0 ) & 0xFFFF ), u32(( a >> 16 ) & 0xFFFF ));
+}
+
+fn multiplyColors(color1: u32, color2: u32) -> u32 {
+    let r1 = (color1 >> 24) & 0xFF;
+    let g1 = (color1 >> 16) & 0xFF;
+    let b1 = (color1 >> 8) & 0xFF;
+    let a1 = color1 & 0xFF;
+
+    let r2 = (color2 >> 24) & 0xFF;
+    let g2 = (color2 >> 16) & 0xFF;
+    let b2 = (color2 >> 8) & 0xFF;
+    let a2 = color2 & 0xFF;
+
+    let r = ((r1 * r2) / 255) & 0xFF;
+    let g = ((g1 * g2) / 255) & 0xFF;
+    let b = ((b1 * b2) / 255) & 0xFF;
+    let a = ((a1 * a2) / 255) & 0xFF;
+
+    return (r << 24) | (g << 16) | (b << 8) | a;
 }
 
 @compute @workgroup_size(256, 1)
@@ -64,8 +83,8 @@ fn ma_main(@builtin(global_invocation_id) id_global : vec3<u32>, @builtin(local_
     var layerIndex =  u32(0);
     var remainingTris = i;
 
-    while (layerIndex < uniforms.numLayers && remainingTris >= U32toVec2(layerBuff[layerIndex].meshOffsetLength).y) {
-        remainingTris -= U32toVec2(layerBuff[layerIndex].meshOffsetLength).y;
+    while (layerIndex < uniforms.numLayers && remainingTris >= u32toVec2(layerBuff[layerIndex].meshOffsetLength).y) {
+        remainingTris -= u32toVec2(layerBuff[layerIndex].meshOffsetLength).y;
         layerIndex++;
     }
 
@@ -78,24 +97,27 @@ fn ma_main(@builtin(global_invocation_id) id_global : vec3<u32>, @builtin(local_
                             0.0,                            0.0,                            1.0, 0.0,
                             0.0,                            0.0,                            0.0, 1.0);
 
-    let triIndex = U32toVec2(layerBuff[layerIndex].meshOffsetLength).x + remainingTris;
+    let layerSize = vec2<f32>(  length(vec2<f32>(layerBuff[layerIndex].basisAX, layerBuff[layerIndex].basisAY)),
+                                length(vec2<f32>(layerBuff[layerIndex].basisBX, layerBuff[layerIndex].basisBY)));
+    
+    let triIndex = u32toVec2(layerBuff[layerIndex].meshOffsetLength).x + remainingTris;
 
     vertexBuff[i * 3 + 0].xy = (vec4<f32>(meshVertexBuff[triIndex * 3 + 0].xy, 0.0, 1.0) * model).xy;
     vertexBuff[i * 3 + 0].uv = meshVertexBuff[triIndex * 3 + 0].uv;
-    vertexBuff[i * 3 + 0].size = meshVertexBuff[triIndex * 3 + 0].size;
-    vertexBuff[i * 3 + 0].color = meshVertexBuff[triIndex * 3 + 0].color;
+    vertexBuff[i * 3 + 0].size = meshVertexBuff[triIndex * 3 + 0].size * layerSize;
+    vertexBuff[i * 3 + 0].color = multiplyColors(meshVertexBuff[triIndex * 3 + 0].color, layerBuff[layerIndex].color);
     vertexBuff[i * 3 + 0].layer = layerIndex;
 
     vertexBuff[i * 3 + 1].xy = (vec4<f32>(meshVertexBuff[triIndex * 3 + 1].xy, 0.0, 1.0) * model).xy;
     vertexBuff[i * 3 + 1].uv = meshVertexBuff[triIndex * 3 + 1].uv;
-    vertexBuff[i * 3 + 1].size = meshVertexBuff[triIndex * 3 + 1].size;
-    vertexBuff[i * 3 + 1].color = meshVertexBuff[triIndex * 3 + 1].color;
+    vertexBuff[i * 3 + 1].size = meshVertexBuff[triIndex * 3 + 1].size * layerSize;
+    vertexBuff[i * 3 + 1].color = multiplyColors(meshVertexBuff[triIndex * 3 + 1].color,  layerBuff[layerIndex].color);
     vertexBuff[i * 3 + 1].layer = layerIndex;
 
     vertexBuff[i * 3 + 2].xy = (vec4<f32>(meshVertexBuff[triIndex * 3 + 2].xy, 0.0, 1.0) * model).xy;
     vertexBuff[i * 3 + 2].uv = meshVertexBuff[triIndex * 3 + 2].uv;
-    vertexBuff[i * 3 + 2].size = meshVertexBuff[triIndex * 3 + 2].size;
-    vertexBuff[i * 3 + 2].color = meshVertexBuff[triIndex * 3 + 2].color;
+    vertexBuff[i * 3 + 2].size = meshVertexBuff[triIndex * 3 + 2].size * layerSize;
+    vertexBuff[i * 3 + 2].color = multiplyColors(meshVertexBuff[triIndex * 3 + 2].color,  layerBuff[layerIndex].color);
     vertexBuff[i * 3 + 2].layer = layerIndex;
 
 }
