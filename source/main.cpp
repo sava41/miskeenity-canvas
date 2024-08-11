@@ -105,7 +105,16 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         break;
     case mc::Events::SelectionChanged:
     {
-        mc::Selection* selectionData = reinterpret_cast<mc::Selection*>( event->user.data1 );
+
+        const mc::Selection* selectionData =
+            reinterpret_cast<const mc::Selection*>( app->selectionMapBuf.GetConstMappedRange( 0, app->layers.length() * sizeof( mc::Selection ) ) );
+
+        if( selectionData == nullptr )
+        {
+            app->selectionMapBuf.Unmap();
+            app->selectionReady = true;
+            return;
+        }
 
         app->selectionBbox = glm::vec4( -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
                                         std::numeric_limits<float>::max() );
@@ -603,25 +612,16 @@ int SDL_AppIterate( void* appstate )
 
     if( computeSelection )
     {
-        app->selectionReady = false;
-
         wgpu::BufferMapCallback callback = []( WGPUBufferMapAsyncStatus status, void* userData )
         {
             if( status == WGPUBufferMapAsyncStatus_Success )
             {
-                wgpu::Buffer* buffer      = reinterpret_cast<wgpu::Buffer*>( userData );
-                const void* selectionData = buffer->GetConstMappedRange( 0, mc::NumLayers * sizeof( mc::Selection ) );
-
-                if( selectionData == nullptr )
-                {
-                    buffer->Unmap();
-                    return;
-                }
-
-                submitEvent( mc::Events::SelectionChanged, const_cast<void*>( selectionData ) );
+                submitEvent( mc::Events::SelectionChanged );
             }
         };
-        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, mc::NumLayers * sizeof( mc::Selection ), callback, &app->selectionMapBuf );
+        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, app->layers.length() * sizeof( mc::Selection ), callback, &app->selectionMapBuf );
+
+        app->selectionReady = false;
     }
 
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )
