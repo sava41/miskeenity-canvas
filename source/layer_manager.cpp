@@ -233,6 +233,8 @@ namespace mc
 
         m_curLength -= m_numSelected;
         m_numSelected = 0;
+
+        recalculateTriCount();
     }
 
     void LayerManager::recalculateTriCount()
