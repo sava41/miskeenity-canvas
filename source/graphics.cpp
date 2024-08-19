@@ -10,7 +10,6 @@
 
 namespace mc
 {
-    constexpr int MaxVertexBufferSize = 8 * 4 * 3 * std::numeric_limits<uint16_t>::max();
 
     bool initDevice( mc::AppContext* app )
     {
@@ -26,12 +25,12 @@ namespace mc
         wgpu::SupportedLimits supportedLimits;
         app->adapter.GetLimits( &supportedLimits );
 
-        app->maxVertexBufferSize = std::min<uint64_t>( MaxVertexBufferSize, supportedLimits.limits.maxBufferSize );
+        app->maxBufferSize = std::min<uint64_t>( MaxMeshBufferSize, supportedLimits.limits.maxBufferSize );
 
         wgpu::RequiredLimits requiredLimits;
         requiredLimits.limits.maxVertexAttributes = 6;
         requiredLimits.limits.maxVertexBuffers    = 1;
-        requiredLimits.limits.maxBufferSize       = app->maxVertexBufferSize;
+        requiredLimits.limits.maxBufferSize       = app->maxBufferSize;
         // requiredLimits.limits.maxVertexBufferArrayStride = sizeof(WGPUVertexAttributes);
         requiredLimits.limits.maxUniformBufferBindingSize     = mc::NumLayers * sizeof( mc::Layer );
         requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
@@ -163,6 +162,24 @@ namespace mc
 
         wgpu::BindGroupLayout globalGroupLayout = app->device.CreateBindGroupLayout( &globalGroupLayoutDesc );
 
+        // Create mesh data bind group layout
+        std::array<wgpu::BindGroupLayoutEntry, 2> meshGroupLayoutEntries;
+        meshGroupLayoutEntries[0].binding                 = 0;
+        meshGroupLayoutEntries[0].visibility              = wgpu::ShaderStage::Compute;
+        meshGroupLayoutEntries[0].buffer.hasDynamicOffset = false;
+        meshGroupLayoutEntries[0].buffer.type             = wgpu::BufferBindingType::ReadOnlyStorage;
+
+        meshGroupLayoutEntries[1].binding                 = 1;
+        meshGroupLayoutEntries[1].visibility              = wgpu::ShaderStage::Compute;
+        meshGroupLayoutEntries[1].buffer.hasDynamicOffset = false;
+        meshGroupLayoutEntries[1].buffer.type             = wgpu::BufferBindingType::Storage;
+
+        wgpu::BindGroupLayoutDescriptor meshBindGroupLayoutDesc;
+        meshBindGroupLayoutDesc.entryCount = static_cast<uint32_t>( meshGroupLayoutEntries.size() );
+        meshBindGroupLayoutDesc.entries    = meshGroupLayoutEntries.data();
+
+        wgpu::BindGroupLayout meshGroupLayout = app->device.CreateBindGroupLayout( &meshBindGroupLayoutDesc );
+
         // Create texture bind group layout for main pipeline
         // we might add more non texture stuff to this pipeline in the future
         wgpu::BindGroupLayout mainGroupLayout = createTextureBindGroupLayout( app->device );
@@ -205,7 +222,7 @@ namespace mc
 
         wgpu::BufferDescriptor selectionOutputBufDesc;
         selectionOutputBufDesc.mappedAtCreation = false;
-        selectionOutputBufDesc.size             = mc::NumLayers * sizeof( mc::Selection );
+        selectionOutputBufDesc.size             = app->maxBufferSize / sizeof( mc::Triangle ) * sizeof( mc::Selection );
         selectionOutputBufDesc.usage            = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc | wgpu::BufferUsage::CopyDst;
         app->selectionBuf                       = app->device.CreateBuffer( &selectionOutputBufDesc );
 
@@ -231,7 +248,7 @@ namespace mc
 
         wgpu::BufferDescriptor vertexBufferDesc;
         vertexBufferDesc.mappedAtCreation = false;
-        vertexBufferDesc.size             = app->maxVertexBufferSize;
+        vertexBufferDesc.size             = app->maxBufferSize;
         vertexBufferDesc.usage            = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc;
         app->vertexBuf                    = app->device.CreateBuffer( &vertexBufferDesc );
 
@@ -262,7 +279,7 @@ namespace mc
 
             wgpu::BindGroupLayout selectionGroupLayout = app->device.CreateBindGroupLayout( &selectionBindGroupLayoutDesc );
 
-            std::array<wgpu::BindGroupLayout, 2> selectionBindGroupLayouts = { globalGroupLayout, selectionGroupLayout };
+            std::array<wgpu::BindGroupLayout, 3> selectionBindGroupLayouts = { globalGroupLayout, meshGroupLayout, selectionGroupLayout };
 
             wgpu::PipelineLayoutDescriptor selectionPipelineLayoutDesc;
             selectionPipelineLayoutDesc.bindGroupLayoutCount = static_cast<uint32_t>( selectionBindGroupLayouts.size() );
@@ -303,24 +320,6 @@ namespace mc
             meshShaderModuleDesc.nextInChain = &meshShaderCodeDesc;
 
             wgpu::ShaderModule meshShaderModule = app->device.CreateShaderModule( &meshShaderModuleDesc );
-
-            std::array<wgpu::BindGroupLayoutEntry, 2> meshGroupLayoutEntries;
-
-            meshGroupLayoutEntries[0].binding                 = 0;
-            meshGroupLayoutEntries[0].visibility              = wgpu::ShaderStage::Compute;
-            meshGroupLayoutEntries[0].buffer.hasDynamicOffset = false;
-            meshGroupLayoutEntries[0].buffer.type             = wgpu::BufferBindingType::ReadOnlyStorage;
-
-            meshGroupLayoutEntries[1].binding                 = 1;
-            meshGroupLayoutEntries[1].visibility              = wgpu::ShaderStage::Compute;
-            meshGroupLayoutEntries[1].buffer.hasDynamicOffset = false;
-            meshGroupLayoutEntries[1].buffer.type             = wgpu::BufferBindingType::Storage;
-
-            wgpu::BindGroupLayoutDescriptor meshBindGroupLayoutDesc;
-            meshBindGroupLayoutDesc.entryCount = static_cast<uint32_t>( meshGroupLayoutEntries.size() );
-            meshBindGroupLayoutDesc.entries    = meshGroupLayoutEntries.data();
-
-            wgpu::BindGroupLayout meshGroupLayout = app->device.CreateBindGroupLayout( &meshBindGroupLayoutDesc );
 
             std::array<wgpu::BindGroupLayout, 2> meshBindGroupLayouts = { globalGroupLayout, meshGroupLayout };
 

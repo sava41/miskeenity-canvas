@@ -15,6 +15,9 @@ namespace mc
     constexpr size_t NumLayers                  = 2048;
     constexpr unsigned long resetSurfaceDelayMs = 150;
 
+    constexpr size_t MaxMeshBufferTriangles = std::numeric_limits<uint16_t>::max();
+    constexpr size_t MaxMeshBufferSize      = MaxMeshBufferTriangles * sizeof( Triangle );
+
     enum class SelectDispatch : uint32_t
     {
         Box         = 0,
@@ -70,7 +73,7 @@ namespace mc
         wgpu::Adapter adapter;
 
         wgpu::TextureFormat colorFormat;
-        uint64_t maxVertexBufferSize;
+        uint64_t maxBufferSize;
 
         wgpu::RenderPipeline mainPipeline;
         wgpu::ComputePipeline selectionPipeline;
@@ -110,7 +113,7 @@ namespace mc
 
         LayerManager layers           = LayerManager( NumLayers );
         TextureManager textureManager = TextureManager( 100 );
-        MeshManager meshManager       = MeshManager();
+        MeshManager meshManager       = MeshManager( MaxMeshBufferTriangles );
         int layerEditStart            = 0;
         int newMeshSize               = 0;
     };

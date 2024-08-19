@@ -65,6 +65,20 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
 
     mc::initDevice( app );
 
+    // setup default meshes
+    if( app->maxBufferSize < app->meshManager.maxLength() * sizeof( mc::Triangle ) )
+    {
+        app->meshManager = mc::MeshManager( app->maxBufferSize / sizeof( mc::Triangle ) );
+    }
+
+    // add unit square mesh
+    app->meshManager.add( { { { -0.5, -0.5, 0.0, 0.0, 1.0, 1.0, 0xFFFFFFFF, 0 },
+                              { +0.5, -0.5, 1.0, 0.0, 1.0, 1.0, 0xFFFFFFFF, 0 },
+                              { +0.5, +0.5, 1.0, 1.0, 1.0, 1.0, 0xFFFFFFFF, 0 } },
+                            { { -0.5, -0.5, 0.0, 0.0, 1.0, 1.0, 0xFFFFFFFF, 0 },
+                              { +0.5, +0.5, 1.0, 1.0, 1.0, 1.0, 0xFFFFFFFF, 0 },
+                              { -0.5, +0.5, 0.0, 1.0, 1.0, 1.0, 0xFFFFFFFF, 0 } } } );
+
     SDL_GetWindowSize( app->window, &app->width, &app->height );
     SDL_GetWindowSizeInPixels( app->window, &app->bbwidth, &app->bbheight );
     app->dpiFactor = SDL_GetWindowDisplayScale( app->window );
@@ -107,7 +121,7 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
     {
 
         const mc::Selection* selectionData =
-            reinterpret_cast<const mc::Selection*>( app->selectionMapBuf.GetConstMappedRange( 0, app->layers.length() * sizeof( mc::Selection ) ) );
+            reinterpret_cast<const mc::Selection*>( app->selectionMapBuf.GetConstMappedRange( 0, app->layers.getTotalTriCount() * sizeof( mc::Selection ) ) );
 
         if( selectionData == nullptr )
         {
@@ -119,23 +133,53 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         app->selectionBbox = glm::vec4( -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
                                         std::numeric_limits<float>::max() );
 
-        int numSelected = 0;
+        int numSelected    = 0;
+        int triangleOffset = app->layers.getTotalTriCount() - 1;
 
         for( int i = app->layers.length() - 1; i >= 0; --i )
         {
-            if( ( app->viewParams.selectDispatch != mc::SelectDispatch::ComputeBbox && selectionData[i].flags != mc::SelectionFlags::InsideBox ) ||
-                ( app->viewParams.selectDispatch == mc::SelectDispatch::Point && numSelected == 1 ) )
+            // Calculate layer selection by checking each triangle in a layer
+            bool boxSelected             = true;
+            bool pointSelected           = false;
+            glm::vec4 layerSelectionBbox = glm::vec4( -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
+                                                      std::numeric_limits<float>::max() );
+            for( int j = 0; j < app->layers.data()[i].vertexBuffLength; ++j )
+            {
+                if( app->viewParams.selectDispatch != mc::SelectDispatch::ComputeBbox )
+                {
+                    if( app->viewParams.selectDispatch != mc::SelectDispatch::Point &&
+                        selectionData[triangleOffset - j].flags != mc::SelectionFlags::InsideBox )
+                    {
+                        boxSelected = false;
+                        break;
+                    }
+
+                    if( app->viewParams.selectDispatch == mc::SelectDispatch::Point &&
+                        selectionData[triangleOffset - j].flags == mc::SelectionFlags::InsideBox && numSelected == 0 )
+                    {
+                        pointSelected = true;
+                    }
+                }
+
+                layerSelectionBbox.x = std::max( layerSelectionBbox.x, selectionData[triangleOffset - j].bbox.x );
+                layerSelectionBbox.y = std::max( layerSelectionBbox.y, selectionData[triangleOffset - j].bbox.y );
+                layerSelectionBbox.z = std::min( layerSelectionBbox.z, selectionData[triangleOffset - j].bbox.z );
+                layerSelectionBbox.w = std::min( layerSelectionBbox.w, selectionData[triangleOffset - j].bbox.w );
+            }
+            triangleOffset -= app->layers.data()[i].vertexBuffLength;
+
+            // Modify layer selection
+            if( ( app->viewParams.selectDispatch != mc::SelectDispatch::ComputeBbox && !boxSelected ) ||
+                ( app->viewParams.selectDispatch == mc::SelectDispatch::Point && !pointSelected ) )
             {
                 app->layers.changeSelection( i, false );
-                continue;
             }
-
-            if( app->viewParams.selectDispatch != mc::SelectDispatch::ComputeBbox || app->layers.isSelected( i ) )
+            else if( app->viewParams.selectDispatch != mc::SelectDispatch::ComputeBbox || app->layers.isSelected( i ) )
             {
-                app->selectionBbox.x = std::max( app->selectionBbox.x, selectionData[i].bbox.x );
-                app->selectionBbox.y = std::max( app->selectionBbox.y, selectionData[i].bbox.y );
-                app->selectionBbox.z = std::min( app->selectionBbox.z, selectionData[i].bbox.z );
-                app->selectionBbox.w = std::min( app->selectionBbox.w, selectionData[i].bbox.w );
+                app->selectionBbox.x = std::max( app->selectionBbox.x, layerSelectionBbox.x );
+                app->selectionBbox.y = std::max( app->selectionBbox.y, layerSelectionBbox.y );
+                app->selectionBbox.z = std::min( app->selectionBbox.z, layerSelectionBbox.z );
+                app->selectionBbox.w = std::min( app->selectionBbox.w, layerSelectionBbox.w );
 
                 app->layers.changeSelection( i, true );
                 numSelected += 1;
@@ -161,7 +205,7 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
             return;
         }
 
-        mc::removeTopLayers( app->layers, app->layerEditStart );
+        app->layers.removeTop( app->layerEditStart );
         app->layersModified = true;
 
         bool ret = app->meshManager.add( meshData, app->newMeshSize / sizeof( mc::Triangle ) );
@@ -205,7 +249,7 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         app->mergeTopLayers = true;
         break;
     case mc::Events::ContextCancel:
-        mc::removeTopLayers( app->layers, app->layerEditStart );
+        app->layers.removeTop( app->layerEditStart );
         app->layersModified = true;
         break;
     }
@@ -507,11 +551,11 @@ int SDL_AppIterate( void* appstate )
         {
             if( i < app->layerEditStart )
             {
-                newMeshOffset += app->layers.data()[i].meshBuffLength * sizeof( mc::Triangle );
+                newMeshOffset += app->layers.data()[i].vertexBuffLength * sizeof( mc::Triangle );
             }
             else
             {
-                app->newMeshSize += app->layers.data()[i].meshBuffLength * sizeof( mc::Triangle );
+                app->newMeshSize += app->layers.data()[i].vertexBuffLength * sizeof( mc::Triangle );
             }
         }
         if( app->newMeshSize + app->meshManager.size() > mc::MaxMeshBufferSize )
@@ -556,8 +600,8 @@ int SDL_AppIterate( void* appstate )
         for( int i = 0; i < app->layers.length(); ++i )
         {
             app->textureManager.bind( app->layers.data()[i].texture, 1, renderPassEnc );
-            renderPassEnc.Draw( app->layers.data()[i].meshBuffLength * 3, 1, offset );
-            offset += app->layers.data()[i].meshBuffLength * 3;
+            renderPassEnc.Draw( app->layers.data()[i].vertexBuffLength * 3, 1, offset );
+            offset += app->layers.data()[i].vertexBuffLength * 3;
         }
     }
 
@@ -574,12 +618,13 @@ int SDL_AppIterate( void* appstate )
         wgpu::ComputePassEncoder computePassEnc = encoder.BeginComputePass();
         computePassEnc.SetPipeline( app->selectionPipeline );
         computePassEnc.SetBindGroup( 0, app->globalBindGroup );
-        computePassEnc.SetBindGroup( 1, app->selectionBindGroup );
+        computePassEnc.SetBindGroup( 1, app->meshBindGroup );
+        computePassEnc.SetBindGroup( 2, app->selectionBindGroup );
 
-        computePassEnc.DispatchWorkgroups( ( app->layers.length() + 256 - 1 ) / 256, 1, 1 );
+        computePassEnc.DispatchWorkgroups( ( app->layers.getTotalTriCount() + 256 - 1 ) / 256, 1, 1 );
         computePassEnc.End();
 
-        encoder.CopyBufferToBuffer( app->selectionBuf, 0, app->selectionMapBuf, 0, app->layers.length() * sizeof( mc::Selection ) );
+        encoder.CopyBufferToBuffer( app->selectionBuf, 0, app->selectionMapBuf, 0, app->layers.getTotalTriCount() * sizeof( mc::Selection ) );
     }
 
     wgpu::CommandBufferDescriptor cmdBufferDescriptor;
@@ -619,7 +664,7 @@ int SDL_AppIterate( void* appstate )
                 submitEvent( mc::Events::SelectionChanged );
             }
         };
-        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, app->layers.length() * sizeof( mc::Selection ), callback, &app->selectionMapBuf );
+        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, app->layers.getTotalTriCount() * sizeof( mc::Selection ), callback, &app->selectionMapBuf );
 
         app->selectionReady = false;
     }

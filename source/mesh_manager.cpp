@@ -5,23 +5,17 @@
 namespace mc
 {
 
-    MeshManager::MeshManager()
+    MeshManager::MeshManager( size_t maxLength )
         : m_length( 0 )
+        , m_maxLength( maxLength )
     {
-        // add unit square mesh
-        add( { { { -0.5, -0.5, 0.0, 0.0, 1.0, 1.0, 0xFFFFFFFF, 0 },
-                 { +0.5, -0.5, 1.0, 0.0, 1.0, 1.0, 0xFFFFFFFF, 0 },
-                 { +0.5, +0.5, 1.0, 1.0, 1.0, 1.0, 0xFFFFFFFF, 0 } },
-               { { -0.5, -0.5, 0.0, 0.0, 1.0, 1.0, 0xFFFFFFFF, 0 },
-                 { +0.5, +0.5, 1.0, 1.0, 1.0, 1.0, 0xFFFFFFFF, 0 },
-                 { -0.5, +0.5, 0.0, 1.0, 1.0, 1.0, 0xFFFFFFFF, 0 } } } );
     }
 
     bool MeshManager::add( const Triangle* meshBuffer, size_t length )
     {
         size_t newLength = m_length + length;
 
-        if( newLength > MaxMeshBufferTriangles )
+        if( newLength > m_maxLength )
         {
             return false;
         }
@@ -60,6 +54,11 @@ namespace mc
         return m_meshInfoArray.size();
     }
 
+    size_t MeshManager::maxLength() const
+    {
+        return m_maxLength;
+    }
+
     MeshInfo MeshManager::getMeshInfo( int index ) const
     {
         return m_meshInfoArray[index];
@@ -68,6 +67,22 @@ namespace mc
     Triangle* MeshManager::data() const
     {
         return m_meshArray.get();
+    }
+
+    MeshManager& MeshManager::operator=( const MeshManager& other )
+    {
+        if( this != &other )
+        {
+            m_length    = other.m_length;
+            m_maxLength = other.m_maxLength;
+
+            m_meshArray = std::make_unique<Triangle[]>( m_maxLength );
+            std::memcpy( m_meshArray.get(), other.m_meshArray.get(), m_length );
+
+            // Copy the mesh info array
+            m_meshInfoArray = other.m_meshInfoArray;
+        }
+        return *this;
     }
 
 } // namespace mc

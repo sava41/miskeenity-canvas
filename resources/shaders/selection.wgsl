@@ -25,6 +25,22 @@ struct Layer {
     imageMaskIds: u32,
 };
 
+struct MeshVertex {
+    xy: vec2<f32>,
+    uv: vec2<f32>,
+    size: vec2<f32>,
+    color: u32,
+    padding: u32,
+}
+
+struct Vertex {
+    xy: vec2<f32>,
+    uv: vec2<f32>,
+    size: vec2<f32>,
+    color: u32,
+    layer: u32,
+};
+
 struct Selection {
     bboxMaxX: f32,
     bboxMaxY: f32,
@@ -39,9 +55,14 @@ var<uniform> uniforms: Uniforms;
 var<storage,read> layerBuff: array<Layer>;
 
 @group(1) @binding(0)
+var<storage, read> meshVertexBuff: array<MeshVertex>;
+@group(1) @binding(1)
+var<storage, read_write> vertexBuff: array<Vertex>;
+
+@group(2) @binding(0)
 var<storage,read_write> outBuffer: array<Selection>;
 
-fn barycentric(v1: vec4<f32>, v2: vec4<f32>, v3: vec4<f32>, p: vec2<f32>) -> vec3<f32> {
+fn barycentric(v1: vec2<f32>, v2: vec2<f32>, v3: vec2<f32>, p: vec2<f32>) -> vec3<f32> {
     let u = cross(
         vec3<f32>(v3.x - v1.x, v2.x - v1.x, v1.x - p.x), 
         vec3<f32>(v3.y - v1.y, v2.y - v1.y, v1.y - p.y)
@@ -54,44 +75,50 @@ fn barycentric(v1: vec4<f32>, v2: vec4<f32>, v3: vec4<f32>, p: vec2<f32>) -> vec
     return vec3<f32>(1.0 - (u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
 }
 
+fn u32toVec2(a: u32)->vec2<u32> {
+    return vec2(u32(( a >> 0 ) & 0xFFFF ), u32(( a >> 16 ) & 0xFFFF ));
+}
+
 @compute @workgroup_size(256, 1)
 fn cs_main(@builtin(global_invocation_id) id_global : vec3<u32>, @builtin(local_invocation_id) id_local : vec3<u32>) {
-    let layer = u32(id_global.x);
-    
-    let verts = array<vec4<f32>, 4>(
-    vec4<f32>( -0.5,  -0.5, 0.0, 1.0),
-    vec4<f32>(  0.5,  -0.5, 0.0, 1.0),
-    vec4<f32>(  0.5,   0.5, 0.0, 1.0),
-    vec4<f32>( -0.5,   0.5, 0.0, 1.0));
+    let i = u32(id_global.x);
+
+    //Find which layer and which triangle within that layer's mesh we're processing
+    // var layerIndex =  u32(0);
+    // var remainingTris = i;
+
+    // while (layerIndex < uniforms.numLayers && remainingTris >= u32toVec2(layerBuff[layerIndex].meshOffsetLength).y) {
+    //     remainingTris -= u32toVec2(layerBuff[layerIndex].meshOffsetLength).y;
+    //     layerIndex++;
+    // }
+
+    // if (layerIndex >= uniforms.numLayers) {
+    //     return;
+    // }
 
     let minX = min(uniforms.mousePos.x, uniforms.mouseSelectPos.x);
     let minY = min(uniforms.mousePos.y, uniforms.mouseSelectPos.y);
     let maxX = max(uniforms.mousePos.x, uniforms.mouseSelectPos.x);
     let maxY = max(uniforms.mousePos.y, uniforms.mouseSelectPos.y);
 
-    let model = mat4x4<f32>(layerBuff[layer].basisAX,    layerBuff[layer].basisBX,    0.0, layerBuff[layer].offsetX,
-                            layerBuff[layer].basisAY,    layerBuff[layer].basisBY,    0.0, layerBuff[layer].offsetY,
-                            0.0,                        0.0,                        1.0, 0.0,
-                            0.0,                        0.0,                        0.0, 1.0);
-
     // We have 3 possible scenarios with regards to intersection:
-    // Ractangle is fully inside selection box
-    // Rectangle is fully outside selection box
-    // Rectangle is partially inside selection box and uses a texture mask in which case we need to rasterize to determine selection
-    // We cant implement mask rasteriaztion right now since we cant bind all mask textures at once so for now use box section
+    // Triangle is fully inside selection box
+    // Triangle is fully outside selection box
+    // Triangle is partially inside selection box and uses a texture mask in which case we need to rasterize to determine selection
+    // We cant implement mask rasteriaztion right now since we cant bind all mask textures at once so for now use the first two conditions
 
     // We have 3 posible selection modes:
-    // mouse select pos == (0.0 0.0) : recalculate bboxes without modifying selection
-    // mouse select pos == (1.0 1.0) : use point-click selection
-    // mouse select pos is arbitrary size : use bbox selection
+    // uniforms.selectType = 2 : recalculate aabb's without modifying selection
+    // uniforms.selectType = 1 : use point-click selection
+    // uniforms.selectType = 0 : use bbox selection
 
     var flags = u32(0);
     var aabb = vec4<f32>(-10000000.0, -10000000.0, 10000000.0, 10000000.0);
 
-    // Find if image is inside selection box
-    // Also calculate aabb for image
-    for (var i: u32 = 0; i < 4; i = i + 1u) {
-        let pos = verts[i] * model;
+    // Find if triangle is inside selection box
+    // Also calculate aabb for triangle
+    for (var j: u32 = 0; j < 3; j = j + 1u) {
+        let pos = vertexBuff[i * 3 + j].xy;
 
         aabb.x = max(aabb.x, pos.x);
         aabb.y = max(aabb.y, pos.y);
@@ -99,31 +126,34 @@ fn cs_main(@builtin(global_invocation_id) id_global : vec3<u32>, @builtin(local_
         aabb.w = min(aabb.w, pos.y);
 
         if(uniforms.selectType == 0) {
+            //flags = select(flags | 1, flags | 2, minX < pos.x && pos.x < maxX && minY < pos.y && pos.y < maxY)
             if(minX < pos.x && pos.x < maxX && minY < pos.y && pos.y < maxY) {
                 flags = flags | 1;
-
             } else {
                 flags = flags | 2;
             }
         }
     }
 
-    // Find if mouse is inside image
+    // Find if mouse is inside triangle
     if(uniforms.selectType == 1) {
-        let mouseBarryA = barycentric(verts[0] * model, verts[1] * model, verts[2] * model, uniforms.mousePos);
-        let mouseBarryB = barycentric(verts[0] * model, verts[2] * model, verts[3] * model, uniforms.mousePos);
+        let mouseBarryA = barycentric(vertexBuff[i * 3 + 0].xy, vertexBuff[i * 3 + 1].xy, vertexBuff[i * 3 + 2].xy, uniforms.mousePos);
 
-        if( (0.0 < mouseBarryA.x && mouseBarryA.x < 1.0 && 0.0 < mouseBarryA.y && mouseBarryA.y < 1.0 && 0.0 < mouseBarryA.z && mouseBarryA.z < 1.0 ) ||
-            (0.0 < mouseBarryB.x && mouseBarryB.x < 1.0 && 0.0 < mouseBarryB.y && mouseBarryB.y < 1.0 && 0.0 < mouseBarryB.z && mouseBarryB.z < 1.0 )) {
+       //flags = select(flags | 1, flags, 0.0 < mouseBarryA.x && mouseBarryA.x < 1.0 && 0.0 < mouseBarryA.y && mouseBarryA.y < 1.0 && 0.0 < mouseBarryA.z && mouseBarryA.z < 1.0)
+
+        if( 0.0 < mouseBarryA.x && mouseBarryA.x < 1.0 && 0.0 < mouseBarryA.y && mouseBarryA.y < 1.0 && 0.0 < mouseBarryA.z && mouseBarryA.z < 1.0 ) {
             flags = flags | 1;
         }
     }
 
+    //outBuffer[i].flags = select(flags, outBuffer[i].flags, uniforms.selectType == 0 || uniforms.selectType == 1)
+
     if(uniforms.selectType == 0 || uniforms.selectType == 1) {
-        outBuffer[layer].flags = flags;
+        outBuffer[i].flags = flags;
     }
-    outBuffer[layer].bboxMaxX = aabb.x;
-    outBuffer[layer].bboxMaxY = aabb.y;
-    outBuffer[layer].bboxMinX = aabb.z;
-    outBuffer[layer].bboxMinY = aabb.w;
+    
+    outBuffer[i].bboxMaxX = aabb.x;
+    outBuffer[i].bboxMaxY = aabb.y;
+    outBuffer[i].bboxMinX = aabb.z;
+    outBuffer[i].bboxMinY = aabb.w;
 }

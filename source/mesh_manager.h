@@ -40,13 +40,10 @@ namespace mc
     };
 #pragma pack( pop )
 
-    constexpr size_t MaxMeshBufferTriangles = std::numeric_limits<uint16_t>::max();
-    constexpr size_t MaxMeshBufferSize      = std::numeric_limits<uint16_t>::max() * sizeof( Triangle );
-
     class MeshManager
     {
       public:
-        MeshManager();
+        MeshManager( size_t maxLength );
         ~MeshManager() = default;
 
         bool add( const std::vector<Triangle>& meshBuffer );
@@ -55,11 +52,16 @@ namespace mc
         size_t size() const;
         size_t numTriangles() const;
         size_t numMeshes() const;
+        size_t maxLength() const;
+
         MeshInfo getMeshInfo( int index ) const;
         Triangle* data() const;
 
+        mc::MeshManager& operator=( const mc::MeshManager& );
+
       private:
         size_t m_length;
+        size_t m_maxLength;
 
         std::unique_ptr<Triangle[]> m_meshArray;
         std::vector<MeshInfo> m_meshInfoArray;

@@ -29,8 +29,8 @@ namespace mc
         glm::u8vec4 color;
         uint32_t flags;
 
-        uint16_t meshBuffOffset;
-        uint16_t meshBuffLength;
+        uint16_t vertexBuffOffset;
+        uint16_t vertexBuffLength;
 
         uint16_t texture;
         uint16_t mask;
@@ -60,6 +60,7 @@ namespace mc
         bool add( const Layer& layer );
         bool move( int to, int from );
         bool remove( int index );
+        void removeTop( int newlength );
 
         size_t length() const;
         size_t getTotalTriCount() const;
@@ -78,9 +79,12 @@ namespace mc
         void removeSelection();
 
       private:
+        void recalculateTriCount();
+
         size_t m_maxLength;
         size_t m_curLength;
         size_t m_numSelected;
+        size_t m_totalNumTri;
 
         std::unique_ptr<Layer[]> m_array;
     };

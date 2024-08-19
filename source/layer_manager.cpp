@@ -22,6 +22,8 @@ namespace mc
         m_array[m_curLength] = layer;
         m_curLength += 1;
 
+        recalculateTriCount();
+
         return true;
     }
 
@@ -62,7 +64,19 @@ namespace mc
 
         m_curLength -= 1;
 
+        recalculateTriCount();
+
         return true;
+    }
+
+    void LayerManager::removeTop( int newLength )
+    {
+        if( m_curLength > newLength && newLength >= 0 )
+        {
+            m_curLength = newLength;
+
+            recalculateTriCount();
+        }
     }
 
     size_t LayerManager::length() const
@@ -72,14 +86,7 @@ namespace mc
 
     size_t LayerManager::getTotalTriCount() const
     {
-        size_t count = 0;
-
-        for( int i = 0; i < m_curLength; ++i )
-        {
-            count += m_array[i].meshBuffLength;
-        }
-
-        return count;
+        return m_totalNumTri;
     }
 
     Layer* LayerManager::data() const
@@ -226,6 +233,18 @@ namespace mc
 
         m_curLength -= m_numSelected;
         m_numSelected = 0;
+    }
+
+    void LayerManager::recalculateTriCount()
+    {
+        size_t count = 0;
+
+        for( int i = 0; i < m_curLength; ++i )
+        {
+            count += m_array[i].vertexBuffLength;
+        }
+
+        m_totalNumTri = count;
     }
 
 } // namespace mc
