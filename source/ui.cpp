@@ -155,6 +155,9 @@ namespace mc
         builder.AddText( ICON_LC_TYPE );
         builder.AddText( ICON_LC_INFO );
         builder.AddText( ICON_LC_CROP );
+        builder.AddText( ICON_LC_ALIGN_CENTER );
+        builder.AddText( ICON_LC_ALIGN_LEFT );
+        builder.AddText( ICON_LC_ALIGN_RIGHT );
 
         ImVector<ImWchar> iconRanges;
         builder.BuildRanges( &iconRanges );
@@ -453,20 +456,22 @@ namespace mc
 
         if( g_appMode == mc::Mode::Paint )
         {
-            ImGui::SetNextWindowPos( glm::vec2( 400.0 ) * app->dpiFactor, ImGuiCond_FirstUseEver );
-            ImGui::SetNextWindowSize( glm::vec2( 400.0, 150.0 ) * app->dpiFactor, ImGuiCond_FirstUseEver );
+            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 180 - buttonSpacing ), ImGuiCond_FirstUseEver );
+            ImGui::SetNextWindowSize( glm::vec2( 350.0, 180.0 ) * app->dpiFactor, ImGuiCond_FirstUseEver );
 
             ImGui::Begin( "Paint Brush Settings", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
             {
-                ImGui::PushItemWidth( -80 );
+                ImGui::PushItemWidth( ImGui::GetContentRegionAvail().x );
 
-                ImGui::SliderFloat( "Size", &g_paintRadius, 0.0f, 200.0f );
+                ImGui::SliderFloat( "", &g_paintRadius, 0.0f, 200.0f );
 
-                ImGui::ColorEdit3( "Color", &g_paintColor.r );
+                ImGui::ColorEdit3( "", &g_paintColor.r );
 
                 ImGui::PopItemWidth();
 
-                float width = ( ImGui::GetContentRegionAvail().x - 80 - 8 ) * 0.5;
+                ImGui::SeparatorText( "" );
+
+                float width = ( ImGui::GetContentRegionAvail().x - 8 ) * 0.5;
                 if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
                 {
                     g_appMode = Mode::Cursor;
@@ -477,6 +482,74 @@ namespace mc
                 {
                     g_appMode = Mode::Cursor;
                     submitEvent( Events::ContextCancel );
+                }
+            }
+            ImGui::End();
+        }
+        else if( g_appMode == mc::Mode::Text )
+        {
+            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 435 - buttonSpacing ), ImGuiCond_FirstUseEver );
+            ImGui::SetNextWindowSize( glm::vec2( 350.0, 435.0 ) * app->dpiFactor, ImGuiCond_FirstUseEver );
+
+            ImGui::Begin( "Text Settings", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
+            {
+                const char* items[]          = { "Arial", "Times New Roman", "Impact" };
+                static int item_selected_idx = 0; // Here we store our selection data as an index.
+
+                // Pass in the preview value visible before opening the combo (it could technically be different contents or not pulled from items[])
+                const char* combo_preview_value = items[item_selected_idx];
+
+                ImGui::PushItemWidth( ImGui::GetContentRegionAvail().x );
+
+                float width = 35 * app->dpiFactor;
+                ImGui::Button( ICON_LC_ALIGN_LEFT, glm::vec2( width, 0.0 ) );
+                ImGui::SameLine( 0.0, 8.0 );
+                ImGui::Button( ICON_LC_ALIGN_RIGHT, glm::vec2( width, 0.0 ) );
+                ImGui::SameLine( 0.0, 8.0 );
+                ImGui::Button( ICON_LC_ALIGN_CENTER, glm::vec2( width, 0.0 ) );
+
+                static char text[1024 * 16] = "Miskeen";
+                ImGui::InputTextMultiline( "##source", text, IM_ARRAYSIZE( text ), ImVec2( ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeight() * 5 ) );
+
+                ImGui::SeparatorText( "Font" );
+
+                if( ImGui::BeginCombo( "", combo_preview_value ) )
+                {
+                    for( int n = 0; n < IM_ARRAYSIZE( items ); n++ )
+                    {
+                        const bool is_selected = ( item_selected_idx == n );
+                        if( ImGui::Selectable( items[n], is_selected ) )
+                            item_selected_idx = n;
+
+                        // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+                        if( is_selected )
+                            ImGui::SetItemDefaultFocus();
+                    }
+                    ImGui::EndCombo();
+                }
+
+                ImGui::ColorEdit3( "", &g_paintColor.r );
+
+                ImGui::SeparatorText( "Outline" );
+
+                ImGui::SliderFloat( "", &g_paintRadius, 0.0f, 2.0f );
+                ImGui::ColorEdit3( "", &g_paintColor.r );
+
+                ImGui::PopItemWidth();
+
+                ImGui::SeparatorText( "" );
+
+                width = ( ImGui::GetContentRegionAvail().x - 8 ) / 2.0;
+                if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
+                {
+                    g_appMode = Mode::Cursor;
+                    // submitEvent( Events::ContextAccept );
+                }
+                ImGui::SameLine( 0.0, 8.0 );
+                if( ImGui::Button( "Cancel", glm::vec2( width, 0.0 ) ) )
+                {
+                    g_appMode = Mode::Cursor;
+                    // submitEvent( Events::ContextCancel );
                 }
             }
             ImGui::End();
