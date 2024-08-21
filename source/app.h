@@ -99,6 +99,7 @@ namespace mc
         bool mergeTopLayers            = false;
         bool appQuit                   = false;
         bool resetSurface              = false;
+        bool updateUIStyles            = false;
         unsigned long resetSurfaceTime = 0;
 
         Selection* selectionData = nullptr;

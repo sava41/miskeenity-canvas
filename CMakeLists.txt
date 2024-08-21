@@ -82,7 +82,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     # WASM+JS size optimizations
     target_link_options(miskeenity-canvas PRIVATE -sNO_FILESYSTEM=1 -sASSERTIONS=0 -sMALLOC=emmalloc )#--closure=1)
 else()
-    b_embed(miskeenity-canvas ./resources/textures/miskeen_32.png)
+    b_embed(miskeenity-canvas ./resources/textures/miskeen_128.png)
     add_dependencies(miskeenity-canvas webgpu_cpp webgpu_dawn)
     target_link_libraries(miskeenity-canvas PRIVATE webgpu_cpp webgpu_dawn)
 endif()

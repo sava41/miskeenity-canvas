@@ -345,8 +345,8 @@ namespace mc
         wgpu::SurfaceConfiguration config;
         config.device = app->device;
         config.format = app->colorFormat;
-        config.width  = app->width;
-        config.height = app->height;
+        config.width  = app->bbwidth;
+        config.height = app->bbheight;
         app->surface.Configure( &config );
     }
 

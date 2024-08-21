@@ -62,12 +62,7 @@ namespace mc
             },
             app );
 #else
-        static SDL_DialogFileFilter filters[] = {
-            { "All Supported Types", "jpg;jpeg;png" },
-            { "JPEG (*.jpg;*.jpeg)", "jpg;jpeg" },
-            { "PNG (*.png)", "png" },
-            { nullptr, nullptr },
-        };
+        static SDL_DialogFileFilter filters[] = { { "All Supported Types", "jpg;jpeg;png" }, { "JPEG (*.jpg;*.jpeg)", "jpg;jpeg" }, { "PNG (*.png)", "png" } };
 
         SDL_ShowOpenFileDialog(
             []( void* userdata, const char* const* filelist, int filter )
@@ -82,7 +77,7 @@ namespace mc
                     addImageToLayer( app, imageData, width, height, channels );
                 }
             },
-            app, nullptr, filters, nullptr, SDL_FALSE );
+            app, nullptr, filters, 3, nullptr, SDL_FALSE );
 
 #endif
     }

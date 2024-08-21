@@ -24,13 +24,13 @@
 #include "ui.h"
 #include "webgpu_surface.h"
 
-int SDL_Fail()
+SDL_AppResult SDL_Fail()
 {
     SDL_LogError( SDL_LOG_CATEGORY_CUSTOM, "Error %s", SDL_GetError() );
-    return -1;
+    return SDL_APP_FAILURE;
 }
 
-int SDL_AppInit( void** appstate, int argc, char* argv[] )
+SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
 {
     static mc::AppContext appContext;
     mc::AppContext* app = &appContext;
@@ -41,10 +41,9 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
         return SDL_Fail();
     }
 
-    SDL_SetHint( SDL_HINT_IME_SHOW_UI, "1" );
     SDL_SetHint( SDL_HINT_EMSCRIPTEN_CANVAS_SELECTOR, HTML_CANVAS_ID );
 
-    app->window = SDL_CreateWindow( "Miskeenity Canvas", 640, 480, SDL_WINDOW_RESIZABLE | SDL_WINDOW_MAXIMIZED );
+    app->window = SDL_CreateWindow( "Miskeenity Canvas", 640, 480, SDL_WINDOW_RESIZABLE | SDL_WINDOW_MAXIMIZED | SDL_WINDOW_HIGH_PIXEL_DENSITY );
     if( !app->window )
     {
         return SDL_Fail();
@@ -101,7 +100,7 @@ int SDL_AppInit( void** appstate, int argc, char* argv[] )
 
     SDL_Log( "Application started successfully!" );
 
-    return 0;
+    return SDL_APP_CONTINUE;
 }
 
 void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
@@ -255,7 +254,7 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
     }
 }
 
-int SDL_AppEvent( void* appstate, const SDL_Event* event )
+SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
 {
     mc::AppContext* app = reinterpret_cast<mc::AppContext*>( appstate );
 
@@ -276,8 +275,12 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
         break;
     case SDL_EVENT_DISPLAY_CONTENT_SCALE_CHANGED:
     case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
-        app->dpiFactor = SDL_GetWindowDisplayScale( app->window );
-        mc::setStylesUI( app->dpiFactor );
+        // do comparison with ints to eliminate precision error
+        if( static_cast<int>( app->dpiFactor * 100 ) != static_cast<int>( SDL_GetWindowDisplayScale( app->window ) * 100 ) )
+        {
+            app->dpiFactor      = SDL_GetWindowDisplayScale( app->window );
+            app->updateUIStyles = true;
+        }
         break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
 
@@ -372,10 +375,10 @@ int SDL_AppEvent( void* appstate, const SDL_Event* event )
         break;
     }
 
-    return 0;
+    return SDL_APP_CONTINUE;
 }
 
-int SDL_AppIterate( void* appstate )
+SDL_AppResult SDL_AppIterate( void* appstate )
 {
     mc::AppContext* app = reinterpret_cast<mc::AppContext*>( appstate );
 
@@ -392,7 +395,13 @@ int SDL_AppIterate( void* appstate )
 
     if( app->resetSurface )
     {
-        return 0;
+        return SDL_APP_CONTINUE;
+    }
+
+    if( app->updateUIStyles )
+    {
+        mc::setStylesUI( app->dpiFactor );
+        app->updateUIStyles = false;
     }
 
     // Update canvas offset
@@ -674,7 +683,7 @@ int SDL_AppIterate( void* appstate )
     app->device.Tick();
 #endif
 
-    return app->appQuit;
+    return app->appQuit ? SDL_APP_SUCCESS : SDL_APP_CONTINUE;
 }
 
 void SDL_AppQuit( void* appstate )

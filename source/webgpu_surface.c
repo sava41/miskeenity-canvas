@@ -52,7 +52,7 @@ WGPUSurface SDL_GetWGPUSurface( WGPUInstance instance, SDL_Window* window )
                                               .next  = NULL,
                                               .sType = WGPUSType_SurfaceDescriptorFromXlibWindow,
                                           },
-                                      .display = SDL_GetProperty( SDL_GetWindowProperties( window ), SDL_PROP_WINDOW_X11_DISPLAY_POINTER, NULL ),
+                                      .display = SDL_GetPointerProperty( SDL_GetWindowProperties( window ), SDL_PROP_WINDOW_X11_DISPLAY_POINTER, NULL ),
                                       .window  = SDL_GetNumberProperty( SDL_GetWindowProperties( window ), SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0 ),
                                   },
                           } );
@@ -69,8 +69,8 @@ WGPUSurface SDL_GetWGPUSurface( WGPUInstance instance, SDL_Window* window )
                                               .next  = NULL,
                                               .sType = WGPUSType_SurfaceDescriptorFromWaylandSurface,
                                           },
-                                      .display = SDL_GetProperty( SDL_GetWindowProperties( window ), SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, NULL ),
-                                      .surface = SDL_GetProperty( SDL_GetWindowProperties( window ), SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, NULL ),
+                                      .display = SDL_GetPointerProperty( SDL_GetWindowProperties( window ), SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, NULL ),
+                                      .surface = SDL_GetPointerProperty( SDL_GetWindowProperties( window ), SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, NULL ),
                                   },
                           } );
         }
@@ -87,8 +87,8 @@ WGPUSurface SDL_GetWGPUSurface( WGPUInstance instance, SDL_Window* window )
                                           .next  = NULL,
                                           .sType = WGPUSType_SurfaceDescriptorFromWindowsHWND,
                                       },
-                                  .hinstance = SDL_GetProperty( SDL_GetWindowProperties( window ), SDL_PROP_WINDOW_WIN32_INSTANCE_POINTER, NULL ),
-                                  .hwnd      = SDL_GetProperty( SDL_GetWindowProperties( window ), SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL ),
+                                  .hinstance = SDL_GetPointerProperty( SDL_GetWindowProperties( window ), SDL_PROP_WINDOW_WIN32_INSTANCE_POINTER, NULL ),
+                                  .hwnd      = SDL_GetPointerProperty( SDL_GetWindowProperties( window ), SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL ),
                               },
                       } );
     }

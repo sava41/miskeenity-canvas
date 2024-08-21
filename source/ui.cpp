@@ -531,8 +531,6 @@ namespace mc
             drawList->AddCircle( app->mouseWindowPos, g_paintRadius * app->viewParams.scale, Spectrum::PURPLE400, 600, ceilf( app->dpiFactor ) );
         }
 
-        ImGui::EndFrame();
-
         ImGui::Render();
 
         ImGui_ImplWGPU_RenderDrawData( ImGui::GetDrawData(), renderPass.Get() );
