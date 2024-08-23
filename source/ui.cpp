@@ -18,6 +18,7 @@ namespace mc
     // Just a few global variables for the ui ;)
     Mode g_appMode;
     MouseLocationUI g_mouseLocationUI;
+    float g_uiScale        = 1.0;
     glm::vec3 g_paintColor = glm::vec3( 1.0, 0.0, 0.0 );
     float g_paintRadius    = 100;
     bool g_showAbout       = false;
@@ -74,8 +75,18 @@ namespace mc
         colors[ImGuiCol_NavHighlight]         = ImGui::ColorConvertU32ToFloat4( ( Spectrum::GRAY900 & 0x00FFFFFF ) | 0x0A000000 );
     }
 
-    void setStylesUI( float dpiFactor )
+    void setStylesUI( const AppContext* app )
     {
+        // due to how SDL/Imgui work, we want to scale the UI only when pixel width/height == window width/height
+        if( app->width != app->bbwidth && app->height != app->bbheight )
+        {
+            g_uiScale = 1.0;
+        }
+        else
+        {
+            g_uiScale = app->dpiFactor;
+        }
+
         ImGuiStyle& style = ImGui::GetStyle();
 
         style.Alpha                     = 1.0f;
@@ -111,7 +122,7 @@ namespace mc
         style.SelectableTextAlign       = glm::vec2( 0.0f, 0.0f );
         style.HoverDelayNormal          = 0.8;
 
-        style.ScaleAllSizes( dpiFactor );
+        style.ScaleAllSizes( g_uiScale );
 
         ImGui::GetIO().Fonts->Clear();
 
@@ -122,17 +133,17 @@ namespace mc
         configRoboto.OversampleV          = 2;
         configRoboto.GlyphExtraSpacing    = glm::vec2( 1.0f, 0 );
         ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( b::embed<"./resources/fonts/Roboto.ttf">().data() ),
-                                                    b::embed<"./resources/fonts/Roboto.ttf">().size(), 17.0f * dpiFactor, &configRoboto );
+                                                    b::embed<"./resources/fonts/Roboto.ttf">().size(), 17.0f * g_uiScale, &configRoboto );
 
         ImFontConfig configLucide;
         configLucide.FontDataOwnedByAtlas = false;
         configLucide.OversampleH          = 2;
         configLucide.OversampleV          = 2;
         configLucide.MergeMode            = true;
-        configLucide.GlyphMinAdvanceX     = 24.0f * dpiFactor; // Use if you want to make the icon monospaced
+        configLucide.GlyphMinAdvanceX     = 24.0f * g_uiScale; // Use if you want to make the icon monospaced
 
         // The calculation to get these glyphs perfectly centered on the y axis doesnt make sense but it works
-        configLucide.GlyphOffset = glm::vec2( 0.0f, 11.0f * dpiFactor - 5.8f );
+        configLucide.GlyphOffset = glm::vec2( 0.0f, 11.0f * g_uiScale - 5.8f );
 
         // Specify which icons we use
         // Need to specify or texture atlas will be too large and fail to upload to gpu on
@@ -163,7 +174,7 @@ namespace mc
         builder.BuildRanges( &iconRanges );
 
         ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( b::embed<"./resources/fonts/Lucide.ttf">().data() ),
-                                                    b::embed<"./resources/fonts/Lucide.ttf">().size(), 24.0f * dpiFactor, &configLucide, iconRanges.Data );
+                                                    b::embed<"./resources/fonts/Lucide.ttf">().size(), 24.0f * g_uiScale, &configLucide, iconRanges.Data );
 
         ImGui::GetIO().Fonts->Build();
     }
@@ -178,7 +189,7 @@ namespace mc
         ImGui::GetIO().LogFilename = nullptr;
 
         setColorsUI();
-        setStylesUI( app->dpiFactor );
+        setStylesUI( app );
 
         ImGui_ImplSDL3_InitForOther( app->window );
 
@@ -204,23 +215,23 @@ namespace mc
 
             glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerTR.y - mc::RotateHandleHeight );
 
-            if( glm::distance( mouseWindowPos, rotHandlePos ) < HandleHalfSize * app->dpiFactor )
+            if( glm::distance( mouseWindowPos, rotHandlePos ) < HandleHalfSize * g_uiScale )
             {
                 g_mouseLocationUI = MouseLocationUI::RotateHandle;
             }
-            else if( glm::distance( mouseWindowPos, cornerBR ) < HandleHalfSize * app->dpiFactor )
+            else if( glm::distance( mouseWindowPos, cornerBR ) < HandleHalfSize * g_uiScale )
             {
                 g_mouseLocationUI = MouseLocationUI::ScaleHandleBR;
             }
-            else if( glm::distance( mouseWindowPos, cornerBL ) < HandleHalfSize * app->dpiFactor )
+            else if( glm::distance( mouseWindowPos, cornerBL ) < HandleHalfSize * g_uiScale )
             {
                 g_mouseLocationUI = MouseLocationUI::ScaleHandleBL;
             }
-            else if( glm::distance( mouseWindowPos, cornerTR ) < HandleHalfSize * app->dpiFactor )
+            else if( glm::distance( mouseWindowPos, cornerTR ) < HandleHalfSize * g_uiScale )
             {
                 g_mouseLocationUI = MouseLocationUI::ScaleHandleTR;
             }
-            else if( glm::distance( mouseWindowPos, cornerTL ) < HandleHalfSize * app->dpiFactor )
+            else if( glm::distance( mouseWindowPos, cornerTL ) < HandleHalfSize * g_uiScale )
             {
                 g_mouseLocationUI = MouseLocationUI::ScaleHandleTL;
             }
@@ -237,7 +248,7 @@ namespace mc
         ImGui::NewFrame();
 
 #ifndef NDEBUG
-        ImGui::Text( "Width: %d, Height: %d, Dpi factor: %.1f", app->width, app->height, app->dpiFactor );
+        ImGui::Text( "Width: %d, Height: %d, Dpi factor: %.1f", app->width, app->height, g_uiScale );
         ImGui::Text( "Mouse x:%.1f Mouse y:%.1f Zoom:%.1f\n", app->viewParams.mousePos.x, app->viewParams.mousePos.y, app->viewParams.scale );
         ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate );
         if( ImGui::Button( "Hard Quit" ) )
@@ -249,8 +260,8 @@ namespace mc
         ImGui::ShowDemoWindow();
 #endif
 
-        const glm::vec2 buttonSize = glm::vec2( 50 ) * app->dpiFactor;
-        const float buttonSpacing  = 10.0 * app->dpiFactor;
+        const glm::vec2 buttonSize = glm::vec2( 50 ) * g_uiScale;
+        const float buttonSpacing  = 10.0 * g_uiScale;
 
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
         ImGui::Begin( "Menu Bar", nullptr,
@@ -361,6 +372,11 @@ namespace mc
                 ImGui::PushStyleColor( ImGuiCol_Button, color );
                 if( ImGui::Button( tools[i].c_str(), buttonSize ) && modes[i] != Mode::Other )
                 {
+                    if(g_appMode == Mode::Paint || g_appMode == Mode::Text)
+                    {
+                        submitEvent( Events::ContextCancel );
+                    }
+                    
                     g_appMode = modes[i];
                     submitEvent( Events::ModeChanged );
                 }
@@ -456,8 +472,8 @@ namespace mc
 
         if( g_appMode == mc::Mode::Paint )
         {
-            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 180 - buttonSpacing ), ImGuiCond_FirstUseEver );
-            ImGui::SetNextWindowSize( glm::vec2( 350.0, 180.0 ) * app->dpiFactor, ImGuiCond_FirstUseEver );
+            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 180 * g_uiScale - buttonSpacing ), ImGuiCond_FirstUseEver );
+            ImGui::SetNextWindowSize( glm::vec2( 350.0, 180.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
 
             ImGui::Begin( "Paint Brush Settings", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
             {
@@ -488,8 +504,8 @@ namespace mc
         }
         else if( g_appMode == mc::Mode::Text )
         {
-            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 435 - buttonSpacing ), ImGuiCond_FirstUseEver );
-            ImGui::SetNextWindowSize( glm::vec2( 350.0, 435.0 ) * app->dpiFactor, ImGuiCond_FirstUseEver );
+            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 435 * g_uiScale - buttonSpacing ), ImGuiCond_FirstUseEver );
+            ImGui::SetNextWindowSize( glm::vec2( 350.0, 435.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
 
             ImGui::Begin( "Text Settings", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
             {
@@ -501,7 +517,7 @@ namespace mc
 
                 ImGui::PushItemWidth( ImGui::GetContentRegionAvail().x );
 
-                float width = 35 * app->dpiFactor;
+                float width = 35 * g_uiScale;
                 ImGui::Button( ICON_LC_ALIGN_LEFT, glm::vec2( width, 0.0 ) );
                 ImGui::SameLine( 0.0, 8.0 );
                 ImGui::Button( ICON_LC_ALIGN_RIGHT, glm::vec2( width, 0.0 ) );
@@ -573,35 +589,35 @@ namespace mc
 
             glm::vec2 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerTR.y - mc::RotateHandleHeight );
 
-            drawList->AddRect( cornerTL, cornerBR, Spectrum::PURPLE400, 0.0, 0, ceilf( app->dpiFactor ) );
-            drawList->AddLine( rotHandlePos, glm::vec2( screenSpaceCenterX, cornerTR.y ), Spectrum::PURPLE400, ceilf( app->dpiFactor ) );
+            drawList->AddRect( cornerTL, cornerBR, Spectrum::PURPLE400, 0.0, 0, ceilf( g_uiScale ) );
+            drawList->AddLine( rotHandlePos, glm::vec2( screenSpaceCenterX, cornerTR.y ), Spectrum::PURPLE400, ceilf( g_uiScale ) );
 
             ImU32 color = Spectrum::PURPLE400;
 
-            drawList->AddCircleFilled( rotHandlePos, HandleHalfSize * app->dpiFactor, Spectrum::PURPLE400 );
+            drawList->AddCircleFilled( rotHandlePos, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::RotateHandle ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
-            drawList->AddCircleFilled( rotHandlePos, HandleHalfSize * app->dpiFactor - ceilf( app->dpiFactor ), color );
+            drawList->AddCircleFilled( rotHandlePos, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
 
-            drawList->AddCircleFilled( cornerBR, HandleHalfSize * app->dpiFactor, Spectrum::PURPLE400 );
+            drawList->AddCircleFilled( cornerBR, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::ScaleHandleBR ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
-            drawList->AddCircleFilled( cornerBR, HandleHalfSize * app->dpiFactor - ceilf( app->dpiFactor ), color );
+            drawList->AddCircleFilled( cornerBR, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
 
-            drawList->AddCircleFilled( cornerBL, HandleHalfSize * app->dpiFactor, Spectrum::PURPLE400 );
+            drawList->AddCircleFilled( cornerBL, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::ScaleHandleBL ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
-            drawList->AddCircleFilled( cornerBL, HandleHalfSize * app->dpiFactor - ceilf( app->dpiFactor ), color );
+            drawList->AddCircleFilled( cornerBL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
 
-            drawList->AddCircleFilled( cornerTR, HandleHalfSize * app->dpiFactor, Spectrum::PURPLE400 );
+            drawList->AddCircleFilled( cornerTR, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::ScaleHandleTR ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
-            drawList->AddCircleFilled( cornerTR, HandleHalfSize * app->dpiFactor - ceilf( app->dpiFactor ), color );
+            drawList->AddCircleFilled( cornerTR, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
 
-            drawList->AddCircleFilled( cornerTL, HandleHalfSize * app->dpiFactor, Spectrum::PURPLE400 );
+            drawList->AddCircleFilled( cornerTL, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::ScaleHandleTL ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
-            drawList->AddCircleFilled( cornerTL, HandleHalfSize * app->dpiFactor - ceilf( app->dpiFactor ), color );
+            drawList->AddCircleFilled( cornerTL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
         }
 
         if( g_appMode == Mode::Paint && g_mouseLocationUI == mc::MouseLocationUI::None )
         {
-            drawList->AddCircle( app->mouseWindowPos, g_paintRadius * app->viewParams.scale, Spectrum::PURPLE400, 600, ceilf( app->dpiFactor ) );
+            drawList->AddCircle( app->mouseWindowPos, g_paintRadius * app->viewParams.scale, Spectrum::PURPLE400, 600, ceilf( g_uiScale ) );
         }
 
         ImGui::Render();

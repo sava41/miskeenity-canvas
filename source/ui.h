@@ -38,7 +38,7 @@ namespace mc
     constexpr float RotateHandleHeight = 40.0;
 
     void initUI( const AppContext* app );
-    void setStylesUI( float dpiFactor );
+    void setStylesUI( const AppContext* app );
     void setColorsUI();
     void drawUI( const AppContext* app, const wgpu::RenderPassEncoder& renderPass );
     void processEventUI( const AppContext* app, const SDL_Event* event );

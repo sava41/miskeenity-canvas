@@ -400,7 +400,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
     if( app->updateUIStyles )
     {
-        mc::setStylesUI( app->dpiFactor );
+        mc::setStylesUI( app );
         app->updateUIStyles = false;
     }
 
