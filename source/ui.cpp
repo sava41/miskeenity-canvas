@@ -11,7 +11,6 @@
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
 #include <imgui.h>
-#include <string>
 
 namespace mc
 {
@@ -19,10 +18,16 @@ namespace mc
     Mode g_appMode;
     MouseLocationUI g_mouseLocationUI;
     float g_uiScale        = 1.0;
-    glm::vec3 g_paintColor = glm::vec3( 1.0, 0.0, 0.0 );
-    float g_paintRadius    = 100;
     bool g_showAbout       = false;
     bool g_showHelp        = false;
+
+    glm::vec3 g_paintColor = glm::vec3( 1.0, 0.0, 0.0 );
+    float g_paintRadius    = 100;
+
+    std::string g_inputTextString     = "Miskeen";
+    glm::vec3 g_inputTextColor        = glm::vec3( 0.0, 0.0, 0.0 );
+    float g_inputTextOutline          = 0.0;
+    glm::vec3 g_inputTextOutlineColor = glm::vec3( 1.0, 1.0, 1.0 );
 
     void setColorsUI()
     {
@@ -372,11 +377,18 @@ namespace mc
                 ImGui::PushStyleColor( ImGuiCol_Button, color );
                 if( ImGui::Button( tools[i].c_str(), buttonSize ) && modes[i] != Mode::Other )
                 {
-                    if(g_appMode == Mode::Paint || g_appMode == Mode::Text)
+
+                    // reset some things when the mode changes
+                    g_inputTextString       = "Miskeen";
+                    g_inputTextColor        = glm::vec3( 0.0, 0.0, 0.0 );
+                    g_inputTextOutline      = 0.0;
+                    g_inputTextOutlineColor = glm::vec3( 1.0, 1.0, 1.0 );
+
+                    if( g_appMode == Mode::Paint || g_appMode == Mode::Text )
                     {
                         submitEvent( Events::ContextCancel );
                     }
-                    
+
                     g_appMode = modes[i];
                     submitEvent( Events::ModeChanged );
                 }
@@ -479,9 +491,9 @@ namespace mc
             {
                 ImGui::PushItemWidth( ImGui::GetContentRegionAvail().x );
 
-                ImGui::SliderFloat( "", &g_paintRadius, 0.0f, 200.0f );
+                ImGui::SliderFloat( "##Paint Radius", &g_paintRadius, 0.0f, 200.0f );
 
-                ImGui::ColorEdit3( "", &g_paintColor.r );
+                ImGui::ColorEdit3( "##Paint Color", &g_paintColor.r );
 
                 ImGui::PopItemWidth();
 
@@ -524,8 +536,18 @@ namespace mc
                 ImGui::SameLine( 0.0, 8.0 );
                 ImGui::Button( ICON_LC_ALIGN_CENTER, glm::vec2( width, 0.0 ) );
 
-                static char text[1024 * 16] = "Miskeen";
-                ImGui::InputTextMultiline( "##source", text, IM_ARRAYSIZE( text ), ImVec2( ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeight() * 5 ) );
+                ImGui::InputTextMultiline( "##Input String", const_cast<char*>( g_inputTextString.c_str() ), g_inputTextString.capacity() + 1,
+                                           glm::vec2( ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeight() * 5 ), ImGuiInputTextFlags_CallbackResize,
+                                           []( ImGuiInputTextCallbackData* data ) -> int
+                                           {
+                                               if( data->EventFlag == ImGuiInputTextFlags_CallbackResize )
+                                               {
+                                                   g_inputTextString.resize( data->BufTextLen );
+                                                   data->Buf = const_cast<char*>( g_inputTextString.c_str() );
+                                               }
+                                               return 0;
+                                           } );
+
 
                 ImGui::SeparatorText( "Font" );
 
@@ -544,12 +566,12 @@ namespace mc
                     ImGui::EndCombo();
                 }
 
-                ImGui::ColorEdit3( "", &g_paintColor.r );
+                ImGui::ColorEdit3( "##Text Color", &g_inputTextColor.r );
 
                 ImGui::SeparatorText( "Outline" );
 
-                ImGui::SliderFloat( "", &g_paintRadius, 0.0f, 2.0f );
-                ImGui::ColorEdit3( "", &g_paintColor.r );
+                ImGui::SliderFloat( "##Text Outline", &g_inputTextOutline, 0.0f, 2.0f );
+                ImGui::ColorEdit3( "##Text Outline Color", &g_inputTextOutlineColor.r );
 
                 ImGui::PopItemWidth();
 
@@ -559,13 +581,13 @@ namespace mc
                 if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
                 {
                     g_appMode = Mode::Cursor;
-                    // submitEvent( Events::ContextAccept );
+                    submitEvent( Events::ContextAccept );
                 }
                 ImGui::SameLine( 0.0, 8.0 );
                 if( ImGui::Button( "Cancel", glm::vec2( width, 0.0 ) ) )
                 {
                     g_appMode = Mode::Cursor;
-                    // submitEvent( Events::ContextCancel );
+                    submitEvent( Events::ContextCancel );
                 }
             }
             ImGui::End();
@@ -650,6 +672,26 @@ namespace mc
     float getPaintRadius()
     {
         return g_paintRadius;
+    }
+
+    const std::string* getInputTextString()
+    {
+        return &g_inputTextString;
+    }
+
+    glm::vec3 getInputTextColor()
+    {
+        return g_inputTextColor;
+    }
+
+    glm::vec3 getInputTextOutlineColor()
+    {
+        return g_inputTextOutlineColor;
+    }
+
+    float getInputTextOutline()
+    {
+        return g_inputTextOutline;
     }
 
     Mode getAppMode()

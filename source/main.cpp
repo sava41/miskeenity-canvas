@@ -524,6 +524,14 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         } );
         app->layersModified = true;
     }
+    else if( mc::getAppMode() == mc::Mode::Text )
+    {
+        mc::addGlyphLayers( app->layers, app->meshManager, app->layerEditStart, *mc::getInputTextString(), app->viewParams.canvasPos + 100.0f, 0,
+                            mc::getInputTextColor(), mc::getInputTextOutline(), mc::getInputTextOutlineColor() );
+        app->layersModified = true;
+    }
+
+
     if( app->layersModified )
     {
         app->viewParams.numLayers = static_cast<uint32_t>( app->layers.length() );

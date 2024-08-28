@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <string>
 
 typedef union SDL_Event;
 
@@ -46,6 +47,12 @@ namespace mc
 
     MouseLocationUI getMouseLocationUI();
     Mode getAppMode();
+
     glm::vec3 getPaintColor();
     float getPaintRadius();
+
+    const std::string* getInputTextString();
+    glm::vec3 getInputTextColor();
+    glm::vec3 getInputTextOutlineColor();
+    float getInputTextOutline();
 } // namespace mc
