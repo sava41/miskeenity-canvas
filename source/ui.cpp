@@ -174,13 +174,17 @@ namespace mc
         builder.AddText( ICON_LC_ALIGN_CENTER );
         builder.AddText( ICON_LC_ALIGN_LEFT );
         builder.AddText( ICON_LC_ALIGN_RIGHT );
+        builder.AddText( ICON_LC_SHAPES );
 
         ImVector<ImWchar> iconRanges;
         builder.BuildRanges( &iconRanges );
 
-        ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( b::embed<"./resources/fonts/Lucide.ttf">().data() ),
-                                                    b::embed<"./resources/fonts/Lucide.ttf">().size(), 24.0f * g_uiScale, &configLucide, iconRanges.Data );
-
+        // To reduce executable size we use a subset of lucide
+        // To add extra glyphs you need to update used_lucide_unicodes.txt and generate a new Lucide_compact.ttf with the following command
+        // `pyftsubset Lucide.ttf --output-file=Lucide_compact.ttf --unicodes-file=used_lucide_unicodes.txt`
+        ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( b::embed<"./resources/fonts/Lucide_compact.ttf">().data() ),
+                                                    b::embed<"./resources/fonts/Lucide_compact.ttf">().size(), 24.0f * g_uiScale, &configLucide,
+                                                    iconRanges.Data );
         ImGui::GetIO().Fonts->Build();
     }
 

@@ -44,8 +44,10 @@ add_executable(miskeenity-canvas
     source/webgpu_surface.c)
 
 # Add resources
-b_embed(miskeenity-canvas ./resources/fonts/Lucide.ttf)
+b_embed(miskeenity-canvas ./resources/fonts/Lucide_compact.ttf)
 b_embed(miskeenity-canvas ./resources/fonts/Roboto.ttf)
+b_embed(miskeenity-canvas ./resources/fonts/Anton.ttf)
+b_embed(miskeenity-canvas ./resources/fonts/EBGaramond.ttf)
 b_embed(miskeenity-canvas ./resources/shaders/layers.wgsl)
 b_embed(miskeenity-canvas ./resources/shaders/selection.wgsl)
 b_embed(miskeenity-canvas ./resources/shaders/mesh.wgsl)
