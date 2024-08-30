@@ -1,5 +1,3 @@
-#pragma once
-
 #include "mesh_manager.h"
 
 namespace mc

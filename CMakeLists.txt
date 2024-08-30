@@ -34,6 +34,7 @@ add_executable(miskeenity-canvas
     source/main.cpp 
     source/graphics.cpp
     source/events.cpp
+    source/resource_manager.cpp
     source/layer_manager.cpp
     source/mesh_manager.cpp
     source/layer_mesh_utils.cpp
@@ -46,6 +47,7 @@ add_executable(miskeenity-canvas
 # Add resources
 b_embed(miskeenity-canvas ./resources/fonts/Lucide_compact.ttf)
 b_embed(miskeenity-canvas ./resources/fonts/Roboto.ttf)
+b_embed(miskeenity-canvas ./resources/fonts/Arimo.ttf)
 b_embed(miskeenity-canvas ./resources/fonts/Anton.ttf)
 b_embed(miskeenity-canvas ./resources/fonts/EBGaramond.ttf)
 b_embed(miskeenity-canvas ./resources/shaders/layers.wgsl)
