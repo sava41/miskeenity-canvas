@@ -150,9 +150,9 @@ namespace mc
         // The calculation to get these glyphs perfectly centered on the y axis doesnt make sense but it works
         configLucide.GlyphOffset = glm::vec2( 0.0f, 11.0f * g_uiScale - 5.8f );
 
-        // Specify which icons we use
-        // Need to specify or texture atlas will be too large and fail to upload to gpu on
-        // lower end systems
+        // To reduce executable size we use a subset of lucide
+        // To add extra glyphs you need to update used_lucide_unicodes.txt and generate a new Lucide_compact.ttf with the following command
+        // `pyftsubset Lucide.ttf --output-file=Lucide_compact.ttf --unicodes-file=used_lucide_unicodes.txt`
         ImFontGlyphRangesBuilder builder;
         builder.AddText( ICON_LC_IMAGE_UP );
         builder.AddText( ICON_LC_IMAGE_DOWN );
@@ -179,9 +179,6 @@ namespace mc
         ImVector<ImWchar> iconRanges;
         builder.BuildRanges( &iconRanges );
 
-        // To reduce executable size we use a subset of lucide
-        // To add extra glyphs you need to update used_lucide_unicodes.txt and generate a new Lucide_compact.ttf with the following command
-        // `pyftsubset Lucide.ttf --output-file=Lucide_compact.ttf --unicodes-file=used_lucide_unicodes.txt`
         ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( b::embed<"./resources/fonts/Lucide_compact.ttf">().data() ),
                                                     b::embed<"./resources/fonts/Lucide_compact.ttf">().size(), 24.0f * g_uiScale, &configLucide,
                                                     iconRanges.Data );
