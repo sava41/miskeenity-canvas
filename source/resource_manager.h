@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <unordered_set>
 
 namespace mc
@@ -13,6 +14,7 @@ namespace mc
 
       public:
         ~ResourceHandle();
+        static ResourceHandle invalidResource();
 
         bool valid() const;
         int resourceIndex() const;
@@ -51,12 +53,14 @@ namespace mc
 
       protected:
         ResourceHandle getHandle( int resourceIndex );
+        int getRefCount( int resourceIndex );
+        virtual void freeResource( int resourceIndex ) = 0;
 
       private:
         size_t m_length;
         size_t m_maxLength;
 
-        std::vector<int> m_references;
+        std::unique_ptr<int[]> m_references;
         std::unordered_set<ResourceHandle*> m_handles;
     };
 

@@ -616,7 +616,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         int offset = 0;
         for( int i = 0; i < app->layers.length(); ++i )
         {
-            app->textureManager.bind( app->layers.data()[i].texture, 1, renderPassEnc );
+            app->textureManager.bind( app->layers.getTexture( i ), 1, renderPassEnc );
             renderPassEnc.Draw( app->layers.data()[i].vertexBuffLength * 3, 1, offset );
             offset += app->layers.data()[i].vertexBuffLength * 3;
         }

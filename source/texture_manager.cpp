@@ -8,10 +8,19 @@ namespace mc
 {
 
     TextureManager::TextureManager( size_t maxTextures )
-        : m_curLength( 0 )
-        , m_maxLength( maxTextures )
+        : ResourceManager( maxTextures )
         , m_array( std::make_unique<Texture[]>( maxTextures ) )
     {
+    }
+
+    TextureManager::~TextureManager()
+    {
+        m_defaultTexture.Destroy();
+
+        for( int i = 0; i < maxLength(); ++i )
+        {
+            m_array[i].texture.Destroy();
+        }
     }
 
     void TextureManager::init( const wgpu::Device& device )
@@ -73,16 +82,26 @@ namespace mc
         uploadTexture( device.GetQueue(), m_defaultTexture, &white, 1, 1, 4 );
     };
 
-    bool TextureManager::add( void* imageBuffer, int width, int height, int channels, const wgpu::Device& device )
+    ResourceHandle TextureManager::add( void* imageBuffer, int width, int height, int channels, const wgpu::Device& device )
     {
         if( !m_defaultBindGroup )
         {
             init( device );
         }
 
-        if( m_curLength == m_maxLength )
+        if( curLength() == maxLength() )
         {
-            return false;
+            return getHandle( -1 );
+        }
+
+        int textureIndex = 0;
+        for( int i = 0; i < maxLength(); ++i )
+        {
+            if( getRefCount( i ) == 0 )
+            {
+                textureIndex = i;
+                break;
+            }
         }
 
         wgpu::TextureDescriptor textureDesc;
@@ -94,7 +113,7 @@ namespace mc
         textureDesc.usage            = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
         textureDesc.viewFormatCount  = 0;
         textureDesc.viewFormats      = nullptr;
-        m_array[m_curLength].texture = device.CreateTexture( &textureDesc );
+        m_array[textureIndex].texture = device.CreateTexture( &textureDesc );
 
         wgpu::TextureViewDescriptor textureViewDesc;
         textureViewDesc.aspect          = wgpu::TextureAspect::All;
@@ -105,43 +124,41 @@ namespace mc
         textureViewDesc.dimension       = wgpu::TextureViewDimension::e2D;
         textureViewDesc.format          = textureDesc.format;
 
-        m_array[m_curLength].textureView = m_array[m_curLength].texture.CreateView( &textureViewDesc );
+        m_array[textureIndex].textureView = m_array[textureIndex].texture.CreateView( &textureViewDesc );
 
         std::array<wgpu::BindGroupEntry, 2> groupEntries;
         groupEntries[0].binding = 0;
         groupEntries[0].sampler = m_sampler;
 
         groupEntries[1].binding     = 1;
-        groupEntries[1].textureView = m_array[m_curLength].textureView;
+        groupEntries[1].textureView = m_array[textureIndex].textureView;
 
         wgpu::BindGroupDescriptor mainBindGroupDesc;
         mainBindGroupDesc.layout     = m_groupLayout;
         mainBindGroupDesc.entryCount = static_cast<uint32_t>( groupEntries.size() );
         mainBindGroupDesc.entries    = groupEntries.data();
 
-        m_array[m_curLength].bindGroup = device.CreateBindGroup( &mainBindGroupDesc );
+        m_array[textureIndex].bindGroup = device.CreateBindGroup( &mainBindGroupDesc );
 
-        uploadTexture( device.GetQueue(), m_array[m_curLength].texture, imageBuffer, width, height, 4 );
+        uploadTexture( device.GetQueue(), m_array[textureIndex].texture, imageBuffer, width, height, 4 );
 
-        m_curLength += 1;
-
-        return true;
+        return getHandle( textureIndex );
     }
 
-    bool TextureManager::bind( int texHandle, int bindGroup, const wgpu::RenderPassEncoder& encoder )
+    bool TextureManager::bind( const ResourceHandle& texHandle, int bindGroup, const wgpu::RenderPassEncoder& encoder )
     {
-        if( texHandle < 0 || texHandle >= m_curLength )
+        if( !texHandle.valid() )
         {
             encoder.SetBindGroup( bindGroup, m_defaultBindGroup );
             return false;
         }
 
-        encoder.SetBindGroup( bindGroup, m_array[texHandle].bindGroup );
+        encoder.SetBindGroup( bindGroup, m_array[texHandle.resourceIndex()].bindGroup );
         return true;
     }
 
-    size_t TextureManager::length() const
+    void TextureManager::freeResource( int resourceIndex )
     {
-        return m_curLength;
+        m_array[curLength()].texture.Destroy();
     }
 } // namespace mc

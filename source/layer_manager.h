@@ -1,8 +1,10 @@
 #pragma once
 
+#include "resource_manager.h"
+
 #include <glm/glm.hpp>
 #include <memory>
-#include <unordered_set>
+#include <unordered_map>
 
 namespace mc
 {
@@ -58,6 +60,7 @@ namespace mc
         ~LayerManager() = default;
 
         bool add( const Layer& layer );
+        bool add( const Layer& layer, const ResourceHandle& textureHandle );
         bool move( int to, int from );
         bool remove( int index );
         void removeTop( int newlength );
@@ -65,12 +68,12 @@ namespace mc
         size_t length() const;
         size_t getTotalTriCount() const;
         Layer* data() const;
+        ResourceHandle getTexture( int index );
 
         void changeSelection( int index, bool isSelected );
         void clearSelection();
         bool isSelected( int index ) const;
         size_t numSelected() const;
-
 
         void moveSelection( const glm::vec2& offset );
         void rotateSelection( const glm::vec2& center, float angle );
@@ -87,5 +90,6 @@ namespace mc
         size_t m_totalNumTri;
 
         std::unique_ptr<Layer[]> m_array;
+        std::unordered_map<int, std::vector<ResourceHandle>> m_textureHandles;
     };
 } // namespace mc

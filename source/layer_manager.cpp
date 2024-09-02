@@ -27,6 +27,20 @@ namespace mc
         return true;
     }
 
+    bool LayerManager::add( const Layer& layer, const ResourceHandle& textureHandle )
+    {
+        bool ret = add( layer );
+
+        if( !ret )
+        {
+            return false;
+        }
+
+        m_textureHandles[layer.texture].push_back( textureHandle );
+
+        return true;
+    }
+
     bool LayerManager::move( int to, int from )
     {
         if( to < 0 || from < 0 || to > m_curLength || from > m_curLength || to == from )
@@ -57,6 +71,11 @@ namespace mc
             return false;
         }
 
+        if( m_array[index].flags & LayerFlags::HasColorTex )
+        {
+            m_textureHandles[m_array[index].texture].pop_back();
+        }
+
         if( index != m_curLength - 1 )
         {
             std::memmove( m_array.get() + index, m_array.get() + index + 1, ( m_curLength - index - 1 ) * sizeof( Layer ) );
@@ -73,6 +92,16 @@ namespace mc
     {
         if( m_curLength > newLength && newLength >= 0 )
         {
+
+            for( int i = newLength; i < m_curLength; ++i )
+            {
+                if( m_array[i].flags & LayerFlags::HasColorTex )
+                {
+                    m_textureHandles[m_array[i].texture].pop_back();
+                }
+            }
+
+
             m_curLength = newLength;
 
             recalculateTriCount();
@@ -223,6 +252,11 @@ namespace mc
         {
             if( !isSelected( readIndex ) )
             {
+                if( m_array[readIndex].flags & LayerFlags::HasColorTex )
+                {
+                    m_textureHandles[m_array[readIndex].texture].pop_back();
+                }
+
                 if( writeIndex != readIndex )
                 {
                     m_array[writeIndex] = m_array[readIndex];
@@ -247,6 +281,16 @@ namespace mc
         }
 
         m_totalNumTri = count;
+    }
+
+    ResourceHandle LayerManager::getTexture( int index )
+    {
+        if( ( index < 0 || index >= m_curLength ) && !( m_array[index].flags & LayerFlags::HasColorTex ) )
+        {
+            return ResourceHandle::invalidResource();
+        }
+
+        return m_textureHandles[m_array[index].texture].back();
     }
 
 } // namespace mc

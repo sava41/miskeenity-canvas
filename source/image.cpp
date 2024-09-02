@@ -10,6 +10,8 @@
 #include <SDL3/SDL_dialog.h>
 #endif
 
+#include <utility>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
@@ -20,7 +22,9 @@ namespace mc
         if( imageData != nullptr )
         {
 
-            if( !app->textureManager.add( imageData, width, height, channels, app->device ) )
+            ResourceHandle textureHandle = app->textureManager.add( imageData, width, height, channels, app->device );
+
+            if( !textureHandle.valid() )
             {
                 stbi_image_free( imageData );
                 return;
@@ -33,7 +37,8 @@ namespace mc
             mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
             app->layers.add( { pos, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( 1.0 ), glm::u8vec4( 255, 255, 255, 255 ),
-                               mc::HasColorTex, meshInfo.start, meshInfo.length, static_cast<uint16_t>( app->textureManager.length() - 1 ), 0 } );
+                               mc::HasColorTex, meshInfo.start, meshInfo.length, static_cast<uint16_t>( textureHandle.resourceIndex() ), 0 },
+                             std::move( textureHandle ) );
 
             app->layersModified = true;
 

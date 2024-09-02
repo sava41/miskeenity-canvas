@@ -22,11 +22,17 @@ namespace mc
         {
             m_manager->m_references[m_resourceIndex] -= 1;
             m_manager->m_handles.erase( this );
-            if( m_manager->m_references[m_resourceIndex] <= 0 )
+            if( m_manager->m_references[m_resourceIndex] == 0 )
             {
+                m_manager->freeResource( m_resourceIndex );
                 m_manager->m_length -= 1;
             }
         }
+    }
+
+    ResourceHandle ResourceHandle::invalidResource()
+    {
+        return ResourceHandle( nullptr, -1 );
     }
 
     ResourceHandle::ResourceHandle( const ResourceHandle& handle )
@@ -66,8 +72,12 @@ namespace mc
     ResourceManager::ResourceManager( size_t maxLength )
         : m_maxLength( maxLength )
         , m_length( 0 )
-        , m_references( m_maxLength, 0 )
+        , m_references( std::make_unique<int[]>( maxLength ) )
     {
+        for( int i = 0; i < m_maxLength; ++i )
+        {
+            m_references[i] = 0;
+        }
     }
 
     ResourceManager::~ResourceManager()
@@ -97,5 +107,15 @@ namespace mc
         }
 
         return ResourceHandle( this, resourceIndex );
+    }
+
+    int ResourceManager::getRefCount( int resourceIndex )
+    {
+        if( resourceIndex < 0 || resourceIndex >= m_maxLength )
+        {
+            return -1;
+        }
+
+        return m_references[resourceIndex];
     }
 } // namespace mc

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "resource_manager.h"
+
 #include <memory>
 #include <webgpu/webgpu_cpp.h>
 
@@ -14,25 +16,21 @@ namespace mc
         wgpu::BindGroup bindGroup;
     };
 
-    class TextureManager
+    class TextureManager : ResourceManager
     {
       public:
         TextureManager( size_t maxTextures );
-        ~TextureManager() = default;
+        ~TextureManager();
 
         void init( const wgpu::Device& device );
-        bool add( void* imageBuffer, int width, int height, int channels, const wgpu::Device& device );
-        // bool remove( int index );
-        bool bind( int texHandle, int bindGroup, const wgpu::RenderPassEncoder& encoder );
-
-        size_t length() const;
+        ResourceHandle add( void* imageBuffer, int width, int height, int channels, const wgpu::Device& device );
+        bool bind( const ResourceHandle& texHandle, int bindGroup, const wgpu::RenderPassEncoder& encoder );
 
       private:
+        virtual void freeResource( int resourceIndex ) override;
+
         wgpu::Sampler m_sampler;
         wgpu::BindGroupLayout m_groupLayout;
-
-        size_t m_maxLength;
-        size_t m_curLength;
 
         std::unique_ptr<Texture[]> m_array;
 
