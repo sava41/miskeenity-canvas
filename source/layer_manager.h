@@ -68,7 +68,7 @@ namespace mc
         size_t length() const;
         size_t getTotalTriCount() const;
         Layer* data() const;
-        ResourceHandle getTexture( int index );
+        ResourceHandle& getTexture( int index );
 
         void changeSelection( int index, bool isSelected );
         void clearSelection();

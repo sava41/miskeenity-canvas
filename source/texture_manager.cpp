@@ -91,7 +91,7 @@ namespace mc
 
         if( curLength() == maxLength() )
         {
-            return getHandle( -1 );
+            return ResourceHandle::invalidResource();
         }
 
         int textureIndex = 0;
@@ -145,20 +145,20 @@ namespace mc
         return getHandle( textureIndex );
     }
 
-    bool TextureManager::bind( const ResourceHandle& texHandle, int bindGroup, const wgpu::RenderPassEncoder& encoder )
+    bool TextureManager::bind( const ResourceHandle& texHandle, int bindGroupIndex, const wgpu::RenderPassEncoder& encoder )
     {
         if( !texHandle.valid() )
         {
-            encoder.SetBindGroup( bindGroup, m_defaultBindGroup );
+            encoder.SetBindGroup( bindGroupIndex, m_defaultBindGroup );
             return false;
         }
 
-        encoder.SetBindGroup( bindGroup, m_array[texHandle.resourceIndex()].bindGroup );
+        encoder.SetBindGroup( bindGroupIndex, m_array[texHandle.resourceIndex()].bindGroup );
         return true;
     }
 
     void TextureManager::freeResource( int resourceIndex )
     {
-        m_array[curLength()].texture.Destroy();
+        m_array[resourceIndex].texture.Destroy();
     }
 } // namespace mc

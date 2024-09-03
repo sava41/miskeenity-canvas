@@ -14,7 +14,7 @@ namespace mc
 
       public:
         ~ResourceHandle();
-        static ResourceHandle invalidResource();
+        static ResourceHandle& invalidResource();
 
         bool valid() const;
         int resourceIndex() const;

@@ -248,15 +248,18 @@ namespace mc
         }
 
         size_t writeIndex = 0;
+
         for( size_t readIndex = 0; readIndex < m_curLength; ++readIndex )
         {
-            if( !isSelected( readIndex ) )
+            if( isSelected( readIndex ) )
             {
                 if( m_array[readIndex].flags & LayerFlags::HasColorTex )
                 {
                     m_textureHandles[m_array[readIndex].texture].pop_back();
                 }
-
+            }
+            else
+            {
                 if( writeIndex != readIndex )
                 {
                     m_array[writeIndex] = m_array[readIndex];
@@ -283,8 +286,9 @@ namespace mc
         m_totalNumTri = count;
     }
 
-    ResourceHandle LayerManager::getTexture( int index )
+    ResourceHandle& LayerManager::getTexture( int index )
     {
+        // were using an invalid resource handle for layers with no textures
         if( ( index < 0 || index >= m_curLength ) && !( m_array[index].flags & LayerFlags::HasColorTex ) )
         {
             return ResourceHandle::invalidResource();

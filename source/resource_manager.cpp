@@ -1,5 +1,7 @@
 #include "resource_manager.h"
 
+#include <SDL3/SDL.h>
+
 
 namespace mc
 {
@@ -30,9 +32,10 @@ namespace mc
         }
     }
 
-    ResourceHandle ResourceHandle::invalidResource()
+    ResourceHandle& ResourceHandle::invalidResource()
     {
-        return ResourceHandle( nullptr, -1 );
+        static ResourceHandle invalid( nullptr, -1 );
+        return invalid;
     }
 
     ResourceHandle::ResourceHandle( const ResourceHandle& handle )
