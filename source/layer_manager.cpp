@@ -289,7 +289,7 @@ namespace mc
     ResourceHandle& LayerManager::getTexture( int index )
     {
         // were using an invalid resource handle for layers with no textures
-        if( ( index < 0 || index >= m_curLength ) && !( m_array[index].flags & LayerFlags::HasColorTex ) )
+        if( ( index < 0 || index >= m_curLength ) || !( m_array[index].flags & LayerFlags::HasColorTex ) )
         {
             return ResourceHandle::invalidResource();
         }
