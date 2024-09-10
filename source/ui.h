@@ -16,8 +16,6 @@ namespace mc
 {
     struct AppContext;
 
-    enum Alignment;
-
     enum class MouseLocationUI
     {
         None,
