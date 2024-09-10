@@ -1,5 +1,7 @@
 #include "layer_manager.h"
 
+#include "mesh_manager.h"
+
 #include <SDL3/SDL.h>
 
 namespace mc
@@ -12,7 +14,17 @@ namespace mc
     {
     }
 
-    bool LayerManager::add( const Layer& layer )
+    bool LayerManager::add( glm::vec2 offset, glm::vec2 basisA, glm::vec2 basisB, glm::u16vec2 uvTop, glm::u16vec2 uvBottom, glm::u8vec4 color, uint32_t flags,
+                            MeshInfo meshInfo, const ResourceHandle& textureHandle, const ResourceHandle& maskHandle )
+    {
+        uint16_t textureIndex = flags & LayerFlags::HasColorTex ? static_cast<uint16_t>( textureHandle.resourceIndex() ) : 0;
+        uint16_t maskIndex    = flags & LayerFlags::HasMaskTex || flags & LayerFlags::HasSdfMaskTex ? static_cast<uint16_t>( maskHandle.resourceIndex() ) : 0;
+        Layer layer           = { offset, basisA, basisB, uvTop, uvBottom, color, flags, meshInfo.start, meshInfo.length, textureIndex, maskIndex };
+
+        return add( layer, textureHandle, maskHandle );
+    }
+
+    bool LayerManager::add( const Layer& layer, const ResourceHandle& textureHandle, const ResourceHandle& maskHandle )
     {
         if( m_curLength == m_maxLength )
         {
@@ -23,18 +35,6 @@ namespace mc
         m_curLength += 1;
 
         recalculateTriCount();
-
-        return true;
-    }
-
-    bool LayerManager::add( const Layer& layer, const ResourceHandle& textureHandle, const ResourceHandle& maskHandle )
-    {
-        bool ret = add( layer );
-
-        if( !ret )
-        {
-            return false;
-        }
 
         if( layer.flags & LayerFlags::HasColorTex )
         {

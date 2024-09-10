@@ -365,7 +365,7 @@ namespace mc
             ImGui::PopID();
 
             std::array<std::string, 4> tools    = { ICON_LC_MOUSE_POINTER, ICON_LC_BRUSH, ICON_LC_TYPE, ICON_LC_HAND };
-            std::array<std::string, 4> tooltips = { "Select [S]", "Paint Brush [B]", "TODO: Add Text [T]", "Pan [P]" };
+            std::array<std::string, 4> tooltips = { "Select [S]", "Paint Brush [B]", "Add Text [T]", "Pan [P]" };
             std::array<Mode, 4> modes           = { Mode::Cursor, Mode::Paint, Mode::Text, Mode::Pan };
 
             for( size_t i = 0; i < tools.size(); i++ )
@@ -431,7 +431,7 @@ namespace mc
                                                         ICON_LC_FLIP_VERTICAL_2,
                                                         ICON_LC_CROP,
                                                         ICON_LC_TRASH_2 };
-                std::array<std::string, 6> tooltips = { "Bring To Front", "Move To Back", "Flip Horizontal", "Flip Vertical", "TODO: Crop", "TODO: Delete" };
+                std::array<std::string, 6> tooltips = { "Bring To Front", "Move To Back", "Flip Horizontal", "Flip Vertical", "TODO: Crop", "Delete" };
                 std::array<mc::Events, 6> events    = { mc::Events::MoveFront,    mc::Events::MoveBack, mc::Events::FlipHorizontal,
                                                         mc::Events::FlipVertical, mc::Events::Crop,     mc::Events::Delete };
 
@@ -454,8 +454,13 @@ namespace mc
         ImGui::SetNextWindowPos( ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, glm::vec2( 0.5f, 0.5f ) );
         if( ImGui::BeginPopupModal( "About", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
         {
-            ImGui::Text( "Miskeenity Canvas %s", MC_GIT_HASH );
-            ImGui::Text( "By Sava" );
+            ImGui::Text( "Miskeenity Canvas %s By Sava", MC_GIT_HASH );
+            ImGui::Separator();
+            ImGui::Text( "Special Thanks to These Open Source Libs:" );
+            ImGui::Text( "SDL" );
+            ImGui::Text( "Dear ImGui" );
+            ImGui::Text( "stb Headers" );
+            ImGui::Text( "glm" );
             ImGui::Separator();
 
             if( ImGui::Button( "OK", ImVec2( 120, 0 ) ) )

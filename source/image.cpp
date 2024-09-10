@@ -36,9 +36,8 @@ namespace mc
 
             mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
-            app->layers.add( { pos, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( 65535 ), glm::u8vec4( 255, 255, 255, 255 ),
-                               mc::HasColorTex, meshInfo.start, meshInfo.length, static_cast<uint16_t>( textureHandle.resourceIndex() ), 0 },
-                             std::move( textureHandle ) );
+            app->layers.add( pos, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( 65535 ), glm::u8vec4( 255, 255, 255, 255 ),
+                             mc::HasColorTex, meshInfo, std::move( textureHandle ) );
 
             app->layersModified = true;
 

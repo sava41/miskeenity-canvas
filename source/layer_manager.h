@@ -34,8 +34,8 @@ namespace mc
         uint16_t vertexBuffOffset;
         uint16_t vertexBuffLength;
 
-        uint16_t texture;
-        uint16_t mask;
+        uint16_t texture = 0;
+        uint16_t mask    = 0;
 
         // some layers may need addional paramters so well store them here
         union
@@ -74,14 +74,19 @@ namespace mc
     };
 #pragma pack( pop )
 
+    struct MeshInfo;
+
     class LayerManager
     {
       public:
         LayerManager( size_t maxLayers );
         ~LayerManager() = default;
 
-        bool add( const Layer& layer );
-        bool add( const Layer& layer, const ResourceHandle& textureHandle, const ResourceHandle& maskHandle = ResourceHandle::invalidResource() );
+        bool add( const Layer& layer, const ResourceHandle& textureHandle = ResourceHandle::invalidResource(),
+                  const ResourceHandle& maskHandle = ResourceHandle::invalidResource() );
+        bool add( glm::vec2 offset, glm::vec2 basisA, glm::vec2 basisB, glm::u16vec2 uvTop, glm::u16vec2 uvBottom, glm::u8vec4 color, uint32_t flags,
+                  MeshInfo meshInfo, const ResourceHandle& textureHandle = ResourceHandle::invalidResource(),
+                  const ResourceHandle& maskHandle = ResourceHandle::invalidResource() );
         bool move( int to, int from );
         bool remove( int index );
         void removeTop( int newlength );

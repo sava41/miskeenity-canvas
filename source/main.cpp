@@ -312,7 +312,7 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
                 mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
                 app->layers.add( { app->viewParams.mousePos, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 65535 ), color, mc::HasPillAlphaTex,
-                                   meshInfo.start, meshInfo.length, 0, 0 } );
+                                   meshInfo.start, meshInfo.length } );
                 app->layersModified = true;
             }
             else if( mc::getAppMode() == mc::Mode::Cursor )
@@ -524,19 +524,8 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         glm::u8vec4 color     = glm::u8vec4( mc::getPaintColor() * 255.0f, 255 );
         mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
-        app->layers.add( {
-            app->viewParams.mousePos - app->mouseDelta / app->viewParams.scale * 0.5f,
-            basisA,
-            basisB,
-            glm::u16vec2( 0 ),
-            glm::u16vec2( 65535 ),
-            color,
-            mc::HasPillAlphaTex,
-            meshInfo.start,
-            meshInfo.length,
-            0,
-            0,
-        } );
+        app->layers.add( { app->viewParams.mousePos - app->mouseDelta / app->viewParams.scale * 0.5f, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 65535 ),
+                           color, mc::HasPillAlphaTex, meshInfo.start, meshInfo.length } );
         app->layersModified = true;
     }
     else if( mc::getAppMode() == mc::Mode::Text )

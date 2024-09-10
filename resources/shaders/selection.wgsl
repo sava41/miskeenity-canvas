@@ -131,12 +131,7 @@ fn cs_main(@builtin(global_invocation_id) id_global : vec3<u32>, @builtin(local_
         aabb.w = min(aabb.w, pos.y);
 
         if(uniforms.selectType == 0) {
-            //flags = select(flags | 1, flags | 2, minX < pos.x && pos.x < maxX && minY < pos.y && pos.y < maxY)
-            if(minX < pos.x && pos.x < maxX && minY < pos.y && pos.y < maxY) {
-                flags = flags | 1;
-            } else {
-                flags = flags | 2;
-            }
+            flags = select(flags | 2, flags | 1, minX < pos.x && pos.x < maxX && minY < pos.y && pos.y < maxY);
         }
     }
 
@@ -144,18 +139,10 @@ fn cs_main(@builtin(global_invocation_id) id_global : vec3<u32>, @builtin(local_
     if(uniforms.selectType == 1) {
         let mouseBarryA = barycentric(vertexBuff[i * 3 + 0].xy, vertexBuff[i * 3 + 1].xy, vertexBuff[i * 3 + 2].xy, uniforms.mousePos);
 
-       //flags = select(flags | 1, flags, 0.0 < mouseBarryA.x && mouseBarryA.x < 1.0 && 0.0 < mouseBarryA.y && mouseBarryA.y < 1.0 && 0.0 < mouseBarryA.z && mouseBarryA.z < 1.0)
-
-        if( 0.0 < mouseBarryA.x && mouseBarryA.x < 1.0 && 0.0 < mouseBarryA.y && mouseBarryA.y < 1.0 && 0.0 < mouseBarryA.z && mouseBarryA.z < 1.0 ) {
-            flags = flags | 1;
-        }
+        flags = select(flags, flags | 1, 0.0 < mouseBarryA.x && mouseBarryA.x < 1.0 && 0.0 < mouseBarryA.y && mouseBarryA.y < 1.0 && 0.0 < mouseBarryA.z && mouseBarryA.z < 1.0);
     }
 
-    //outBuffer[i].flags = select(flags, outBuffer[i].flags, uniforms.selectType == 0 || uniforms.selectType == 1)
-
-    if(uniforms.selectType == 0 || uniforms.selectType == 1) {
-        outBuffer[i].flags = flags;
-    }
+    outBuffer[i].flags = select(outBuffer[i].flags, flags, uniforms.selectType == 0 || uniforms.selectType == 1);
     
     outBuffer[i].bboxMaxX = aabb.x;
     outBuffer[i].bboxMaxY = aabb.y;
