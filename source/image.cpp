@@ -36,7 +36,7 @@ namespace mc
 
             mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
-            app->layers.add( { pos, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( 1.0 ), glm::u8vec4( 255, 255, 255, 255 ),
+            app->layers.add( { pos, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( 65535 ), glm::u8vec4( 255, 255, 255, 255 ),
                                mc::HasColorTex, meshInfo.start, meshInfo.length, static_cast<uint16_t>( textureHandle.resourceIndex() ), 0 },
                              std::move( textureHandle ) );
 
@@ -60,9 +60,9 @@ namespace mc
 
                     int width, height, channels;
                     unsigned char* imageData =
-                        stbi_load_from_memory( reinterpret_cast<const unsigned char*>( buffer.data() ), buffer.size(), &width, &height, nullptr, 4 );
+                        stbi_load_from_memory( reinterpret_cast<const unsigned char*>( buffer.data() ), buffer.size(), &width, &height, &channels, 4 );
 
-                    addImageToLayer( app, imageData, width, height, channels );
+                    addImageToLayer( app, imageData, width, height, 4 );
                 }
             },
             app );
@@ -79,7 +79,7 @@ namespace mc
                     int width, height, channels;
                     unsigned char* imageData = stbi_load( filelist[0], &width, &height, &channels, 4 );
 
-                    addImageToLayer( app, imageData, width, height, channels );
+                    addImageToLayer( app, imageData, width, height, 4 );
                 }
             },
             app, nullptr, filters, 3, nullptr, SDL_FALSE );

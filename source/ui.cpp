@@ -24,10 +24,13 @@ namespace mc
     glm::vec3 g_paintColor = glm::vec3( 1.0, 0.0, 0.0 );
     float g_paintRadius    = 100;
 
-    std::string g_inputTextString     = "Miskeen";
+    std::string g_inputTextString               = "";
     glm::vec3 g_inputTextColor        = glm::vec3( 0.0, 0.0, 0.0 );
     float g_inputTextOutline          = 0.0;
     glm::vec3 g_inputTextOutlineColor = glm::vec3( 1.0, 1.0, 1.0 );
+    FontManager::Alignment g_inputTextAlignment = FontManager::Alignment::Left;
+    FontManager::Font g_inputTextFont           = FontManager::Arial;
+    bool g_setinputTextFocus                    = false;
 
     void setColorsUI()
     {
@@ -380,10 +383,16 @@ namespace mc
                 {
 
                     // reset some things when the mode changes
-                    g_inputTextString       = "Miskeen";
+                    g_inputTextString       = "";
                     g_inputTextColor        = glm::vec3( 0.0, 0.0, 0.0 );
                     g_inputTextOutline      = 0.0;
                     g_inputTextOutlineColor = glm::vec3( 1.0, 1.0, 1.0 );
+
+                    if( modes[i] == Mode::Text )
+                    {
+                        ImGui::SetWindowFocus( "Text Settings" );
+                        g_setinputTextFocus = true;
+                    }
 
                     if( g_appMode == Mode::Paint || g_appMode == Mode::Text )
                     {
@@ -522,20 +531,29 @@ namespace mc
 
             ImGui::Begin( "Text Settings", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
             {
-                const char* items[]          = { "Arial", "Times New Roman", "Impact" };
-                static int item_selected_idx = 0; // Here we store our selection data as an index.
-
-                // Pass in the preview value visible before opening the combo (it could technically be different contents or not pulled from items[])
-                const char* combo_preview_value = items[item_selected_idx];
-
                 ImGui::PushItemWidth( ImGui::GetContentRegionAvail().x );
 
                 float width = 35 * g_uiScale;
-                ImGui::Button( ICON_LC_ALIGN_LEFT, glm::vec2( width, 0.0 ) );
+                if( ImGui::Button( ICON_LC_ALIGN_LEFT, glm::vec2( width, 0.0 ) ) )
+                {
+                    g_inputTextAlignment = FontManager::Alignment::Left;
+                };
                 ImGui::SameLine( 0.0, 8.0 );
-                ImGui::Button( ICON_LC_ALIGN_RIGHT, glm::vec2( width, 0.0 ) );
+                if( ImGui::Button( ICON_LC_ALIGN_CENTER, glm::vec2( width, 0.0 ) ) )
+                {
+                    g_inputTextAlignment = FontManager::Alignment::Center;
+                };
                 ImGui::SameLine( 0.0, 8.0 );
-                ImGui::Button( ICON_LC_ALIGN_CENTER, glm::vec2( width, 0.0 ) );
+                if( ImGui::Button( ICON_LC_ALIGN_RIGHT, glm::vec2( width, 0.0 ) ) )
+                {
+                    g_inputTextAlignment = FontManager::Alignment::Right;
+                };
+
+                if( g_setinputTextFocus )
+                {
+                    ImGui::SetKeyboardFocusHere( 0 );
+                    g_setinputTextFocus = false;
+                }
 
                 ImGui::InputTextMultiline( "##Input String", const_cast<char*>( g_inputTextString.c_str() ), g_inputTextString.capacity() + 1,
                                            glm::vec2( ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeight() * 5 ), ImGuiInputTextFlags_CallbackResize,
@@ -552,13 +570,17 @@ namespace mc
 
                 ImGui::SeparatorText( "Font" );
 
-                if( ImGui::BeginCombo( "", combo_preview_value ) )
+                const char* items[] = { "Arial", "Times New Roman", "Impact" };
+
+                if( ImGui::BeginCombo( "##Font Combo", items[static_cast<int>( g_inputTextFont )] ) )
                 {
                     for( int n = 0; n < IM_ARRAYSIZE( items ); n++ )
                     {
-                        const bool is_selected = ( item_selected_idx == n );
+                        const bool is_selected = ( static_cast<int>( g_inputTextFont ) == n );
                         if( ImGui::Selectable( items[n], is_selected ) )
-                            item_selected_idx = n;
+                        {
+                            g_inputTextFont = static_cast<FontManager::Font>( n );
+                        }
 
                         // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
                         if( is_selected )
@@ -571,7 +593,7 @@ namespace mc
 
                 ImGui::SeparatorText( "Outline" );
 
-                ImGui::SliderFloat( "##Text Outline", &g_inputTextOutline, 0.0f, 2.0f );
+                ImGui::SliderFloat( "##Text Outline", &g_inputTextOutline, 0.0f, 1.0f );
                 ImGui::ColorEdit3( "##Text Outline Color", &g_inputTextOutlineColor.r );
 
                 ImGui::PopItemWidth();
@@ -675,9 +697,9 @@ namespace mc
         return g_paintRadius;
     }
 
-    const std::string* getInputTextString()
+    std::string getInputTextString()
     {
-        return &g_inputTextString;
+        return g_inputTextString;
     }
 
     glm::vec3 getInputTextColor()
@@ -693,6 +715,16 @@ namespace mc
     float getInputTextOutline()
     {
         return g_inputTextOutline;
+    }
+
+    FontManager::Alignment getInputTextAlignment()
+    {
+        return g_inputTextAlignment;
+    }
+
+    FontManager::Font getInputTextFont()
+    {
+        return g_inputTextFont;
     }
 
     Mode getAppMode()

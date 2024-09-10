@@ -94,6 +94,11 @@ namespace mc
             return ResourceHandle::invalidResource();
         }
 
+        if( channels != 1 && channels != 4 )
+        {
+            return ResourceHandle::invalidResource();
+        }
+
         int textureIndex = 0;
         for( int i = 0; i < maxLength(); ++i )
         {
@@ -106,7 +111,7 @@ namespace mc
 
         wgpu::TextureDescriptor textureDesc;
         textureDesc.dimension        = wgpu::TextureDimension::e2D;
-        textureDesc.format           = wgpu::TextureFormat::RGBA8Unorm;
+        textureDesc.format            = channels == 1 ? wgpu::TextureFormat::R8Unorm : wgpu::TextureFormat::RGBA8Unorm;
         textureDesc.size             = { (unsigned int)width, (unsigned int)height, 1 };
         textureDesc.mipLevelCount    = 1;
         textureDesc.sampleCount      = 1;
@@ -140,7 +145,7 @@ namespace mc
 
         m_array[textureIndex].bindGroup = device.CreateBindGroup( &mainBindGroupDesc );
 
-        uploadTexture( device.GetQueue(), m_array[textureIndex].texture, imageBuffer, width, height, 4 );
+        uploadTexture( device.GetQueue(), m_array[textureIndex].texture, imageBuffer, width, height, channels );
 
         return getHandle( textureIndex );
     }

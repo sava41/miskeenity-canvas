@@ -1,5 +1,6 @@
 #pragma once
 
+#include "font_manager.h"
 #include "layer_manager.h"
 #include "mesh_manager.h"
 #include "texture_manager.h"
@@ -115,6 +116,7 @@ namespace mc
         LayerManager layers           = LayerManager( NumLayers );
         TextureManager textureManager = TextureManager( 100 );
         MeshManager meshManager       = MeshManager( MaxMeshBufferTriangles );
+        FontManager fontManager;
         int layerEditStart            = 0;
         int newMeshSize               = 0;
     };

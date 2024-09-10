@@ -180,12 +180,11 @@ namespace mc
 
         wgpu::BindGroupLayout meshGroupLayout = app->device.CreateBindGroupLayout( &meshBindGroupLayoutDesc );
 
-        // Create texture bind group layout for main pipeline
-        // we might add more non texture stuff to this pipeline in the future
-        wgpu::BindGroupLayout mainGroupLayout = createTextureBindGroupLayout( app->device );
+        // Create texture bind group layout for main pipelinee
+        wgpu::BindGroupLayout textureGroupLayout = createTextureBindGroupLayout( app->device );
 
         // Create main pipeline
-        std::array<wgpu::BindGroupLayout, 2> mainBindGroupLayouts = { globalGroupLayout, mainGroupLayout };
+        std::array<wgpu::BindGroupLayout, 3> mainBindGroupLayouts = { globalGroupLayout, textureGroupLayout, textureGroupLayout };
 
         wgpu::PipelineLayoutDescriptor pipelineLayoutDesc;
         pipelineLayoutDesc.bindGroupLayoutCount = static_cast<uint32_t>( mainBindGroupLayouts.size() );
@@ -419,7 +418,7 @@ namespace mc
 
         wgpu::TextureDataLayout textureDataLayout;
         textureDataLayout.offset       = 0;
-        textureDataLayout.bytesPerRow  = width * 4;
+        textureDataLayout.bytesPerRow  = width * channels;
         textureDataLayout.rowsPerImage = height;
 
         wgpu::Extent3D writeSize;
@@ -427,7 +426,7 @@ namespace mc
         writeSize.height             = height;
         writeSize.depthOrArrayLayers = 1;
 
-        queue.WriteTexture( &imageCopyTexture, data, width * height * channels * sizeof( uint8_t ), &textureDataLayout, &writeSize );
+        queue.WriteTexture( &imageCopyTexture, data, width * height * channels, &textureDataLayout, &writeSize );
     }
 
     wgpu::Device requestDevice( const wgpu::Adapter& adapter, const wgpu::DeviceDescriptor* descriptor )

@@ -98,6 +98,8 @@ SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
 
     app->updateView = true;
 
+    app->fontManager.init( app->textureManager, app->device, app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex ) );
+
     SDL_Log( "Application started successfully!" );
 
     return SDL_APP_CONTINUE;
@@ -204,6 +206,18 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
             return;
         }
 
+        // take the flags and textures from the first mesh in the merge
+        uint32_t flags   = app->layers.data()[app->layerEditStart].flags;
+        uint16_t texture = app->layers.data()[app->layerEditStart].texture;
+        uint16_t mask    = app->layers.data()[app->layerEditStart].mask;
+        uint32_t extra0  = app->layers.data()[app->layerEditStart].extra0;
+        uint32_t extra1  = app->layers.data()[app->layerEditStart].extra1;
+        uint32_t extra2  = app->layers.data()[app->layerEditStart].extra2;
+        uint32_t extra3  = app->layers.data()[app->layerEditStart].extra3;
+
+        mc::ResourceHandle textureHandle = app->layers.getTexture( app->layerEditStart );
+        mc::ResourceHandle maskHandle    = app->layers.getMask( app->layerEditStart );
+
         app->layers.removeTop( app->layerEditStart );
         app->layersModified = true;
 
@@ -217,8 +231,9 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         }
 
         mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( app->meshManager.numMeshes() - 1 );
-        app->layers.add( { glm::vec2( 0.0 ), glm::vec2( 1.0, 0.0 ), glm::vec2( 0.0, 1.0 ), glm::u16vec2( 0 ), glm::u16vec2( 1.0 ), glm::u8vec4( 255 ),
-                           mc::HasPillAlphaTex, meshInfo.start, meshInfo.length, 0, 0 } );
+        app->layers.add( { glm::vec2( 0.0 ), glm::vec2( 1.0, 0.0 ), glm::vec2( 0.0, 1.0 ), glm::u16vec2( 0 ), glm::u16vec2( 65535 ), glm::u8vec4( 255 ), flags,
+                           meshInfo.start, meshInfo.length, texture, mask, extra0, extra1, extra2, extra3 },
+                         std::move( textureHandle ), std::move( maskHandle ) );
     }
     break;
     case mc::Events::FlipHorizontal:
@@ -296,8 +311,8 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
                 glm::u8vec4 color     = glm::u8vec4( mc::getPaintColor() * 255.0f, 255 );
                 mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
-                app->layers.add( { app->viewParams.mousePos, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 1.0 ), color, mc::HasPillAlphaTex, meshInfo.start,
-                                   meshInfo.length, 0, 0 } );
+                app->layers.add( { app->viewParams.mousePos, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 65535 ), color, mc::HasPillAlphaTex,
+                                   meshInfo.start, meshInfo.length, 0, 0 } );
                 app->layersModified = true;
             }
             else if( mc::getAppMode() == mc::Mode::Cursor )
@@ -514,7 +529,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
             basisA,
             basisB,
             glm::u16vec2( 0 ),
-            glm::u16vec2( 1.0 ),
+            glm::u16vec2( 65535 ),
             color,
             mc::HasPillAlphaTex,
             meshInfo.start,
@@ -526,8 +541,11 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     }
     else if( mc::getAppMode() == mc::Mode::Text )
     {
-        mc::addGlyphLayers( app->layers, app->meshManager, app->layerEditStart, *mc::getInputTextString(), app->viewParams.canvasPos + 100.0f, 0,
-                            mc::getInputTextColor(), mc::getInputTextOutline(), mc::getInputTextOutlineColor() );
+        app->layers.removeTop( app->layerEditStart );
+
+        app->fontManager.buildText( mc::getInputTextString(), mc::getInputTextFont(), app->layers, mc::getInputTextAlignment(),
+                                    ( glm::vec2( app->width, app->height ) * 0.5f - app->viewParams.canvasPos ) / app->viewParams.scale,
+                                    1.0 / app->viewParams.scale, mc::getInputTextColor(), mc::getInputTextOutline(), mc::getInputTextOutlineColor() );
         app->layersModified = true;
     }
 
@@ -617,6 +635,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         for( int i = 0; i < app->layers.length(); ++i )
         {
             app->textureManager.bind( app->layers.getTexture( i ), 1, renderPassEnc );
+            app->textureManager.bind( app->layers.getMask( i ), 2, renderPassEnc );
             renderPassEnc.Draw( app->layers.data()[i].vertexBuffLength * 3, 1, offset );
             offset += app->layers.data()[i].vertexBuffLength * 3;
         }

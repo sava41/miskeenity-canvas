@@ -27,7 +27,7 @@ namespace mc
         return true;
     }
 
-    bool LayerManager::add( const Layer& layer, const ResourceHandle& textureHandle )
+    bool LayerManager::add( const Layer& layer, const ResourceHandle& textureHandle, const ResourceHandle& maskHandle )
     {
         bool ret = add( layer );
 
@@ -36,7 +36,15 @@ namespace mc
             return false;
         }
 
-        m_textureHandles[layer.texture].push_back( textureHandle );
+        if( layer.flags & LayerFlags::HasColorTex )
+        {
+            m_textureHandles[layer.texture].push_back( textureHandle );
+        }
+
+        if( layer.flags & LayerFlags::HasMaskTex || layer.flags & LayerFlags::HasSdfMaskTex )
+        {
+            m_textureHandles[layer.mask].push_back( maskHandle );
+        }
 
         return true;
     }
@@ -76,6 +84,11 @@ namespace mc
             m_textureHandles[m_array[index].texture].pop_back();
         }
 
+        if( m_array[index].flags & LayerFlags::HasMaskTex || m_array[index].flags & LayerFlags::HasSdfMaskTex )
+        {
+            m_textureHandles[m_array[index].mask].pop_back();
+        }
+
         if( index != m_curLength - 1 )
         {
             std::memmove( m_array.get() + index, m_array.get() + index + 1, ( m_curLength - index - 1 ) * sizeof( Layer ) );
@@ -98,6 +111,11 @@ namespace mc
                 if( m_array[i].flags & LayerFlags::HasColorTex )
                 {
                     m_textureHandles[m_array[i].texture].pop_back();
+                }
+
+                if( m_array[i].flags & LayerFlags::HasMaskTex || m_array[i].flags & LayerFlags::HasSdfMaskTex )
+                {
+                    m_textureHandles[m_array[i].mask].pop_back();
                 }
             }
 
@@ -210,6 +228,12 @@ namespace mc
                 m_array[i].offset *= ammount;
                 m_array[i].offset += center;
             }
+
+            // special case for text layers
+            if( m_array[i].flags & LayerFlags::HasSdfMaskTex )
+            {
+                m_array[i].fontSize *= ( ammount.x + ammount.y ) * 0.5;
+            }
         }
     }
 
@@ -257,6 +281,11 @@ namespace mc
                 {
                     m_textureHandles[m_array[readIndex].texture].pop_back();
                 }
+
+                if( m_array[readIndex].flags & LayerFlags::HasMaskTex || m_array[readIndex].flags & LayerFlags::HasSdfMaskTex )
+                {
+                    m_textureHandles[m_array[readIndex].mask].pop_back();
+                }
             }
             else
             {
@@ -295,6 +324,17 @@ namespace mc
         }
 
         return m_textureHandles[m_array[index].texture].back();
+    }
+
+    ResourceHandle& LayerManager::getMask( int index )
+    {
+        // were using an invalid resource handle for layers with no textures
+        if( ( index < 0 || index >= m_curLength ) || !( m_array[index].flags & LayerFlags::HasMaskTex || m_array[index].flags & LayerFlags::HasSdfMaskTex ) )
+        {
+            return ResourceHandle::invalidResource();
+        }
+
+        return m_textureHandles[m_array[index].mask].back();
     }
 
 } // namespace mc

@@ -13,8 +13,8 @@ namespace mc
     {
         Selected        = 1 << 0,
         HasColorTex     = 1 << 1,
-        HasAlphaTex     = 1 << 2,
-        HasSdfAlphaTex  = 1 << 3,
+        HasMaskTex      = 1 << 2,
+        HasSdfMaskTex   = 1 << 3,
         HasPillAlphaTex = 1 << 4
     };
 
@@ -36,6 +36,27 @@ namespace mc
 
         uint16_t texture;
         uint16_t mask;
+
+        // some layers may need addional paramters so well store them here
+        union
+        {
+            uint32_t extra0 = 0;
+            glm::u8vec4 outlineColor;
+        };
+
+        union
+        {
+            uint32_t extra1 = 0;
+            float outlineWidth;
+        };
+
+        union
+        {
+            uint32_t extra2 = 0;
+            float fontSize;
+        };
+
+        uint32_t extra3 = 0;
     };
 #pragma pack( pop )
 
@@ -60,7 +81,7 @@ namespace mc
         ~LayerManager() = default;
 
         bool add( const Layer& layer );
-        bool add( const Layer& layer, const ResourceHandle& textureHandle );
+        bool add( const Layer& layer, const ResourceHandle& textureHandle, const ResourceHandle& maskHandle = ResourceHandle::invalidResource() );
         bool move( int to, int from );
         bool remove( int index );
         void removeTop( int newlength );
@@ -69,6 +90,7 @@ namespace mc
         size_t getTotalTriCount() const;
         Layer* data() const;
         ResourceHandle& getTexture( int index );
+        ResourceHandle& getMask( int index );
 
         void changeSelection( int index, bool isSelected );
         void clearSelection();

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "font_manager.h"
+
 #include <glm/glm.hpp>
 #include <string>
 
@@ -13,6 +15,8 @@ namespace wgpu
 namespace mc
 {
     struct AppContext;
+
+    enum Alignment;
 
     enum class MouseLocationUI
     {
@@ -51,8 +55,10 @@ namespace mc
     glm::vec3 getPaintColor();
     float getPaintRadius();
 
-    const std::string* getInputTextString();
+    std::string getInputTextString();
     glm::vec3 getInputTextColor();
     glm::vec3 getInputTextOutlineColor();
     float getInputTextOutline();
+    FontManager::Alignment getInputTextAlignment();
+    FontManager::Font getInputTextFont();
 } // namespace mc

@@ -23,6 +23,11 @@ struct Layer {
     flags: u32,
     meshOffsetLength: u32,
     imageMaskIds: u32,
+
+    extra0: u32,
+    extra1: u32,
+    extra2: u32,
+    extra3: u32,
 };
 
 struct MeshVertex {

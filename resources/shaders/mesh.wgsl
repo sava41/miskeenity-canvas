@@ -24,6 +24,11 @@ struct Layer {
     flags: u32,
     meshOffsetLength: u32,
     imageMaskIds: u32,
+
+    extra0: u32,
+    extra1: u32,
+    extra2: u32,
+    extra3: u32,
 };
 
 struct MeshVertex {
@@ -54,6 +59,10 @@ var<storage, read_write> vertexBuff: array<Vertex>;
 
 fn u32toVec2(a: u32)->vec2<u32> {
     return vec2(u32(( a >> 0 ) & 0xFFFF ), u32(( a >> 16 ) & 0xFFFF ));
+}
+
+fn u32toVec2f(a: u32)->vec2<f32> {
+    return vec2(f32(( a >> 0 ) & 0xFFFF ) / 65535, f32(( a >> 16 ) & 0xFFFF ) / 65535);
 }
 
 fn multiplyColors(color1: u32, color2: u32) -> u32 {
@@ -103,19 +112,19 @@ fn ma_main(@builtin(global_invocation_id) id_global : vec3<u32>, @builtin(local_
     let triIndex = u32toVec2(layerBuff[layerIndex].meshOffsetLength).x + remainingTris;
 
     vertexBuff[i * 3 + 0].xy = (vec4<f32>(meshVertexBuff[triIndex * 3 + 0].xy, 0.0, 1.0) * model).xy;
-    vertexBuff[i * 3 + 0].uv = meshVertexBuff[triIndex * 3 + 0].uv;
+    vertexBuff[i * 3 + 0].uv = mix(u32toVec2f(layerBuff[layerIndex].uvTop), u32toVec2f(layerBuff[layerIndex].uvBot), meshVertexBuff[triIndex * 3 + 0].uv);
     vertexBuff[i * 3 + 0].size = meshVertexBuff[triIndex * 3 + 0].size * layerSize;
     vertexBuff[i * 3 + 0].color = multiplyColors(meshVertexBuff[triIndex * 3 + 0].color, layerBuff[layerIndex].color);
     vertexBuff[i * 3 + 0].layer = layerIndex;
 
     vertexBuff[i * 3 + 1].xy = (vec4<f32>(meshVertexBuff[triIndex * 3 + 1].xy, 0.0, 1.0) * model).xy;
-    vertexBuff[i * 3 + 1].uv = meshVertexBuff[triIndex * 3 + 1].uv;
+    vertexBuff[i * 3 + 1].uv = mix(u32toVec2f(layerBuff[layerIndex].uvTop), u32toVec2f(layerBuff[layerIndex].uvBot), meshVertexBuff[triIndex * 3 + 1].uv);
     vertexBuff[i * 3 + 1].size = meshVertexBuff[triIndex * 3 + 1].size * layerSize;
     vertexBuff[i * 3 + 1].color = multiplyColors(meshVertexBuff[triIndex * 3 + 1].color,  layerBuff[layerIndex].color);
     vertexBuff[i * 3 + 1].layer = layerIndex;
 
     vertexBuff[i * 3 + 2].xy = (vec4<f32>(meshVertexBuff[triIndex * 3 + 2].xy, 0.0, 1.0) * model).xy;
-    vertexBuff[i * 3 + 2].uv = meshVertexBuff[triIndex * 3 + 2].uv;
+    vertexBuff[i * 3 + 2].uv = mix(u32toVec2f(layerBuff[layerIndex].uvTop), u32toVec2f(layerBuff[layerIndex].uvBot), meshVertexBuff[triIndex * 3 + 2].uv);
     vertexBuff[i * 3 + 2].size = meshVertexBuff[triIndex * 3 + 2].size * layerSize;
     vertexBuff[i * 3 + 2].color = multiplyColors(meshVertexBuff[triIndex * 3 + 2].color,  layerBuff[layerIndex].color);
     vertexBuff[i * 3 + 2].layer = layerIndex;

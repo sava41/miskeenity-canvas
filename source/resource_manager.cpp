@@ -1,8 +1,5 @@
 #include "resource_manager.h"
 
-#include <SDL3/SDL.h>
-
-
 namespace mc
 {
 
@@ -58,6 +55,7 @@ namespace mc
         if( m_valid )
         {
             m_manager->m_handles.erase( &handle );
+            handle.m_valid = false;
             m_manager->m_handles.insert( this );
         }
     }

@@ -40,7 +40,6 @@ web version available to try here: https://sava41.github.io/miskeenity-canvas/
 ## Planned Features
 - canvas history (undo/redo)
 - layer masking
-- text layers
 - export/save
 - copy/paste
 
