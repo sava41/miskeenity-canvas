@@ -232,7 +232,7 @@ namespace mc
             // special case for text layers
             if( m_array[i].flags & LayerFlags::HasSdfMaskTex )
             {
-                m_array[i].fontSize *= ( ammount.x + ammount.y ) * 0.5;
+                m_array[i].fontSize *= ( std::abs( ammount.x ) + std::abs( ammount.y ) ) * 0.5;
             }
         }
     }

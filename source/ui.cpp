@@ -160,8 +160,8 @@ namespace mc
         builder.AddText( ICON_LC_IMAGE_UP );
         builder.AddText( ICON_LC_IMAGE_DOWN );
         builder.AddText( ICON_LC_ROTATE_CW );
-        builder.AddText( ICON_LC_ARROW_UP_NARROW_WIDE );
-        builder.AddText( ICON_LC_ARROW_DOWN_NARROW_WIDE );
+        builder.AddText( ICON_LC_LIST_END );
+        builder.AddText( ICON_LC_LIST_START );
         builder.AddText( ICON_LC_FLIP_HORIZONTAL_2 );
         builder.AddText( ICON_LC_FLIP_VERTICAL_2 );
         builder.AddText( ICON_LC_BRUSH );
@@ -425,12 +425,8 @@ namespace mc
                 ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
                 ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
 
-                std::array<std::string, 6> tools    = { ICON_LC_ARROW_UP_NARROW_WIDE,
-                                                        ICON_LC_ARROW_DOWN_NARROW_WIDE,
-                                                        ICON_LC_FLIP_HORIZONTAL_2,
-                                                        ICON_LC_FLIP_VERTICAL_2,
-                                                        ICON_LC_CROP,
-                                                        ICON_LC_TRASH_2 };
+                std::array<std::string, 6> tools    = { ICON_LC_LIST_START,      ICON_LC_LIST_END, ICON_LC_FLIP_HORIZONTAL_2,
+                                                        ICON_LC_FLIP_VERTICAL_2, ICON_LC_CROP,     ICON_LC_TRASH_2 };
                 std::array<std::string, 6> tooltips = { "Bring To Front", "Move To Back", "Flip Horizontal", "Flip Vertical", "TODO: Crop", "Delete" };
                 std::array<mc::Events, 6> events    = { mc::Events::MoveFront,    mc::Events::MoveBack, mc::Events::FlipHorizontal,
                                                         mc::Events::FlipVertical, mc::Events::Crop,     mc::Events::Delete };
