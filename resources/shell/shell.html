@@ -48,7 +48,7 @@
   <body>
     <canvas class="game" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
     <div id="splash-screen" style="display: none;">
-      <p>WebGPU is not available in your browser.<br>Please use a WebGPU-compatible browser to run this application.</p>
+      <p>WebGPU is not available in your browser.<br>Please use a WebGPU compatible browser to run this application.</p>
     </div>
     <script type='text/javascript'>
       var Module = {
@@ -66,7 +66,6 @@
         },
         canvas: (function() {
             var canvas = document.getElementById('canvas');
-            //canvas.addEventListener("webglcontextlost", function(e) { alert('FIXME: WebGL context lost, please reload the page'); e.preventDefault(); }, false);
             return canvas;
         })(),
         setStatus: function(text) {
@@ -81,7 +80,18 @@
       };
 
       // Check for WebGPU support
-      if (!navigator.gpu) {
+      if (navigator.gpu) {
+        (async () => {
+          try {
+            const adapter = await navigator.gpu.requestAdapter();
+            const device = await adapter.requestDevice();
+          } catch(error) {
+            document.getElementById('splash-screen').style.display = 'flex';
+            document.getElementById('canvas').style.display = 'none';
+            return;
+          }
+        })();
+      } else {
         document.getElementById('splash-screen').style.display = 'flex';
         document.getElementById('canvas').style.display = 'none';
       }
