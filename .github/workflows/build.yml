@@ -16,7 +16,7 @@ jobs:
           - name: Configure
             run: cmake -B build -DCMAKE_SYSTEM_NAME=${{ matrix.target }} -DCMAKE_SYSTEM_VERSION="10.0" -A${{ matrix.arch }}
           - name: Build
-            run: cmake --build build --target miskeenity-canvas --config MinSizeRel
+            run: cmake --build build --target miskeenity-canvas --config MinSizeRel --parallel
           - name: Upload Build
             uses: actions/upload-artifact@v4
             with: 
