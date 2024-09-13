@@ -82,14 +82,14 @@
       // Check for WebGPU support
       if (navigator.gpu) {
         (async () => {
-          //try {
-          //  const adapter = await navigator.gpu.requestAdapter();
-          //  const device = await adapter.requestDevice();
-          //} catch(error) {
-          //  document.getElementById('splash-screen').style.display = 'flex';
-          //  document.getElementById('canvas').style.display = 'none';
-          //  return;
-          //}
+          try {
+            const adapter = await navigator.gpu.requestAdapter();
+            const device = await adapter.requestDevice();
+          } catch(error) {
+            document.getElementById('splash-screen').style.display = 'flex';
+            document.getElementById('canvas').style.display = 'none';
+            return;
+          }
         })();
       } else {
         document.getElementById('splash-screen').style.display = 'flex';
