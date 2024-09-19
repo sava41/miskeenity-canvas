@@ -488,30 +488,22 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         case mc::CursorDragType::ScaleTL:
         case mc::CursorDragType::ScaleBL:
         {
-            glm::vec2 mouseDeltaCanvas = app->mouseDelta / app->viewParams.scale;
-            glm::vec2 factor = mouseDeltaCanvas / glm::vec2( app->selectionBbox.x - app->selectionBbox.z, app->selectionBbox.y - app->selectionBbox.w );
+            glm::vec2 p1 = app->viewParams.mousePos - app->selectionCenter;
+            glm::vec2 p2 = p1 - app->mouseDelta / app->viewParams.scale;
+
+            float factor = glm::length( p1 ) / glm::length( p2 );
 
             glm::vec2 orientation = glm::vec2( 1.0 );
-            if( app->dragType == mc::CursorDragType::ScaleTR )
-            {
-                orientation.y = -1.0;
-            }
-            else if( app->dragType == mc::CursorDragType::ScaleTL )
-            {
-                orientation = -orientation;
-            }
-            else if( app->dragType == mc::CursorDragType::ScaleBL )
+            if( p1.x * p2.x < 0 )
             {
                 orientation.x = -1.0;
             }
+            if( p1.y * p2.y < 0 )
+            {
+                orientation.y = -1.0;
+            }
 
-            // Update bounding box
-            app->selectionBbox.x += mouseDeltaCanvas.x * orientation.x;
-            app->selectionBbox.y += mouseDeltaCanvas.y * orientation.y;
-            app->selectionBbox.z -= mouseDeltaCanvas.x * orientation.x;
-            app->selectionBbox.w -= mouseDeltaCanvas.y * orientation.y;
-
-            app->layers.scaleSelection( app->selectionCenter, 2.0f * factor * orientation + glm::vec2( 1.0 ) );
+            app->layers.scaleSelection( app->selectionCenter, glm::vec2( factor ) * orientation );
             app->layersModified = true;
         }
         break;

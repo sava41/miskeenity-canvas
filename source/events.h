@@ -13,6 +13,8 @@ namespace mc
         MoveFront,
         MoveBack,
         Crop,
+        Cut,
+        Segment,
         Delete,
         Undo,
         Redo,
@@ -24,7 +26,8 @@ namespace mc
         StartCrop,
         ContextAccept,
         ContextCancel,
-        MergeTopLayers
+        MergeTopLayers,
+        MergeAndRasterize
     };
 
     void submitEvent( const Events& event, void* userData = nullptr );

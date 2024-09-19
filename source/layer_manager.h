@@ -100,6 +100,7 @@ namespace mc
         void changeSelection( int index, bool isSelected );
         void clearSelection();
         bool isSelected( int index ) const;
+        int getSingleSelectedImage() const;
         size_t numSelected() const;
 
         void moveSelection( const glm::vec2& offset );

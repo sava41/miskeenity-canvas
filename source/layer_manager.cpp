@@ -46,6 +46,11 @@ namespace mc
             m_textureHandles[layer.mask].push_back( maskHandle );
         }
 
+        if( layer.flags & LayerFlags::Selected )
+        {
+            m_numSelected += 1;
+        }
+
         return true;
     }
 
@@ -177,6 +182,24 @@ namespace mc
         }
 
         return m_array[index].flags & LayerFlags::Selected;
+    }
+
+    int LayerManager::getSingleSelectedImage() const
+    {
+        if( m_numSelected != 1 )
+        {
+            return -1;
+        }
+
+        for( int i = 0; i < m_curLength; ++i )
+        {
+            if( m_array[i].flags & LayerFlags::Selected && m_array[i].flags & LayerFlags::HasColorTex )
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     size_t LayerManager::numSelected() const
