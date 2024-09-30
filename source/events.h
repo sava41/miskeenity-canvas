@@ -24,9 +24,9 @@ namespace mc
         OpenGithub,
         ModeChanged,
         StartCrop,
-        ContextAccept,
-        ContextCancel,
-        MergeTopLayers,
+        MergeEditLayers,
+        ResetEditLayers,
+        AddMergedLayer,
         MergeAndRasterize
     };
 

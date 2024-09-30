@@ -33,7 +33,9 @@ namespace mc
         Pan,
         Paint,
         Text,
-        Other
+        Crop,
+        Cut,
+        SegmentCut
     };
 
     constexpr float HandleHalfSize     = 7.0;

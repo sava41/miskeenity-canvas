@@ -42,6 +42,7 @@ web version available to try here: https://sava41.github.io/miskeenity-canvas/
 - layer masking
 - export/save
 - copy/paste
+- keyboard shortcuts
 
 <p align="center">
 	<img src="resources/textures/miskeen_256.png" height="256" alt="Miskeenity Canvas Logo (bald man)">

@@ -196,7 +196,7 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         app->dragType                  = mc::CursorDragType::Select;
     }
     break;
-    case mc::Events::MergeTopLayers:
+    case mc::Events::AddMergedLayer:
     {
         const mc::Triangle* meshData = reinterpret_cast<const mc::Triangle*>( app->vertexCopyBuf.GetConstMappedRange( 0, app->newMeshSize ) );
 
@@ -231,8 +231,8 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         }
 
         mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( app->meshManager.numMeshes() - 1 );
-        app->layers.add( { glm::vec2( 0.0 ), glm::vec2( 1.0, 0.0 ), glm::vec2( 0.0, 1.0 ), glm::u16vec2( 0 ), glm::u16vec2( 65535 ), glm::u8vec4( 255 ), flags,
-                           meshInfo.start, meshInfo.length, texture, mask, extra0, extra1, extra2, extra3 },
+        app->layers.add( { glm::vec2( 0.0 ), glm::vec2( 1.0, 0.0 ), glm::vec2( 0.0, 1.0 ), glm::u16vec2( 0 ), glm::u16vec2( mc::UV_MAX_VALUE ),
+                           glm::u8vec4( 255 ), flags, meshInfo.start, meshInfo.length, texture, mask, extra0, extra1, extra2, extra3 },
                          std::move( textureHandle ), std::move( maskHandle ) );
     }
     break;
@@ -258,11 +258,39 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         break;
     case mc::Events::ModeChanged:
         app->layerEditStart = app->layers.length();
+        if( mc::getAppMode() == mc::Mode::Crop )
+        {
+            int index          = app->layers.getSingleSelectedImage();
+            mc::Layer newLayer = app->layers.data()[index];
+            newLayer.flags     = newLayer.flags & ~mc::LayerFlags::Selected;
+
+            glm::vec2 scale = static_cast<float>( mc::UV_MAX_VALUE ) / glm::vec2( newLayer.uvBottom - newLayer.uvTop );
+            newLayer.basisA *= scale.x;
+            newLayer.basisB *= scale.y;
+
+            glm::vec2 uvCenter = ( glm::vec2( newLayer.uvTop ) + glm::vec2( newLayer.uvBottom ) ) / static_cast<float>( mc::UV_MAX_VALUE ) * 0.5f;
+            newLayer.offset -= newLayer.basisA * ( uvCenter.x - 0.5f ) + newLayer.basisB * ( uvCenter.y - 0.5f );
+
+            newLayer.uvTop    = glm::u16vec2( 0 );
+            newLayer.uvBottom = glm::u16vec2( mc::UV_MAX_VALUE );
+
+            // crop needs at least one free layer to for the dummy layer so we cancel if the layer array is full
+            // probably should add some ui to tell the user how many layers are being used
+            if( !app->layers.add( newLayer, app->layers.getTexture( index ), app->layers.getMask( index ) ) )
+            {
+                // add cancel logic here
+            }
+        }
+        else
+        {
+            app->layers.clearSelection();
+        }
+        app->layersModified = true;
         break;
-    case mc::Events::ContextAccept:
+    case mc::Events::MergeEditLayers:
         app->mergeTopLayers = true;
         break;
-    case mc::Events::ContextCancel:
+    case mc::Events::ResetEditLayers:
         app->layers.removeTop( app->layerEditStart );
         app->layersModified = true;
         break;
@@ -303,6 +331,7 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
         {
             app->mouseDragStart = app->mouseWindowPos;
             app->mouseDown      = true;
+            app->dragType       = mc::CursorDragType::None;
 
             if( mc::getAppMode() == mc::Mode::Paint )
             {
@@ -311,7 +340,7 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
                 glm::u8vec4 color     = glm::u8vec4( mc::getPaintColor() * 255.0f, 255 );
                 mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
-                app->layers.add( { app->viewParams.mousePos, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 65535 ), color, mc::HasPillAlphaTex,
+                app->layers.add( { app->viewParams.mousePos, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( mc::UV_MAX_VALUE ), color, mc::HasPillAlphaTex,
                                    meshInfo.start, meshInfo.length } );
                 app->layersModified = true;
             }
@@ -347,6 +376,28 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
                 else
                 {
                     app->dragType = mc::CursorDragType::Select;
+                }
+            }
+            else if( mc::getAppMode() == mc::Mode::Crop )
+            {
+                mc::MouseLocationUI mouseLocation = mc::getMouseLocationUI();
+
+                if( mouseLocation == mc::MouseLocationUI::ScaleHandleTL )
+                {
+                    app->dragType = mc::CursorDragType::ScaleTL;
+                }
+                else if( mouseLocation == mc::MouseLocationUI::ScaleHandleBR )
+                {
+                    SDL_Log( "lele" );
+                    app->dragType = mc::CursorDragType::ScaleBR;
+                }
+                else if( mouseLocation == mc::MouseLocationUI::ScaleHandleTR )
+                {
+                    app->dragType = mc::CursorDragType::ScaleTR;
+                }
+                else if( mouseLocation == mc::MouseLocationUI::ScaleHandleBL )
+                {
+                    app->dragType = mc::CursorDragType::ScaleBL;
                 }
             }
         }
@@ -456,7 +507,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         app->updateView = false;
     }
 
-    if( mc::getAppMode() == mc::Mode::Cursor && app->mouseDown && app->mouseDragStart != app->mouseWindowPos && app->mouseDelta != glm::vec2( 0.0 ) )
+    if( mc::getAppMode() == mc::Mode::Cursor && app->mouseDown && app->dragType != mc::CursorDragType::None && app->mouseDelta != glm::vec2( 0.0 ) )
     {
         switch( app->dragType )
         {
@@ -509,6 +560,74 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         break;
         }
     }
+
+    if( mc::getAppMode() == mc::Mode::Crop && app->mouseDown && app->dragType != mc::CursorDragType::None && app->mouseDelta != glm::vec2( 0.0 ) )
+    {
+        // this might be easier to do if we construct the layer transform and inverse transform matricies but whatever
+
+        int layer          = app->layers.getSingleSelectedImage();
+        glm::vec2 basisA   = glm::normalize( app->layers.data()[layer].basisA );
+        glm::vec2 basisB   = glm::normalize( app->layers.data()[layer].basisB );
+        glm::vec2 offset   = app->layers.data()[layer].offset;
+        float width        = glm::length( app->layers.data()[layer].basisA );
+        float height       = glm::length( app->layers.data()[layer].basisB );
+        float offsetLocalx = glm::dot( offset, basisA ) / glm::dot( basisA, basisA );
+        float offsetLocaly = glm::dot( offset, basisB ) / glm::dot( basisB, basisB );
+
+        // determine scaling factors along the basis vectors
+        glm::vec2 mouseDeltaCanvas = app->mouseDelta / app->viewParams.scale;
+        float mouseDeltaLocalx     = glm::dot( mouseDeltaCanvas, basisA ) / glm::dot( basisA, basisA );
+        float mouseDeltaLocaly     = glm::dot( mouseDeltaCanvas, basisB ) / glm::dot( basisB, basisB );
+
+        glm::vec2 orientation = glm::vec2( 1.0f );
+        if( app->dragType == mc::CursorDragType::ScaleTR )
+        {
+            orientation.y = -1.0;
+        }
+        else if( app->dragType == mc::CursorDragType::ScaleTL )
+        {
+            orientation = -orientation;
+        }
+        else if( app->dragType == mc::CursorDragType::ScaleBL )
+        {
+            orientation.x = -1.0;
+        }
+
+        // calculate uv coordinate offsets using uncropped layer
+        int uncroppedLayer          = app->layers.length() - 1;
+        float uncroppedWidth        = glm::length( app->layers.data()[uncroppedLayer].basisA );
+        float uncroppedHeight       = glm::length( app->layers.data()[uncroppedLayer].basisB );
+        glm::vec2 uncroppedOffset   = app->layers.data()[uncroppedLayer].offset;
+        float uncroppedOffsetLocalx = glm::dot( uncroppedOffset, basisA ) / glm::dot( basisA, basisA );
+        float uncroppedOffsetLocaly = glm::dot( uncroppedOffset, basisB ) / glm::dot( basisA, basisA );
+
+        glm::vec2 uncroppedCornerTop    = glm::vec2( uncroppedOffsetLocalx, uncroppedOffsetLocaly ) - 0.5f * glm::vec2( uncroppedWidth, uncroppedHeight );
+        glm::vec2 uncroppedCornerBottom = glm::vec2( uncroppedOffsetLocalx, uncroppedOffsetLocaly ) + 0.5f * glm::vec2( uncroppedWidth, uncroppedHeight );
+
+        glm::vec2 croppedCornerTop = glm::vec2( offsetLocalx + mouseDeltaLocalx * 0.5f, offsetLocaly + mouseDeltaLocaly * 0.5f ) -
+                                     0.5f * glm::vec2( width + orientation.x * mouseDeltaLocalx, height + orientation.y * mouseDeltaLocaly );
+        glm::vec2 croppedCornerBottom = glm::vec2( offsetLocalx + mouseDeltaLocalx * 0.5f, offsetLocaly + mouseDeltaLocaly * 0.5f ) +
+                                        0.5f * glm::vec2( width + orientation.x * mouseDeltaLocalx, height + orientation.y * mouseDeltaLocaly );
+
+        // clamp scaling to not exceed uncropped image extends
+        croppedCornerTop    = glm::clamp( croppedCornerTop, uncroppedCornerTop, croppedCornerBottom );
+        croppedCornerBottom = glm::clamp( croppedCornerBottom, croppedCornerTop, uncroppedCornerBottom );
+
+        app->layers.data()[layer].uvTop =
+            ( croppedCornerTop - uncroppedCornerTop ) / ( uncroppedCornerBottom - uncroppedCornerTop ) * static_cast<float>( mc::UV_MAX_VALUE );
+        app->layers.data()[layer].uvBottom =
+            ( croppedCornerBottom - uncroppedCornerTop ) / ( uncroppedCornerBottom - uncroppedCornerTop ) * static_cast<float>( mc::UV_MAX_VALUE );
+
+        app->layers.data()[layer].basisA = basisA * std::abs( croppedCornerBottom.x - croppedCornerTop.x );
+        app->layers.data()[layer].basisB = basisB * std::abs( croppedCornerBottom.y - croppedCornerTop.y );
+
+        glm::vec2 localCenter            = ( croppedCornerTop + croppedCornerBottom ) * 0.5f;
+        app->layers.data()[layer].offset = basisA * localCenter.x + basisB * localCenter.y;
+
+        app->layersModified = true;
+    }
+
+
     if( mc::getAppMode() == mc::Mode::Paint && app->mouseDown && app->mouseDelta != glm::vec2( 0.0 ) )
     {
         glm::vec2 basisA      = app->mouseDelta / app->viewParams.scale + 2.0f * glm::normalize( app->mouseDelta ) * mc::getPaintRadius();
@@ -516,8 +635,8 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         glm::u8vec4 color     = glm::u8vec4( mc::getPaintColor() * 255.0f, 255 );
         mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
-        app->layers.add( { app->viewParams.mousePos - app->mouseDelta / app->viewParams.scale * 0.5f, basisA, basisB, glm::u16vec2( 0 ), glm::u16vec2( 65535 ),
-                           color, mc::HasPillAlphaTex, meshInfo.start, meshInfo.length } );
+        app->layers.add( { app->viewParams.mousePos - app->mouseDelta / app->viewParams.scale * 0.5f, basisA, basisB, glm::u16vec2( 0 ),
+                           glm::u16vec2( mc::UV_MAX_VALUE ), color, mc::HasPillAlphaTex, meshInfo.start, meshInfo.length } );
         app->layersModified = true;
     }
     else if( mc::getAppMode() == mc::Mode::Text )
@@ -577,7 +696,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         if( app->newMeshSize + app->meshManager.size() > mc::MaxMeshBufferSize )
         {
             // cant merge because our mesh manager buffer will overflow
-            submitEvent( mc::Events::ContextCancel );
+            submitEvent( mc::Events::ResetEditLayers );
             app->mergeTopLayers = false;
         }
         else
@@ -660,11 +779,11 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         {
             if( status == WGPUBufferMapAsyncStatus_Success )
             {
-                submitEvent( mc::Events::MergeTopLayers );
+                submitEvent( mc::Events::AddMergedLayer );
             }
             else
             {
-                submitEvent( mc::Events::ContextCancel );
+                submitEvent( mc::Events::ResetEditLayers );
             }
         };
         app->vertexCopyBuf.MapAsync( wgpu::MapMode::Read, 0, app->newMeshSize, callback, &app->vertexCopyBuf );

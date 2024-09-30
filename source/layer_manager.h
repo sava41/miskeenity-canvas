@@ -3,11 +3,14 @@
 #include "resource_manager.h"
 
 #include <glm/glm.hpp>
+#include <limits>
 #include <memory>
 #include <unordered_map>
 
 namespace mc
 {
+
+    constexpr int UV_MAX_VALUE = std::numeric_limits<uint16_t>::max();
 
     enum LayerFlags : uint32_t
     {

@@ -194,11 +194,12 @@ namespace mc
                     glyph = m_characterData[font][codepoint];
                 }
 
-                glm::vec2 basisA   = glm::vec2( 1.0, 0.0 ) * static_cast<float>( glyph.width ) * scale;
-                glm::vec2 basisB   = glm::vec2( 0.0, 1.0 ) * static_cast<float>( glyph.height ) * scale;
-                glm::u8vec4 color  = glm::u8vec4( textColor * 255.0f, 255 );
-                glm::vec2 uvTop    = glm::vec2( glyph.x, glyph.y ) / static_cast<float>( AtlasWidth ) * 65535.0f;
-                glm::vec2 uvBottom = glm::vec2( glyph.x + glyph.width, glyph.y + glyph.height ) / static_cast<float>( AtlasWidth ) * 65535.0f;
+                glm::vec2 basisA  = glm::vec2( 1.0, 0.0 ) * static_cast<float>( glyph.width ) * scale;
+                glm::vec2 basisB  = glm::vec2( 0.0, 1.0 ) * static_cast<float>( glyph.height ) * scale;
+                glm::u8vec4 color = glm::u8vec4( textColor * 255.0f, 255 );
+                glm::vec2 uvTop   = glm::vec2( glyph.x, glyph.y ) / static_cast<float>( AtlasWidth ) * static_cast<float>( UV_MAX_VALUE );
+                glm::vec2 uvBottom =
+                    glm::vec2( glyph.x + glyph.width, glyph.y + glyph.height ) / static_cast<float>( AtlasWidth ) * static_cast<float>( UV_MAX_VALUE );
 
                 glm::vec2 glyphPosition =
                     currentPosition + glm::vec2( glyph.width, glyph.height ) * 0.5f * scale + glm::vec2( glyph.xOffset, glyph.yOffset ) * scale;
