@@ -388,7 +388,6 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
                 }
                 else if( mouseLocation == mc::MouseLocationUI::ScaleHandleBR )
                 {
-                    SDL_Log( "lele" );
                     app->dragType = mc::CursorDragType::ScaleBR;
                 }
                 else if( mouseLocation == mc::MouseLocationUI::ScaleHandleTR )
@@ -610,8 +609,34 @@ SDL_AppResult SDL_AppIterate( void* appstate )
                                         0.5f * glm::vec2( width + orientation.x * mouseDeltaLocalx, height + orientation.y * mouseDeltaLocaly );
 
         // clamp scaling to not exceed uncropped image extends
-        croppedCornerTop    = glm::clamp( croppedCornerTop, uncroppedCornerTop, croppedCornerBottom );
-        croppedCornerBottom = glm::clamp( croppedCornerBottom, croppedCornerTop, uncroppedCornerBottom );
+        glm::vec2 newCroppedCornerTop    = glm::max( croppedCornerTop, uncroppedCornerTop );
+        glm::vec2 newCroppedCornerBottom = glm::min( croppedCornerBottom, uncroppedCornerBottom );
+
+        if( newCroppedCornerBottom.x - newCroppedCornerTop.x < 1.0f )
+        {
+            if( app->dragType == mc::CursorDragType::ScaleTR || app->dragType == mc::CursorDragType::ScaleBR )
+            {
+                newCroppedCornerBottom.x = newCroppedCornerTop.x + 1.0f;
+            }
+            else
+            {
+                newCroppedCornerTop.x = newCroppedCornerBottom.x - 1.0f;
+            }
+        }
+        if( newCroppedCornerBottom.y - newCroppedCornerTop.y < 1.0f )
+        {
+            if( app->dragType == mc::CursorDragType::ScaleBR || app->dragType == mc::CursorDragType::ScaleBL )
+            {
+                newCroppedCornerBottom.y = newCroppedCornerTop.y + 1.0f;
+            }
+            else
+            {
+                newCroppedCornerTop.y = newCroppedCornerBottom.y - 1.0f;
+            }
+        }
+
+        croppedCornerTop    = newCroppedCornerTop;
+        croppedCornerBottom = newCroppedCornerBottom;
 
         app->layers.data()[layer].uvTop =
             ( croppedCornerTop - uncroppedCornerTop ) / ( uncroppedCornerBottom - uncroppedCornerTop ) * static_cast<float>( mc::UV_MAX_VALUE );
