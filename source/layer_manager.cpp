@@ -14,6 +14,67 @@ namespace mc
     {
     }
 
+    LayerManager::LayerManager( LayerManager& source )
+        : m_curLength( source.m_curLength )
+        , m_maxLength( source.m_maxLength )
+        , m_numSelected( source.m_numSelected )
+        , m_totalNumTri( source.m_totalNumTri )
+        , m_array( std::make_unique<Layer[]>( source.m_maxLength ) )
+        , m_textureHandles( source.m_textureHandles )
+    {
+        std::memcpy( m_array.get(), source.m_array.get(), source.m_curLength * sizeof( Layer ) );
+    }
+
+    LayerManager::LayerManager( LayerManager&& source )
+        : m_curLength( source.m_curLength )
+        , m_maxLength( source.m_maxLength )
+        , m_numSelected( source.m_numSelected )
+        , m_totalNumTri( source.m_totalNumTri )
+        , m_array( std::move( source.m_array ) )
+        , m_textureHandles( std::move( source.m_textureHandles ) )
+    {
+        source.m_curLength   = 0;
+        source.m_maxLength   = 0;
+        source.m_numSelected = 0;
+        source.m_totalNumTri = 0;
+    }
+
+    LayerManager& LayerManager::operator=( LayerManager& source )
+    {
+        m_curLength   = source.m_curLength;
+        m_maxLength   = source.m_maxLength;
+        m_numSelected = source.m_numSelected;
+        m_totalNumTri = source.m_totalNumTri;
+
+        m_array = std::make_unique<Layer[]>( m_maxLength );
+        std::memcpy( m_array.get(), source.m_array.get(), source.m_curLength * sizeof( Layer ) );
+
+        m_textureHandles.clear();
+        for( auto handle : source.m_textureHandles )
+        {
+            m_textureHandles.insert( handle );
+        }
+
+        return *this;
+    }
+    LayerManager& LayerManager::operator=( LayerManager&& source )
+    {
+        m_curLength   = source.m_curLength;
+        m_maxLength   = source.m_maxLength;
+        m_numSelected = source.m_numSelected;
+        m_totalNumTri = source.m_totalNumTri;
+
+        m_array          = std::move( source.m_array );
+        m_textureHandles = std::move( source.m_textureHandles );
+
+        source.m_curLength   = 0;
+        source.m_maxLength   = 0;
+        source.m_numSelected = 0;
+        source.m_totalNumTri = 0;
+
+        return *this;
+    }
+
     bool LayerManager::add( glm::vec2 offset, glm::vec2 basisA, glm::vec2 basisB, glm::u16vec2 uvTop, glm::u16vec2 uvBottom, glm::u8vec4 color, uint32_t flags,
                             MeshInfo meshInfo, const ResourceHandle& textureHandle, const ResourceHandle& maskHandle )
     {
@@ -358,6 +419,49 @@ namespace mc
         }
 
         return m_textureHandles[m_array[index].mask].back();
+    }
+
+    LayerManager LayerManager::createShrunkCopy()
+    {
+        LayerManager newManager( m_curLength );
+
+        std::memcpy( newManager.m_array.get(), m_array.get(), m_curLength * sizeof( Layer ) );
+
+        newManager.m_curLength   = m_curLength;
+        newManager.m_numSelected = m_numSelected;
+        newManager.m_totalNumTri = m_totalNumTri;
+
+        for( auto handle : m_textureHandles )
+        {
+            newManager.m_textureHandles.insert( handle );
+        }
+
+        return std::move( newManager );
+    }
+
+    void LayerManager::copyContents( const LayerManager& source )
+    {
+        m_curLength = std::min( m_maxLength, source.m_curLength );
+        std::memcpy( m_array.get(), source.m_array.get(), m_curLength * sizeof( Layer ) );
+
+        m_numSelected = 0;
+        for( int i = 0; i < m_curLength; ++i )
+        {
+            m_numSelected += m_array[i].flags & LayerFlags::Selected;
+        }
+
+        m_textureHandles.clear();
+        for( auto handle : source.m_textureHandles )
+        {
+            m_textureHandles.insert( handle );
+        }
+        for( int i = m_curLength; i < source.m_curLength; ++i )
+        {
+            m_textureHandles.erase( source.m_array[i].texture );
+            m_textureHandles.erase( source.m_array[i].mask );
+        }
+
+        recalculateTriCount();
     }
 
 } // namespace mc

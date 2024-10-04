@@ -85,6 +85,11 @@ namespace mc
         LayerManager( size_t maxLayers );
         ~LayerManager() = default;
 
+        LayerManager( LayerManager& source );
+        LayerManager( LayerManager&& source );
+        LayerManager& operator=( LayerManager& );
+        LayerManager& operator=( LayerManager&& );
+
         bool add( const Layer& layer, const ResourceHandle& textureHandle = ResourceHandle::invalidResource(),
                   const ResourceHandle& maskHandle = ResourceHandle::invalidResource() );
         bool add( glm::vec2 offset, glm::vec2 basisA, glm::vec2 basisB, glm::u16vec2 uvTop, glm::u16vec2 uvBottom, glm::u8vec4 color, uint32_t flags,
@@ -111,6 +116,11 @@ namespace mc
         void scaleSelection( const glm::vec2& center, const glm::vec2& ammount );
         void bringFrontSelection( bool reverse = false );
         void removeSelection();
+
+        LayerManager createShrunkCopy();
+
+        // this will keep the array allocation the same, copy contents and handle cases where source array size != array size
+        void copyContents( const LayerManager& source );
 
       private:
         void recalculateTriCount();

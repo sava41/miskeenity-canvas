@@ -455,7 +455,7 @@ namespace mc
         }
         ImGui::End();
 
-        if( app->layers.numSelected() > 0 )
+        if( app->layers.numSelected() > 0 && g_appMode == Mode::Cursor )
         {
             ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
             ImGui::Begin( "Context Bar", nullptr,
@@ -712,7 +712,7 @@ namespace mc
                 if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
                 {
                     g_appMode = Mode::Cursor;
-                    submitEvent( mc::Events::ResetEditLayers );
+                    submitEvent( mc::Events::DeleteEditLayers );
                 }
                 ImGui::SameLine( 0.0, 8.0 );
                 if( ImGui::Button( "Cancel", glm::vec2( width, 0.0 ) ) )

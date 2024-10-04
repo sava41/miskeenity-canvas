@@ -27,7 +27,8 @@ namespace mc
         MergeEditLayers,
         ResetEditLayers,
         AddMergedLayer,
-        MergeAndRasterize
+        MergeAndRasterize,
+        DeleteEditLayers
     };
 
     void submitEvent( const Events& event, void* userData = nullptr );

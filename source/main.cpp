@@ -258,6 +258,7 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         break;
     case mc::Events::ModeChanged:
         app->layerEditStart = app->layers.length();
+        app->editBackup     = app->layers.createShrunkCopy();
         if( mc::getAppMode() == mc::Mode::Crop )
         {
             int index          = app->layers.getSingleSelectedImage();
@@ -278,7 +279,7 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
             // probably should add some ui to tell the user how many layers are being used
             if( !app->layers.add( newLayer, app->layers.getTexture( index ), app->layers.getMask( index ) ) )
             {
-                // add cancel logic here
+                submitEvent( mc::Events::ResetEditLayers );
             }
         }
         else
@@ -290,8 +291,12 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
     case mc::Events::MergeEditLayers:
         app->mergeTopLayers = true;
         break;
-    case mc::Events::ResetEditLayers:
+    case mc::Events::DeleteEditLayers:
         app->layers.removeTop( app->layerEditStart );
+        app->layersModified = true;
+        break;
+    case mc::Events::ResetEditLayers:
+        app->layers.copyContents( app->editBackup );
         app->layersModified = true;
         break;
     }
