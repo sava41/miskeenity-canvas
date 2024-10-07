@@ -24,6 +24,8 @@ namespace mc
 
         void init( const wgpu::Device& device );
         ResourceHandle add( void* imageBuffer, int width, int height, int channels, const wgpu::Device& device );
+
+        Texture get( const ResourceHandle& texHandle );
         bool bind( const ResourceHandle& texHandle, int bindGroupIndex, const wgpu::RenderPassEncoder& encoder );
 
       private:

@@ -19,6 +19,7 @@ namespace mc
         Undo,
         Redo,
         LoadImage,
+        SaveImageRequest,
         SaveImage,
         AppQuit,
         OpenGithub,

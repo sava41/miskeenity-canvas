@@ -1,6 +1,8 @@
 # Miskeenity Canvas
 
 Cross platform 2d infinite canvas app inspired by [dingboard.com](https://dingboard.com/).
+
+**Web version available to try here (chromium broswers only): https://sava41.github.io/miskeenity-canvas/**
 ![Miskeenity Canvas screenshot](./resources/images/miskeenity-canvas-screenshot.png)
 
 ## Requirements:
@@ -8,7 +10,7 @@ Cross platform 2d infinite canvas app inspired by [dingboard.com](https://dingbo
 - Python 3.8 or newer
 - cpp compiler
 
-## Build on Desktop:
+## Build for Desktop:
 
 ```bash
 > cmake -B build -DCMAKE_BUILD_TYPE=<type>
@@ -17,7 +19,7 @@ Cross platform 2d infinite canvas app inspired by [dingboard.com](https://dingbo
 
 currently there are issues building on macos
 
-## Build and Run WASM/HTML version via Emscripten (Linux, macOS)
+## Build WASM/HTML version via Emscripten (Linux, macOS)
 
 Setup the emscripten SDK as described here:
 
@@ -35,12 +37,9 @@ https://emscripten.org/docs/getting_started/downloads.html#installation-instruct
 > cmake --build embuild
 ```
 
-web version available to try here: https://sava41.github.io/miskeenity-canvas/
-
 ## Planned Features
-- canvas history (undo/redo)
 - layer masking
-- export/save
+- canvas history (undo/redo)
 - copy/paste
 - keyboard shortcuts
 

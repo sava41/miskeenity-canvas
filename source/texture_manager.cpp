@@ -110,14 +110,14 @@ namespace mc
         }
 
         wgpu::TextureDescriptor textureDesc;
-        textureDesc.dimension        = wgpu::TextureDimension::e2D;
+        textureDesc.dimension         = wgpu::TextureDimension::e2D;
         textureDesc.format            = channels == 1 ? wgpu::TextureFormat::R8Unorm : wgpu::TextureFormat::RGBA8Unorm;
-        textureDesc.size             = { (unsigned int)width, (unsigned int)height, 1 };
-        textureDesc.mipLevelCount    = 1;
-        textureDesc.sampleCount      = 1;
-        textureDesc.usage            = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
-        textureDesc.viewFormatCount  = 0;
-        textureDesc.viewFormats      = nullptr;
+        textureDesc.size              = { (unsigned int)width, (unsigned int)height, 1 };
+        textureDesc.mipLevelCount     = 1;
+        textureDesc.sampleCount       = 1;
+        textureDesc.usage             = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
+        textureDesc.viewFormatCount   = 0;
+        textureDesc.viewFormats       = nullptr;
         m_array[textureIndex].texture = device.CreateTexture( &textureDesc );
 
         wgpu::TextureViewDescriptor textureViewDesc;
@@ -145,9 +145,22 @@ namespace mc
 
         m_array[textureIndex].bindGroup = device.CreateBindGroup( &mainBindGroupDesc );
 
-        uploadTexture( device.GetQueue(), m_array[textureIndex].texture, imageBuffer, width, height, channels );
+        if( ( imageBuffer != nullptr ) )
+        {
+            uploadTexture( device.GetQueue(), m_array[textureIndex].texture, imageBuffer, width, height, channels );
+        }
 
         return getHandle( textureIndex );
+    }
+
+    Texture TextureManager::get( const ResourceHandle& texHandle )
+    {
+        if( !texHandle.valid() )
+        {
+            return {};
+        }
+
+        return m_array[texHandle.resourceIndex()];
     }
 
     bool TextureManager::bind( const ResourceHandle& texHandle, int bindGroupIndex, const wgpu::RenderPassEncoder& encoder )

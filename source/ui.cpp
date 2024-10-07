@@ -355,9 +355,10 @@ namespace mc
 
             if( ImGui::Button( ICON_LC_IMAGE_DOWN, buttonSize ) )
             {
+                submitEvent( Events::SaveImageRequest );
             }
             if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
-                ImGui::SetItemTooltip( "TODO: Save Image" );
+                ImGui::SetItemTooltip( "Save Image" );
             ImGui::PopStyleColor( 1 );
             ImGui::PopStyleVar( 1 );
 

@@ -27,6 +27,13 @@ namespace mc
         None        = 3
     };
 
+    enum class ViewType : uint32_t
+    {
+        Canvas,
+        CaptureTarget,
+        SelectionRasterTarget
+    };
+
     enum class CursorDragType
     {
         None,
@@ -47,12 +54,13 @@ namespace mc
         glm::vec2 mousePos            = glm::vec2( 0.0 );
         glm::vec2 mouseSelectPos      = glm::vec2( 0.0 );
         SelectDispatch selectDispatch = SelectDispatch::None;
+        ViewType viewType             = ViewType::Canvas;
         uint32_t width;
         uint32_t height;
         float scale        = 1.0;
         uint32_t numLayers = 0;
 
-        float _pad[5];
+        float _pad[4];
     };
 #pragma pack( pop )
     // Have the compiler check byte alignment
@@ -83,6 +91,7 @@ namespace mc
         wgpu::Buffer meshBuf;
         wgpu::Buffer vertexBuf;
         wgpu::Buffer vertexCopyBuf;
+        wgpu::Buffer textureMapBuffer;
         wgpu::Buffer layerBuf;
         wgpu::Buffer viewParamBuf;
         wgpu::Buffer selectionBuf;
@@ -102,6 +111,7 @@ namespace mc
         bool appQuit                   = false;
         bool resetSurface              = false;
         bool updateUIStyles            = false;
+        bool saveImage                 = false;
         unsigned long resetSurfaceTime = 0;
 
         Selection* selectionData = nullptr;
