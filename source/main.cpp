@@ -116,19 +116,10 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         break;
     case mc::Events::SaveImageRequest:
         app->saveImage = true;
+        break;
     case mc::Events::SaveImage:
-    {
-        const uint8_t* imageData = reinterpret_cast<const uint8_t*>( app->textureMapBuffer.GetConstMappedRange( 0, app->textureMapBuffer.GetSize() ) );
-
-        if( imageData == nullptr )
-        {
-            app->textureMapBuffer.Unmap();
-            return;
-        }
-
-        // save image code
-        SDL_Log( "image ready for saving" );
-    }
+        mc::saveImageFromFileDialog( app );
+        break;
     case mc::Events::OpenGithub:
         SDL_OpenURL( "https://github.com/sava41/miskeenity-canvas" );
         break;
@@ -782,13 +773,15 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
     if( app->saveImage )
     {
-        mc::ResourceHandle saveTexture = app->textureManager.add( nullptr, app->width, app->height, 4, app->device );
+        app->copyTextureHandle = std::make_unique<mc::ResourceHandle>(
+            app->textureManager.add( nullptr, app->width, app->height, 4, app->device,
+                                     wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::TextureBinding ) );
 
-        if( saveTexture.valid() )
+        if( app->copyTextureHandle->valid() )
         {
 
             wgpu::RenderPassEncoder outputRenderPassEnc =
-                mc::createRenderPassEncoder( encoder, app->textureManager.get( saveTexture ).textureView,
+                mc::createRenderPassEncoder( encoder, app->textureManager.get( *app->copyTextureHandle.get() ).textureView,
                                              wgpu::Color{ Spectrum::ColorR( Spectrum::Static::BONE ), Spectrum::ColorG( Spectrum::Static::BONE ),
                                                           Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f } );
 
@@ -811,24 +804,13 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
             outputRenderPassEnc.End();
 
-            // capture texture resource handle to prevent the texture from being deleted while this callback exists
-            std::function<void( wgpu::MapAsyncStatus status, const char* )> callback = [saveTexture]( wgpu::MapAsyncStatus status, const char* )
-            {
-                if( status == wgpu::MapAsyncStatus::Success )
-                {
-                    submitEvent( mc::Events::SaveImage );
-                }
-            };
-
             if( app->textureMapBuffer )
             {
                 app->textureMapBuffer.Destroy();
             }
 
-            app->textureMapBuffer = mc::downloadTexture( app->textureManager.get( saveTexture ).texture, callback, app->device, encoder );
+            app->textureMapBuffer = mc::downloadTexture( app->textureManager.get( *app->copyTextureHandle.get() ).texture, app->device, encoder );
         }
-
-        app->saveImage = false;
     }
 
     // We only want to recompute the selection array if a selection is requested and any
@@ -872,7 +854,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
                 submitEvent( mc::Events::ResetEditLayers );
             }
         };
-        app->vertexCopyBuf.MapAsync( wgpu::MapMode::Read, 0, app->newMeshSize, callback, &app->vertexCopyBuf );
+        app->vertexCopyBuf.MapAsync( wgpu::MapMode::Read, 0, app->newMeshSize, callback, nullptr );
 
         app->mergeTopLayers = false;
     }
@@ -886,10 +868,25 @@ SDL_AppResult SDL_AppIterate( void* appstate )
                 submitEvent( mc::Events::SelectionChanged );
             }
         };
-        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, app->layers.getTotalTriCount() * sizeof( mc::Selection ), callback, &app->selectionMapBuf );
+        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, app->layers.getTotalTriCount() * sizeof( mc::Selection ), callback, nullptr );
 
         app->selectionReady = false;
     }
+
+    if( app->saveImage && app->textureMapBuffer.GetMapState() == wgpu::BufferMapState::Unmapped )
+    {
+        wgpu::BufferMapCallback callback = []( WGPUBufferMapAsyncStatus status, void* userData )
+        {
+            if( status == WGPUBufferMapAsyncStatus_Success )
+            {
+                submitEvent( mc::Events::SaveImage );
+            }
+        };
+        app->textureMapBuffer.MapAsync( wgpu::MapMode::Read, 0, app->textureMapBuffer.GetSize(), callback, nullptr );
+
+        app->saveImage = false;
+    }
+
 
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )
     app->surface.Present();

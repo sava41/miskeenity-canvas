@@ -24,6 +24,7 @@ struct Uniforms {
     mousePos: vec2<f32>,
     mouseSelectPos: vec2<f32>,
     selectType: u32,
+    viewType: u32,
     windowWidth: u32,
     windowHeight: u32,
     scale: f32,

@@ -128,6 +128,8 @@ namespace mc
         // in the future this will be part of the undo stack
         LayerManager editBackup = LayerManager( 0 );
 
+        std::unique_ptr<mc::ResourceHandle> copyTextureHandle;
+
         LayerManager layers           = LayerManager( NumLayers );
         TextureManager textureManager = TextureManager( 100 );
         MeshManager meshManager       = MeshManager( MaxMeshBufferTriangles );

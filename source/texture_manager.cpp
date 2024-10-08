@@ -82,7 +82,7 @@ namespace mc
         uploadTexture( device.GetQueue(), m_defaultTexture, &white, 1, 1, 4 );
     };
 
-    ResourceHandle TextureManager::add( void* imageBuffer, int width, int height, int channels, const wgpu::Device& device )
+    ResourceHandle TextureManager::add( void* imageBuffer, int width, int height, int channels, const wgpu::Device& device, const wgpu::TextureUsage& usage )
     {
         if( !m_defaultBindGroup )
         {
@@ -115,7 +115,7 @@ namespace mc
         textureDesc.size              = { (unsigned int)width, (unsigned int)height, 1 };
         textureDesc.mipLevelCount     = 1;
         textureDesc.sampleCount       = 1;
-        textureDesc.usage             = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
+        textureDesc.usage             = usage;
         textureDesc.viewFormatCount   = 0;
         textureDesc.viewFormats       = nullptr;
         m_array[textureIndex].texture = device.CreateTexture( &textureDesc );

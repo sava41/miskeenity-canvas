@@ -68,7 +68,7 @@ namespace mc
         app->surface.GetCapabilities( app->adapter, &capabilities );
         app->colorFormat = capabilities.formats[0];
 #else
-        app->colorFormat = wgpu::TextureFormat::BGRA8Unorm;
+        app->colorFormat = wgpu::TextureFormat::RGBA8Unorm;
 #endif
         return true;
     }
@@ -444,15 +444,17 @@ namespace mc
         queue.WriteTexture( &imageCopyTexture, data, width * height * channels, &textureDataLayout, &writeSize );
     }
 
-    wgpu::Buffer downloadTexture( const wgpu::Texture& texture, std::function<void( wgpu::MapAsyncStatus status, const char* )>& callback,
-                                  const wgpu::Device& device, const wgpu::CommandEncoder& encoder )
+    wgpu::Buffer downloadTexture( const wgpu::Texture& texture, const wgpu::Device& device, const wgpu::CommandEncoder& encoder )
     {
         if( texture.GetFormat() != wgpu::TextureFormat::RGBA8Unorm )
         {
             return {};
         }
 
-        size_t textureSize = texture.GetWidth() * texture.GetHeight() * 4;
+        // we need a width thats a multiple of 256
+        size_t textureWidthPadded = ( texture.GetWidth() + 256 ) / 256 * 256;
+
+        size_t textureSize = textureWidthPadded * texture.GetHeight() * 4;
 
         wgpu::BufferDescriptor layerBufDesc;
         layerBufDesc.mappedAtCreation = false;
@@ -467,7 +469,9 @@ namespace mc
 
         wgpu::ImageCopyBuffer copyBufferDescriptor;
         copyBufferDescriptor.buffer              = copyBuffer;
-        copyBufferDescriptor.layout.bytesPerRow  = textureSize / texture.GetHeight();
+
+        // this needs to be multiple of 256
+        copyBufferDescriptor.layout.bytesPerRow  = textureWidthPadded * 4;
         copyBufferDescriptor.layout.rowsPerImage = texture.GetHeight();
 
         wgpu::Extent3D copySize;
@@ -475,8 +479,6 @@ namespace mc
         copySize.height = texture.GetHeight();
 
         encoder.CopyTextureToBuffer( &copyTextureDescritor, &copyBufferDescriptor, &copySize );
-
-        // copyBuffer.MapAsync( wgpu::MapMode::Read, 0, textureSize, wgpu::CallbackMode::AllowProcessEvents, callback );
 
         return std::move( copyBuffer );
     }

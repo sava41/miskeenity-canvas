@@ -1,4 +1,3 @@
-
 struct Uniforms {
     proj: mat4x4<f32>,
     canvasPos: vec2<f32>,
