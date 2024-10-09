@@ -29,9 +29,9 @@ namespace mc
 
     enum class ViewType : uint32_t
     {
-        Canvas,
-        CaptureTarget,
-        SelectionRasterTarget
+        Canvas                = 0,
+        CaptureTarget         = 1,
+        SelectionRasterTarget = 2
     };
 
     enum class CursorDragType

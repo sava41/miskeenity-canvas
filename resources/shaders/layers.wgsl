@@ -109,9 +109,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let sdfMask:  f32 = select(1.0, smoothstep(max(0.05, 0.5 - in.outlineValue - smoothing), 0.5 - in.outlineValue + smoothing, textureSample(mask, maskSampler, in.uv).r), bool(in.flags & (1 << 3)));
     let sdfOutlineColor: vec3<f32> = mix(in.outlineColor.rgb, in.color.rgb, smoothstep(0.5 - smoothing, 0.5 + smoothing, textureSample(mask, maskSampler, in.uv).r));
 
-    let selectColor: f32 = f32(((modf(in.position.x / f32(15.0) + f32(modf(in.position.y / f32(15.0)).whole % 2)).whole % 2) * 0.1 - 0.05) * f32(in.flags & 1));
+    let selectColor: f32 = f32(((modf(in.position.x / f32(15.0) + f32(modf(in.position.y / f32(15.0)).whole % 2)).whole % 2) * 0.1 - 0.05) * f32(in.flags & 1) * f32(uniforms.viewType == 0));
 
     let pillMask: f32 = select(1.0, smoothstep(0.0, 2.0 / (max(in.size.x, in.size.y) * uniforms.scale) , -udRoundedBox((in.uv - 0.5) * aspect, vec2<f32>(0.5) * aspect, 0.5f)), bool(in.flags & (1 << 4)));
 
-    return vec4<f32>(texColor.rgb * select(in.color.rgb, sdfOutlineColor, bool(in.flags & (1 << 3)) && in.outlineValue > 0.0) + vec3<f32>(selectColor), texColor.a * maskValue * sdfMask * pillMask * in.color.a);
+    let opacity: f32 = select(texColor.a * maskValue * sdfMask * pillMask * in.color.a, f32(in.flags & 1), bool(uniforms.viewType == 2));
+
+    return vec4<f32>(texColor.rgb * select(in.color.rgb, sdfOutlineColor, bool(in.flags & (1 << 3)) && in.outlineValue > 0.0) + vec3<f32>(selectColor), opacity);
 }

@@ -61,7 +61,10 @@ SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
         return SDL_Fail();
     }
 
-    mc::initDevice( app );
+    if( !mc::initDevice( app ) )
+    {
+        return SDL_Fail();
+    }
 
     // setup default meshes
     if( app->maxBufferSize < app->meshManager.maxLength() * sizeof( mc::Triangle ) )
@@ -779,6 +782,10 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
         if( app->copyTextureHandle->valid() )
         {
+            mc::Uniforms outputViewParams = app->viewParams;
+            outputViewParams.viewType     = mc::ViewType::CaptureTarget;
+
+            app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &outputViewParams, sizeof( mc::Uniforms ) );
 
             wgpu::RenderPassEncoder outputRenderPassEnc =
                 mc::createRenderPassEncoder( encoder, app->textureManager.get( *app->copyTextureHandle.get() ).textureView,
