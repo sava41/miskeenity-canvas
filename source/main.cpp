@@ -19,7 +19,6 @@
 #include "graphics.h"
 #include "image.h"
 #include "layer_manager.h"
-#include "layer_mesh_utils.h"
 #include "sdl_utils.h"
 #include "ui.h"
 #include "webgpu_surface.h"
@@ -62,7 +61,10 @@ SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
         return SDL_Fail();
     }
 
-    mc::initDevice( app );
+    if( !mc::initDevice( app ) )
+    {
+        return SDL_Fail();
+    }
 
     // setup default meshes
     if( app->maxBufferSize < app->meshManager.maxLength() * sizeof( mc::Triangle ) )
@@ -114,6 +116,12 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         break;
     case mc::Events::LoadImage:
         mc::loadImageFromFileDialog( app );
+        break;
+    case mc::Events::SaveImageRequest:
+        app->saveImage = true;
+        break;
+    case mc::Events::SaveImage:
+        mc::saveImageFromFileDialog( app );
         break;
     case mc::Events::OpenGithub:
         SDL_OpenURL( "https://github.com/sava41/miskeenity-canvas" );
@@ -738,42 +746,79 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     wgpu::SurfaceTexture surfaceTexture;
     app->surface.GetCurrentTexture( &surfaceTexture );
 
-    wgpu::RenderPassColorAttachment renderPassColorAttachment;
-    renderPassColorAttachment.view    = surfaceTexture.texture.CreateView();
-    renderPassColorAttachment.loadOp  = wgpu::LoadOp::Clear;
-    renderPassColorAttachment.storeOp = wgpu::StoreOp::Store;
-    renderPassColorAttachment.clearValue =
-        wgpu::Color{ Spectrum::ColorR( Spectrum::Static::BONE ), Spectrum::ColorG( Spectrum::Static::BONE ), Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f };
-
-
-    wgpu::RenderPassDescriptor renderPassDesc;
-    renderPassDesc.colorAttachmentCount = 1;
-    renderPassDesc.colorAttachments     = &renderPassColorAttachment;
-
-    wgpu::RenderPassEncoder renderPassEnc = encoder.BeginRenderPass( &renderPassDesc );
+    wgpu::RenderPassEncoder canvasRenderPassEnc =
+        mc::createRenderPassEncoder( encoder, surfaceTexture.texture.CreateView(),
+                                     wgpu::Color{ Spectrum::ColorR( Spectrum::Static::BONE ), Spectrum::ColorG( Spectrum::Static::BONE ),
+                                                  Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f } );
 
     if( app->layers.length() > 0 )
     {
-        renderPassEnc.SetPipeline( app->mainPipeline );
-        renderPassEnc.SetVertexBuffer( 0, app->vertexBuf );
-        renderPassEnc.SetVertexBuffer( 1, app->layerBuf );
-        renderPassEnc.SetBindGroup( 0, app->globalBindGroup );
+        canvasRenderPassEnc.SetPipeline( app->mainPipeline );
+        canvasRenderPassEnc.SetVertexBuffer( 0, app->vertexBuf );
+        canvasRenderPassEnc.SetVertexBuffer( 1, app->layerBuf );
+        canvasRenderPassEnc.SetBindGroup( 0, app->globalBindGroup );
 
         // webgpu doesnt have texture arrays or bindless textures so we cant use batch rendering
         // for now draw each layer with a seperate command
         int offset = 0;
         for( int i = 0; i < app->layers.length(); ++i )
         {
-            app->textureManager.bind( app->layers.getTexture( i ), 1, renderPassEnc );
-            app->textureManager.bind( app->layers.getMask( i ), 2, renderPassEnc );
-            renderPassEnc.Draw( app->layers.data()[i].vertexBuffLength * 3, 1, offset );
+            app->textureManager.bind( app->layers.getTexture( i ), 1, canvasRenderPassEnc );
+            app->textureManager.bind( app->layers.getMask( i ), 2, canvasRenderPassEnc );
+            canvasRenderPassEnc.Draw( app->layers.data()[i].vertexBuffLength * 3, 1, offset );
             offset += app->layers.data()[i].vertexBuffLength * 3;
         }
     }
 
-    mc::drawUI( app, renderPassEnc );
+    mc::drawUI( app, canvasRenderPassEnc );
 
-    renderPassEnc.End();
+    canvasRenderPassEnc.End();
+
+    if( app->saveImage )
+    {
+        app->copyTextureHandle = std::make_unique<mc::ResourceHandle>(
+            app->textureManager.add( nullptr, app->width, app->height, 4, app->device,
+                                     wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::TextureBinding ) );
+
+        if( app->copyTextureHandle->valid() )
+        {
+            mc::Uniforms outputViewParams = app->viewParams;
+            outputViewParams.viewType     = mc::ViewType::CaptureTarget;
+
+            app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &outputViewParams, sizeof( mc::Uniforms ) );
+
+            wgpu::RenderPassEncoder outputRenderPassEnc =
+                mc::createRenderPassEncoder( encoder, app->textureManager.get( *app->copyTextureHandle.get() ).textureView,
+                                             wgpu::Color{ Spectrum::ColorR( Spectrum::Static::BONE ), Spectrum::ColorG( Spectrum::Static::BONE ),
+                                                          Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f } );
+
+            if( app->layers.length() > 0 )
+            {
+                outputRenderPassEnc.SetPipeline( app->mainPipeline );
+                outputRenderPassEnc.SetVertexBuffer( 0, app->vertexBuf );
+                outputRenderPassEnc.SetVertexBuffer( 1, app->layerBuf );
+                outputRenderPassEnc.SetBindGroup( 0, app->globalBindGroup );
+
+                int offset = 0;
+                for( int i = 0; i < app->layers.length(); ++i )
+                {
+                    app->textureManager.bind( app->layers.getTexture( i ), 1, outputRenderPassEnc );
+                    app->textureManager.bind( app->layers.getMask( i ), 2, outputRenderPassEnc );
+                    outputRenderPassEnc.Draw( app->layers.data()[i].vertexBuffLength * 3, 1, offset );
+                    offset += app->layers.data()[i].vertexBuffLength * 3;
+                }
+            }
+
+            outputRenderPassEnc.End();
+
+            if( app->textureMapBuffer )
+            {
+                app->textureMapBuffer.Destroy();
+            }
+
+            app->textureMapBuffer = mc::downloadTexture( app->textureManager.get( *app->copyTextureHandle.get() ).texture, app->device, encoder );
+        }
+    }
 
     // We only want to recompute the selection array if a selection is requested and any
     // previously requested computations have completed aka selection ready
@@ -816,7 +861,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
                 submitEvent( mc::Events::ResetEditLayers );
             }
         };
-        app->vertexCopyBuf.MapAsync( wgpu::MapMode::Read, 0, app->newMeshSize, callback, &app->vertexCopyBuf );
+        app->vertexCopyBuf.MapAsync( wgpu::MapMode::Read, 0, app->newMeshSize, callback, nullptr );
 
         app->mergeTopLayers = false;
     }
@@ -830,10 +875,25 @@ SDL_AppResult SDL_AppIterate( void* appstate )
                 submitEvent( mc::Events::SelectionChanged );
             }
         };
-        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, app->layers.getTotalTriCount() * sizeof( mc::Selection ), callback, &app->selectionMapBuf );
+        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, app->layers.getTotalTriCount() * sizeof( mc::Selection ), callback, nullptr );
 
         app->selectionReady = false;
     }
+
+    if( app->saveImage && app->textureMapBuffer.GetMapState() == wgpu::BufferMapState::Unmapped )
+    {
+        wgpu::BufferMapCallback callback = []( WGPUBufferMapAsyncStatus status, void* userData )
+        {
+            if( status == WGPUBufferMapAsyncStatus_Success )
+            {
+                submitEvent( mc::Events::SaveImage );
+            }
+        };
+        app->textureMapBuffer.MapAsync( wgpu::MapMode::Read, 0, app->textureMapBuffer.GetSize(), callback, nullptr );
+
+        app->saveImage = false;
+    }
+
 
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )
     app->surface.Present();

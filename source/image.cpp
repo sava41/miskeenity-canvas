@@ -8,12 +8,15 @@
 #else
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_dialog.h>
+#include <SDL3/SDL_iostream.h>
 #endif
 
 #include <utility>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
 
 namespace mc
 {
@@ -86,10 +89,59 @@ namespace mc
 #endif
     }
 
-
     ImageData loadImageFromBuffer( const void* buffer, int len, int& width, int& height )
     {
         return std::move( ImageData( stbi_load_from_memory( static_cast<const unsigned char*>( buffer ), len, &width, &height, nullptr, 4 ),
                                      []( unsigned char* data ) { stbi_image_free( data ); } ) );
+    }
+
+    void saveImageFromFileDialog( AppContext* app )
+    {
+#if !defined( SDL_PLATFORM_EMSCRIPTEN )
+        static SDL_DialogFileFilter filters[] = { { "PNG (*.png)", "png" } };
+
+        SDL_ShowSaveFileDialog(
+            []( void* userdata, const char* const* filelist, int filter )
+            {
+                AppContext* app = reinterpret_cast<mc::AppContext*>( userdata );
+#endif
+        int width  = app->textureManager.get( *app->copyTextureHandle.get() ).texture.GetWidth();
+        int height = app->textureManager.get( *app->copyTextureHandle.get() ).texture.GetHeight();
+        app->copyTextureHandle.reset();
+
+        const uint8_t* imageData = reinterpret_cast<const uint8_t*>( app->textureMapBuffer.GetConstMappedRange( 0, app->textureMapBuffer.GetSize() ) );
+
+        if( imageData == nullptr )
+        {
+            app->textureMapBuffer.Unmap();
+            return;
+                }
+
+                // we need to find the stride since the buffer is padded to be a multiple of 256
+                size_t textureWidthPadded = ( width + 256 ) / 256 * 256;
+
+                int length;
+                ImageData data = ImageData( stbi_write_png_to_mem( imageData, textureWidthPadded * 4, width, height, 4, &length ),
+                                            []( unsigned char* data ) { STBIW_FREE( data ); } );
+
+                app->textureMapBuffer.Unmap();
+
+#if !defined( SDL_PLATFORM_EMSCRIPTEN )
+                if( filelist && filelist[0] )
+                {
+                    std::string filepath( filelist[0] );
+                    if( !filepath.ends_with( ".png" ) || !filepath.ends_with( ".PNG" ) )
+                    {
+                        filepath += ".png";
+                    }
+                    SDL_IOStream* file = SDL_IOFromFile( filepath.c_str(), "wb" );
+                    SDL_WriteIO( file, data.get(), length );
+                    SDL_CloseIO( file );
+                }
+            },
+            app, nullptr, filters, 1, nullptr );
+#else
+                emscripten_browser_file::download( "miskeen.png", "image/png", data.get(), length );
+#endif
     }
 } // namespace mc

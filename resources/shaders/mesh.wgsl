@@ -1,10 +1,10 @@
-
 struct Uniforms {
     proj: mat4x4<f32>,
     canvasPos: vec2<f32>,
     mousePos: vec2<f32>,
     mouseSelectPos: vec2<f32>,
     selectType: u32,
+    viewType: u32,
     windowWidth: u32,
     windowHeight: u32,
     scale: f32,

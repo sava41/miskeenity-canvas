@@ -23,7 +23,10 @@ namespace mc
         ~TextureManager();
 
         void init( const wgpu::Device& device );
-        ResourceHandle add( void* imageBuffer, int width, int height, int channels, const wgpu::Device& device );
+        ResourceHandle add( void* imageBuffer, int width, int height, int channels, const wgpu::Device& device,
+                            const wgpu::TextureUsage& usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst );
+
+        Texture get( const ResourceHandle& texHandle );
         bool bind( const ResourceHandle& texHandle, int bindGroupIndex, const wgpu::RenderPassEncoder& encoder );
 
       private:

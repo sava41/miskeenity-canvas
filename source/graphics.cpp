@@ -66,10 +66,24 @@ namespace mc
 #if defined( SDL_PLATFORM_EMSCRIPTEN )
         wgpu::SurfaceCapabilities capabilities;
         app->surface.GetCapabilities( app->adapter, &capabilities );
-        app->colorFormat = capabilities.formats[0];
-#else
-        app->colorFormat = wgpu::TextureFormat::BGRA8Unorm;
+
+        // our app for now only supports rgba8unorm rendering so make sure the device supports it
+        bool supported = false;
+        for( int i = 0; i < capabilities.formatCount; ++i )
+        {
+            if( capabilities.formats[i] == wgpu::TextureFormat::RGBA8Unorm )
+            {
+                supported = true;
+            }
+        }
+
+        if( !supported )
+        {
+            return false;
+        }
 #endif
+        app->colorFormat = wgpu::TextureFormat::RGBA8Unorm;
+
         return true;
     }
 
@@ -408,6 +422,21 @@ namespace mc
         return device.CreateBindGroupLayout( &groupLayoutDesc );
     }
 
+    wgpu::RenderPassEncoder createRenderPassEncoder( const wgpu::CommandEncoder& encoder, const wgpu::TextureView& renderTarget, const wgpu::Color& clearColor )
+    {
+        wgpu::RenderPassColorAttachment renderPassColorAttachment;
+        renderPassColorAttachment.view       = renderTarget;
+        renderPassColorAttachment.loadOp     = wgpu::LoadOp::Clear;
+        renderPassColorAttachment.storeOp    = wgpu::StoreOp::Store;
+        renderPassColorAttachment.clearValue = clearColor;
+
+        wgpu::RenderPassDescriptor renderPassDesc;
+        renderPassDesc.colorAttachmentCount = 1;
+        renderPassDesc.colorAttachments     = &renderPassColorAttachment;
+
+        return encoder.BeginRenderPass( &renderPassDesc );
+    }
+
     void uploadTexture( const wgpu::Queue& queue, const wgpu::Texture& texture, void* data, int width, int height, int channels )
     {
         wgpu::ImageCopyTexture imageCopyTexture;
@@ -427,6 +456,45 @@ namespace mc
         writeSize.depthOrArrayLayers = 1;
 
         queue.WriteTexture( &imageCopyTexture, data, width * height * channels, &textureDataLayout, &writeSize );
+    }
+
+    wgpu::Buffer downloadTexture( const wgpu::Texture& texture, const wgpu::Device& device, const wgpu::CommandEncoder& encoder )
+    {
+        if( texture.GetFormat() != wgpu::TextureFormat::RGBA8Unorm )
+        {
+            return {};
+        }
+
+        // we need a width thats a multiple of 256
+        size_t textureWidthPadded = ( texture.GetWidth() + 256 ) / 256 * 256;
+
+        size_t textureSize = textureWidthPadded * texture.GetHeight() * 4;
+
+        wgpu::BufferDescriptor layerBufDesc;
+        layerBufDesc.mappedAtCreation = false;
+        layerBufDesc.size             = textureSize;
+        layerBufDesc.usage            = wgpu::BufferUsage::MapRead | wgpu::BufferUsage::CopyDst;
+
+        wgpu::Buffer copyBuffer = device.CreateBuffer( &layerBufDesc );
+
+        wgpu::ImageCopyTexture copyTextureDescritor;
+        copyTextureDescritor.texture = texture;
+        copyTextureDescritor.origin  = { 0, 0 };
+
+        wgpu::ImageCopyBuffer copyBufferDescriptor;
+        copyBufferDescriptor.buffer              = copyBuffer;
+
+        // this needs to be multiple of 256
+        copyBufferDescriptor.layout.bytesPerRow  = textureWidthPadded * 4;
+        copyBufferDescriptor.layout.rowsPerImage = texture.GetHeight();
+
+        wgpu::Extent3D copySize;
+        copySize.width  = texture.GetWidth();
+        copySize.height = texture.GetHeight();
+
+        encoder.CopyTextureToBuffer( &copyTextureDescritor, &copyBufferDescriptor, &copySize );
+
+        return std::move( copyBuffer );
     }
 
     wgpu::Device requestDevice( const wgpu::Adapter& adapter, const wgpu::DeviceDescriptor* descriptor )
