@@ -42,6 +42,7 @@ https://emscripten.org/docs/getting_started/downloads.html#installation-instruct
 - canvas history (undo/redo)
 - copy/paste
 - keyboard shortcuts
+- Rendering imporvements (anti-aliasing, mip-maps, better font rendering)
 
 <p align="center">
 	<img src="resources/textures/miskeen_256.png" height="256" alt="Miskeenity Canvas Logo (bald man)">
