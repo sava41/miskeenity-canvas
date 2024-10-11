@@ -787,10 +787,13 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
             app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &outputViewParams, sizeof( mc::Uniforms ) );
 
+            wgpu::Color backgroundColor = mc::getSaveWithTransparency()
+                                              ? wgpu::Color{ 0.0, 0.0, 0.0, 0.0f }
+                                              : wgpu::Color{ Spectrum::ColorR( Spectrum::Static::BONE ), Spectrum::ColorG( Spectrum::Static::BONE ),
+                                                             Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f };
+
             wgpu::RenderPassEncoder outputRenderPassEnc =
-                mc::createRenderPassEncoder( encoder, app->textureManager.get( *app->copyTextureHandle.get() ).textureView,
-                                             wgpu::Color{ Spectrum::ColorR( Spectrum::Static::BONE ), Spectrum::ColorG( Spectrum::Static::BONE ),
-                                                          Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f } );
+                mc::createRenderPassEncoder( encoder, app->textureManager.get( *app->copyTextureHandle.get() ).textureView, backgroundColor );
 
             if( app->layers.length() > 0 )
             {

@@ -61,4 +61,6 @@ namespace mc
     float getInputTextOutline();
     FontManager::Alignment getInputTextAlignment();
     FontManager::Font getInputTextFont();
+
+    bool getSaveWithTransparency();
 } // namespace mc

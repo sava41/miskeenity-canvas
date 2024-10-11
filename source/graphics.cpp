@@ -128,13 +128,13 @@ namespace mc
         wgpu::ShaderModule shaderModule = app->device.CreateShaderModule( &shaderDesc );
 
         wgpu::BlendState blendState;
-        // Usual alpha blending for the color:
+
         blendState.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
         blendState.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
         blendState.color.operation = wgpu::BlendOperation::Add;
-        // We leave the target alpha untouched:
-        blendState.alpha.srcFactor = wgpu::BlendFactor::Zero;
-        blendState.alpha.dstFactor = wgpu::BlendFactor::One;
+
+        blendState.alpha.srcFactor = wgpu::BlendFactor::One;
+        blendState.alpha.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
         blendState.alpha.operation = wgpu::BlendOperation::Add;
 
         wgpu::ColorTargetState colorTarget;
@@ -482,7 +482,7 @@ namespace mc
         copyTextureDescritor.origin  = { 0, 0 };
 
         wgpu::ImageCopyBuffer copyBufferDescriptor;
-        copyBufferDescriptor.buffer              = copyBuffer;
+        copyBufferDescriptor.buffer = copyBuffer;
 
         // this needs to be multiple of 256
         copyBufferDescriptor.layout.bytesPerRow  = textureWidthPadded * 4;

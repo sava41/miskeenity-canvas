@@ -32,6 +32,8 @@ namespace mc
     FontManager::Font g_inputTextFont           = FontManager::Arial;
     bool g_setinputTextFocus                    = false;
 
+    bool g_saveWithTransparency = true;
+
     void changeMode( Mode newMode )
     {
         if( g_appMode != newMode )
@@ -355,12 +357,31 @@ namespace mc
 
             if( ImGui::Button( ICON_LC_IMAGE_DOWN, buttonSize ) )
             {
-                submitEvent( Events::SaveImageRequest );
+                ImGui::OpenPopup( "Saving" );
             }
+
             if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
                 ImGui::SetItemTooltip( "Save Image" );
             ImGui::PopStyleColor( 1 );
             ImGui::PopStyleVar( 1 );
+
+            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing * 3 + buttonSize.x, buttonSpacing * 2 + buttonSize.y + 5.0f ) );
+            if( ImGui::BeginPopup( "Saving" ) )
+            {
+
+                if( ImGui::MenuItem( "Save With Background" ) )
+                {
+                    g_saveWithTransparency = false;
+                    submitEvent( Events::SaveImageRequest );
+                }
+                if( ImGui::MenuItem( "Save With Transparency" ) )
+                {
+                    g_saveWithTransparency = true;
+                    submitEvent( Events::SaveImageRequest );
+                }
+
+                ImGui::EndPopup();
+            }
 
             ImGui::SetNextWindowPos( glm::vec2( buttonSpacing * 2, buttonSpacing * 2 + buttonSize.y + 5.0f ) );
             if( ImGui::BeginPopup( "Menu" ) )
@@ -945,5 +966,10 @@ namespace mc
     Mode getAppMode()
     {
         return g_appMode;
+    }
+
+    bool getSaveWithTransparency()
+    {
+        return g_saveWithTransparency;
     }
 } // namespace mc
