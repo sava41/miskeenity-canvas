@@ -19,6 +19,18 @@ namespace mc
     constexpr size_t MaxMeshBufferTriangles = std::numeric_limits<uint16_t>::max();
     constexpr size_t MaxMeshBufferSize      = MaxMeshBufferTriangles * sizeof( Triangle );
 
+    enum class Mode
+    {
+        Cursor,
+        Pan,
+        Paint,
+        Text,
+        Crop,
+        Cut,
+        SegmentCut,
+        Save
+    };
+
     enum class SelectDispatch : uint32_t
     {
         Box         = 0,
@@ -70,6 +82,8 @@ namespace mc
     struct AppContext
     {
         SDL_Window* window;
+
+        Mode mode = Mode::Cursor;
 
         int width;
         int height;
@@ -134,8 +148,9 @@ namespace mc
         TextureManager textureManager = TextureManager( 100 );
         MeshManager meshManager       = MeshManager( MaxMeshBufferTriangles );
         FontManager fontManager;
-        int layerEditStart = 0;
-        int newMeshSize    = 0;
+        int layerEditStart  = 0;
+        int mergeLayerStart = 0;
+        int newMeshSize     = 0;
     };
 
 } // namespace mc

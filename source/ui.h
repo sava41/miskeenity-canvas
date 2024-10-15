@@ -16,6 +16,8 @@ namespace mc
 {
     struct AppContext;
 
+    enum class Mode;
+
     enum class MouseLocationUI
     {
         None,
@@ -25,17 +27,6 @@ namespace mc
         ScaleHandleBR,
         ScaleHandleTR,
         ScaleHandleBL
-    };
-
-    enum class Mode
-    {
-        Cursor,
-        Pan,
-        Paint,
-        Text,
-        Crop,
-        Cut,
-        SegmentCut
     };
 
     constexpr float HandleHalfSize     = 7.0;
@@ -48,9 +39,9 @@ namespace mc
     void drawUI( const AppContext* app, const wgpu::RenderPassEncoder& renderPass );
     void processEventUI( const AppContext* app, const SDL_Event* event );
     void shutdownUI();
+    void changeModeUI( Mode newMode );
 
     MouseLocationUI getMouseLocationUI();
-    Mode getAppMode();
 
     glm::vec3 getPaintColor();
     float getPaintRadius();

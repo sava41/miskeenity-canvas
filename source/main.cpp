@@ -107,9 +107,11 @@ SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
     return SDL_APP_CONTINUE;
 }
 
-void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
+void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 {
-    switch( static_cast<mc::Events>( event->user.code ) )
+    const mc::Event* eventData = reinterpret_cast<const mc::Event*>( sdlEvent );
+
+    switch( static_cast<mc::Events>( sdlEvent->user.code ) )
     {
     case mc::Events::AppQuit:
         app->appQuit = true;
@@ -128,7 +130,6 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         break;
     case mc::Events::SelectionChanged:
     {
-
         const mc::Selection* selectionData =
             reinterpret_cast<const mc::Selection*>( app->selectionMapBuf.GetConstMappedRange( 0, app->layers.getTotalTriCount() * sizeof( mc::Selection ) ) );
 
@@ -215,18 +216,18 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         }
 
         // take the flags and textures from the first mesh in the merge
-        uint32_t flags   = app->layers.data()[app->layerEditStart].flags;
-        uint16_t texture = app->layers.data()[app->layerEditStart].texture;
-        uint16_t mask    = app->layers.data()[app->layerEditStart].mask;
-        uint32_t extra0  = app->layers.data()[app->layerEditStart].extra0;
-        uint32_t extra1  = app->layers.data()[app->layerEditStart].extra1;
-        uint32_t extra2  = app->layers.data()[app->layerEditStart].extra2;
-        uint32_t extra3  = app->layers.data()[app->layerEditStart].extra3;
+        uint32_t flags   = app->layers.data()[app->mergeLayerStart].flags;
+        uint16_t texture = app->layers.data()[app->mergeLayerStart].texture;
+        uint16_t mask    = app->layers.data()[app->mergeLayerStart].mask;
+        uint32_t extra0  = app->layers.data()[app->mergeLayerStart].extra0;
+        uint32_t extra1  = app->layers.data()[app->mergeLayerStart].extra1;
+        uint32_t extra2  = app->layers.data()[app->mergeLayerStart].extra2;
+        uint32_t extra3  = app->layers.data()[app->mergeLayerStart].extra3;
 
-        mc::ResourceHandle textureHandle = app->layers.getTexture( app->layerEditStart );
-        mc::ResourceHandle maskHandle    = app->layers.getMask( app->layerEditStart );
+        mc::ResourceHandle textureHandle = app->layers.getTexture( app->mergeLayerStart );
+        mc::ResourceHandle maskHandle    = app->layers.getMask( app->mergeLayerStart );
 
-        app->layers.removeTop( app->layerEditStart );
+        app->layers.removeTop( app->mergeLayerStart );
         app->layersModified = true;
 
         bool ret = app->meshManager.add( meshData, app->newMeshSize / sizeof( mc::Triangle ) );
@@ -242,6 +243,8 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         app->layers.add( { glm::vec2( 0.0 ), glm::vec2( 1.0, 0.0 ), glm::vec2( 0.0, 1.0 ), glm::u16vec2( 0 ), glm::u16vec2( mc::UV_MAX_VALUE ),
                            glm::u8vec4( 255 ), flags, meshInfo.start, meshInfo.length, texture, mask, extra0, extra1, extra2, extra3 },
                          std::move( textureHandle ), std::move( maskHandle ) );
+
+        app->layerEditStart = app->layers.length();
     }
     break;
     case mc::Events::FlipHorizontal:
@@ -264,10 +267,25 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         app->layers.removeSelection();
         app->layersModified = true;
         break;
-    case mc::Events::ModeChanged:
+    case mc::Events::ChangeMode:
+    {
+        mc::Mode newMode = eventData->data.mode;
+        if( newMode == app->mode )
+        {
+            return;
+        }
+
         app->layerEditStart = app->layers.length();
         app->editBackup     = app->layers.createShrunkCopy();
-        if( mc::getAppMode() == mc::Mode::Crop )
+
+        if( app->mergeTopLayers )
+        {
+            app->layerEditStart = app->mergeLayerStart;
+        }
+
+        app->mode = newMode;
+
+        if( app->mode == mc::Mode::Crop )
         {
             int index          = app->layers.getSingleSelectedImage();
             mc::Layer newLayer = app->layers.data()[index];
@@ -288,16 +306,21 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
             if( !app->layers.add( newLayer, app->layers.getTexture( index ), app->layers.getMask( index ) ) )
             {
                 submitEvent( mc::Events::ResetEditLayers );
+                app->mode = mc::Mode::Cursor;
             }
         }
         else
         {
             app->layers.clearSelection();
         }
+
         app->layersModified = true;
-        break;
+        mc::changeModeUI( app->mode );
+    }
+    break;
     case mc::Events::MergeEditLayers:
-        app->mergeTopLayers = true;
+        app->mergeLayerStart = app->layerEditStart;
+        app->mergeTopLayers  = true;
         break;
     case mc::Events::DeleteEditLayers:
         app->layers.removeTop( app->layerEditStart );
@@ -305,6 +328,7 @@ void proccessUserEvent( const SDL_Event* event, mc::AppContext* app )
         break;
     case mc::Events::ResetEditLayers:
         app->layers.copyContents( app->editBackup );
+        app->layerEditStart = app->layers.length();
         app->layersModified = true;
         break;
     }
@@ -346,7 +370,7 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
             app->mouseDown      = true;
             app->dragType       = mc::CursorDragType::None;
 
-            if( mc::getAppMode() == mc::Mode::Paint )
+            if( app->mode == mc::Mode::Paint )
             {
                 glm::vec2 basisA      = glm::vec2( 0.0, 2.0 ) * mc::getPaintRadius();
                 glm::vec2 basisB      = glm::vec2( 2.0, 0.0 ) * mc::getPaintRadius();
@@ -357,7 +381,7 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
                                    meshInfo.start, meshInfo.length } );
                 app->layersModified = true;
             }
-            else if( mc::getAppMode() == mc::Mode::Cursor )
+            else if( app->mode == mc::Mode::Cursor )
             {
                 mc::MouseLocationUI mouseLocation = mc::getMouseLocationUI();
 
@@ -391,7 +415,7 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
                     app->dragType = mc::CursorDragType::Select;
                 }
             }
-            else if( mc::getAppMode() == mc::Mode::Crop )
+            else if( app->mode == mc::Mode::Crop )
             {
                 mc::MouseLocationUI mouseLocation = mc::getMouseLocationUI();
 
@@ -417,7 +441,7 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
     case SDL_EVENT_MOUSE_BUTTON_UP:
 
         // click selection if the mouse hasnt moved since mouse down
-        if( app->mouseWindowPos == app->mouseDragStart && mc::getAppMode() == mc::Mode::Cursor )
+        if( app->mouseWindowPos == app->mouseDragStart && app->mode == mc::Mode::Cursor )
         {
             app->viewParams.selectDispatch = mc::SelectDispatch::Point;
         }
@@ -432,7 +456,7 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
         app->mouseWindowPos = glm::vec2( event->motion.x, event->motion.y );
         app->mouseDelta += glm::vec2( event->motion.xrel, event->motion.yrel );
 
-        if( app->mouseDown && mc::getMouseLocationUI() != mc::MouseLocationUI::Window && mc::getAppMode() == mc::Mode::Pan )
+        if( app->mouseDown && mc::getMouseLocationUI() != mc::MouseLocationUI::Window && app->mode == mc::Mode::Pan )
         {
             app->updateView = true;
         }
@@ -483,7 +507,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     }
 
     // Update canvas offset
-    if( app->mouseDelta.length() > 0.0 && app->mouseDown && app->updateView && mc::getAppMode() == mc::Mode::Pan )
+    if( app->mouseDelta.length() > 0.0 && app->mouseDown && app->updateView && app->mode == mc::Mode::Pan )
     {
         app->viewParams.canvasPos += app->mouseDelta;
     }
@@ -519,7 +543,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         app->updateView = false;
     }
 
-    if( mc::getAppMode() == mc::Mode::Cursor && app->mouseDown && app->dragType != mc::CursorDragType::None && app->mouseDelta != glm::vec2( 0.0 ) )
+    if( app->mode == mc::Mode::Cursor && app->mouseDown && app->dragType != mc::CursorDragType::None && app->mouseDelta != glm::vec2( 0.0 ) )
     {
         switch( app->dragType )
         {
@@ -573,7 +597,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         }
     }
 
-    if( mc::getAppMode() == mc::Mode::Crop && app->mouseDown && app->dragType != mc::CursorDragType::None && app->mouseDelta != glm::vec2( 0.0 ) )
+    if( app->mode == mc::Mode::Crop && app->mouseDown && app->dragType != mc::CursorDragType::None && app->mouseDelta != glm::vec2( 0.0 ) )
     {
         // this might be easier to do if we construct the layer transform and inverse transform matricies but whatever
 
@@ -666,7 +690,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     }
 
 
-    if( mc::getAppMode() == mc::Mode::Paint && app->mouseDown && app->mouseDelta != glm::vec2( 0.0 ) )
+    if( app->mode == mc::Mode::Paint && app->mouseDown && app->mouseDelta != glm::vec2( 0.0 ) )
     {
         glm::vec2 basisA      = app->mouseDelta / app->viewParams.scale + 2.0f * glm::normalize( app->mouseDelta ) * mc::getPaintRadius();
         glm::vec2 basisB      = 2.0f * glm::normalize( glm::vec2( app->mouseDelta.y, -app->mouseDelta.x ) ) * mc::getPaintRadius();
@@ -677,7 +701,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
                            glm::u16vec2( mc::UV_MAX_VALUE ), color, mc::HasPillAlphaTex, meshInfo.start, meshInfo.length } );
         app->layersModified = true;
     }
-    else if( mc::getAppMode() == mc::Mode::Text )
+    else if( app->mode == mc::Mode::Text && !app->mergeTopLayers )
     {
         app->layers.removeTop( app->layerEditStart );
 
@@ -722,7 +746,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         app->newMeshSize  = 0;
         for( int i = 0; i < app->layers.length(); ++i )
         {
-            if( i < app->layerEditStart )
+            if( i < app->mergeLayerStart )
             {
                 newMeshOffset += app->layers.data()[i].vertexBuffLength * sizeof( mc::Triangle );
             }

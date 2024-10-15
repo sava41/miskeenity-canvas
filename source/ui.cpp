@@ -15,7 +15,6 @@
 namespace mc
 {
     // Just a few global variables for the ui ;)
-    Mode g_appMode;
     MouseLocationUI g_mouseLocationUI;
     float g_uiScale  = 1.0;
     bool g_showAbout = false;
@@ -34,29 +33,18 @@ namespace mc
 
     bool g_saveWithTransparency = true;
 
-    void changeMode( Mode newMode )
+    void changeModeUI( Mode newMode )
     {
-        if( g_appMode != newMode )
+        // reset some things when the mode changes
+        g_inputTextString       = "";
+        g_inputTextColor        = glm::vec3( 0.0, 0.0, 0.0 );
+        g_inputTextOutline      = 0.0;
+        g_inputTextOutlineColor = glm::vec3( 1.0, 1.0, 1.0 );
+
+        if( newMode == Mode::Text )
         {
-            // reset some things when the mode changes
-            g_inputTextString       = "";
-            g_inputTextColor        = glm::vec3( 0.0, 0.0, 0.0 );
-            g_inputTextOutline      = 0.0;
-            g_inputTextOutlineColor = glm::vec3( 1.0, 1.0, 1.0 );
-
-            if( newMode == Mode::Text )
-            {
-                ImGui::SetWindowFocus( "Text Settings" );
-                g_setinputTextFocus = true;
-            }
-
-            if( g_appMode == Mode::Paint || g_appMode == Mode::Text || g_appMode == Mode::Crop || g_appMode == Mode::Cut || g_appMode == Mode::SegmentCut )
-            {
-                submitEvent( Events::ResetEditLayers );
-            }
-
-            g_appMode = newMode;
-            submitEvent( Events::ModeChanged );
+            ImGui::SetWindowFocus( "Text Settings" );
+            g_setinputTextFocus = true;
         }
     }
 
@@ -372,11 +360,13 @@ namespace mc
                 if( ImGui::MenuItem( "Save With Background" ) )
                 {
                     g_saveWithTransparency = false;
+                    // submitEvent( Events::ChangeMode, { .mode = Mode::Save } );
                     submitEvent( Events::SaveImageRequest );
                 }
                 if( ImGui::MenuItem( "Save With Transparency" ) )
                 {
                     g_saveWithTransparency = true;
+                    // submitEvent( Events::ChangeMode, { .mode = Mode::Save } );
                     submitEvent( Events::SaveImageRequest );
                 }
 
@@ -458,7 +448,7 @@ namespace mc
             {
                 ImGui::SameLine( 0.0, buttonSpacing );
                 ImVec4 color = ImGui::GetStyle().Colors[ImGuiCol_Button];
-                if( g_appMode == modes[i] )
+                if( app->mode == modes[i] )
                 {
                     color = ImGui::ColorConvertU32ToFloat4( Spectrum::PURPLE400 );
                 }
@@ -466,7 +456,17 @@ namespace mc
                 ImGui::PushStyleColor( ImGuiCol_Button, color );
                 if( ImGui::Button( tools[i].c_str(), buttonSize ) )
                 {
-                    changeMode( modes[i] );
+                    if( app->mode == Mode::Crop )
+                    {
+                        submitEvent( Events::DeleteEditLayers );
+                    }
+
+                    if( app->mode == Mode::Paint || app->mode == Mode::Text )
+                    {
+                        submitEvent( Events::MergeEditLayers );
+                    }
+
+                    submitEvent( Events::ChangeMode, { .mode = modes[i] } );
                 }
                 ImGui::PopStyleColor( 1 );
                 if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
@@ -477,7 +477,7 @@ namespace mc
         }
         ImGui::End();
 
-        if( app->layers.numSelected() > 0 && g_appMode == Mode::Cursor )
+        if( app->layers.numSelected() > 0 && app->mode == Mode::Cursor )
         {
             ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
             ImGui::Begin( "Context Bar", nullptr,
@@ -518,7 +518,7 @@ namespace mc
                     for( size_t i = 0; i < imageTools.size(); i++ )
                     {
                         ImVec4 color = ImGui::GetStyle().Colors[ImGuiCol_Button];
-                        if( g_appMode == imageToolModes[i] )
+                        if( app->mode == imageToolModes[i] )
                         {
                             color = ImGui::ColorConvertU32ToFloat4( Spectrum::PURPLE400 );
                         }
@@ -526,7 +526,7 @@ namespace mc
                         ImGui::PushStyleColor( ImGuiCol_Button, color );
                         if( ImGui::Button( imageTools[i].c_str(), buttonSize ) )
                         {
-                            changeMode( imageToolModes[i] );
+                            submitEvent( Events::ChangeMode, { .mode = imageToolModes[i] } );
                         }
                         if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
                             ImGui::SetItemTooltip( imageTooltips[i].c_str() );
@@ -600,7 +600,7 @@ namespace mc
             ImGui::OpenPopup( "Help" );
         }
 
-        if( g_appMode == mc::Mode::Paint )
+        if( app->mode == mc::Mode::Paint )
         {
             ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 180 * g_uiScale - buttonSpacing ), ImGuiCond_FirstUseEver );
             ImGui::SetNextWindowSize( glm::vec2( 350.0, 180.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
@@ -620,19 +620,19 @@ namespace mc
                 float width = ( ImGui::GetContentRegionAvail().x - 8 ) * 0.5;
                 if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
                 {
-                    g_appMode = Mode::Cursor;
                     submitEvent( Events::MergeEditLayers );
+                    submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
                 ImGui::SameLine( 0.0, 8.0 );
                 if( ImGui::Button( "Cancel", glm::vec2( width, 0.0 ) ) )
                 {
-                    g_appMode = Mode::Cursor;
                     submitEvent( Events::ResetEditLayers );
+                    submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
             }
             ImGui::End();
         }
-        else if( g_appMode == mc::Mode::Text )
+        else if( app->mode == mc::Mode::Text )
         {
             ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 435 * g_uiScale - buttonSpacing ), ImGuiCond_FirstUseEver );
             ImGui::SetNextWindowSize( glm::vec2( 350.0, 435.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
@@ -711,19 +711,19 @@ namespace mc
                 width = ( ImGui::GetContentRegionAvail().x - 8 ) / 2.0;
                 if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
                 {
-                    g_appMode = Mode::Cursor;
                     submitEvent( Events::MergeEditLayers );
+                    submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
                 ImGui::SameLine( 0.0, 8.0 );
                 if( ImGui::Button( "Cancel", glm::vec2( width, 0.0 ) ) )
                 {
-                    g_appMode = Mode::Cursor;
                     submitEvent( Events::ResetEditLayers );
+                    submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
             }
             ImGui::End();
         }
-        else if( g_appMode == mc::Mode::Crop )
+        else if( app->mode == mc::Mode::Crop )
         {
             ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 100.0 * g_uiScale - buttonSpacing ), ImGuiCond_FirstUseEver );
             ImGui::SetNextWindowSize( glm::vec2( 350.0, 100.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
@@ -733,14 +733,14 @@ namespace mc
                 float width = ( ImGui::GetContentRegionAvail().x - 8 ) * 0.5;
                 if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
                 {
-                    g_appMode = Mode::Cursor;
-                    submitEvent( mc::Events::DeleteEditLayers );
+                    submitEvent( Events::DeleteEditLayers );
+                    submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
                 ImGui::SameLine( 0.0, 8.0 );
                 if( ImGui::Button( "Cancel", glm::vec2( width, 0.0 ) ) )
                 {
-                    g_appMode = Mode::Cursor;
                     submitEvent( Events::ResetEditLayers );
+                    submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
             }
             ImGui::End();
@@ -748,13 +748,13 @@ namespace mc
 
         ImDrawList* drawList = ImGui::GetBackgroundDrawList();
         // draw selection box
-        if( g_appMode == Mode::Cursor && app->dragType == CursorDragType::Select && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
+        if( app->mode == Mode::Cursor && app->dragType == CursorDragType::Select && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
         {
             drawList->AddRect( app->mouseDragStart, app->mouseWindowPos, Spectrum::PURPLE500 );
             drawList->AddRectFilled( app->mouseDragStart, app->mouseWindowPos, Spectrum::PURPLE700 & 0x00FFFFFF | 0x33000000 );
         }
 
-        if( g_appMode == Mode::Crop )
+        if( app->mode == Mode::Crop )
         {
             int imageSelection = app->layers.getSingleSelectedImage();
 
@@ -830,7 +830,7 @@ namespace mc
             drawList->AddCircleFilled( cornerTL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
         }
 
-        if( app->layers.numSelected() > 0 && app->dragType == CursorDragType::Select && g_appMode == Mode::Cursor )
+        if( app->layers.numSelected() > 0 && app->dragType == CursorDragType::Select && app->mode == Mode::Cursor )
         {
             glm::vec2 cornerTL = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
             glm::vec2 cornerBR = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
@@ -896,7 +896,7 @@ namespace mc
             drawList->AddCircleFilled( cornerTL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
         }
 
-        if( g_appMode == Mode::Paint && g_mouseLocationUI == mc::MouseLocationUI::None )
+        if( app->mode == Mode::Paint && g_mouseLocationUI == mc::MouseLocationUI::None )
         {
             drawList->AddCircle( app->mouseWindowPos, g_paintRadius * app->viewParams.scale, Spectrum::PURPLE400, 600, ceilf( g_uiScale ) );
         }
@@ -963,10 +963,10 @@ namespace mc
         return g_inputTextFont;
     }
 
-    Mode getAppMode()
-    {
-        return g_appMode;
-    }
+    // Mode getAppMode()
+    // {
+    //     return app->mode;
+    // }
 
     bool getSaveWithTransparency()
     {

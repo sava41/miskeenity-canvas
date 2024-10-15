@@ -6,13 +6,17 @@
 namespace mc
 {
 
-    void submitEvent( const Events& event, void* userData )
+    void submitEvent( const Events& event, const EventData& data )
     {
-        SDL_Event user_event;
-        user_event.type       = SDL_EVENT_USER;
-        user_event.user.code  = static_cast<int>( event );
-        user_event.user.data1 = userData;
+        SDL_Event sdlEvent;
+        sdlEvent.type      = SDL_EVENT_USER;
+        sdlEvent.user.code = static_cast<int>( event );
 
-        SDL_PushEvent( &user_event );
+        Event* eventData = reinterpret_cast<Event*>( &sdlEvent );
+        eventData->data  = data;
+
+        SDL_PushEvent( &sdlEvent );
     }
+
+
 } // namespace mc

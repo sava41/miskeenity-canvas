@@ -1,7 +1,24 @@
 #pragma once
 
+#include "app.h"
+
+#include <SDL3/SDL_events.h>
+
 namespace mc
 {
+    struct EventData
+    {
+        Mode mode;
+    };
+
+    // use extra space in SDL_Event union to store our own data
+    struct Event
+    {
+        SDL_UserEvent sdlUserEvent;
+
+        EventData data;
+    };
+    static_assert( sizeof( Event ) <= sizeof( SDL_Event ) );
 
     enum class Events
     {
@@ -23,7 +40,7 @@ namespace mc
         SaveImage,
         AppQuit,
         OpenGithub,
-        ModeChanged,
+        ChangeMode,
         StartCrop,
         MergeEditLayers,
         ResetEditLayers,
@@ -32,6 +49,6 @@ namespace mc
         DeleteEditLayers
     };
 
-    void submitEvent( const Events& event, void* userData = nullptr );
+    void submitEvent( const Events& event, const EventData& data = {} );
 
 } // namespace mc
