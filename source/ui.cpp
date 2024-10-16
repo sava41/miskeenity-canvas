@@ -48,6 +48,19 @@ namespace mc
         }
     }
 
+    void acceptEditModeChanges( Mode currentMode )
+    {
+        if( currentMode == Mode::Crop )
+        {
+            submitEvent( Events::DeleteEditLayers );
+        }
+
+        if( currentMode == Mode::Paint || currentMode == Mode::Text )
+        {
+            submitEvent( Events::MergeEditLayers );
+        }
+    }
+
     void setColorsUI()
     {
         ImGuiStyle& style = ImGui::GetStyle();
@@ -326,156 +339,163 @@ namespace mc
         const glm::vec2 buttonSize = glm::vec2( 50 ) * g_uiScale;
         const float buttonSpacing  = 10.0 * g_uiScale;
 
-        ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
-        ImGui::Begin( "Menu Bar", nullptr,
-                      ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
-        ImGui::PopStyleVar( 1 );
+        if( app->mode != Mode::Save )
         {
-            ImGui::SetWindowPos( glm::vec2( buttonSpacing * 2 ) );
-            ImGui::SetWindowSize( glm::vec2( buttonSize.x * 2 + buttonSpacing * 1, buttonSize.y ) );
 
-            ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
-            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
-            if( ImGui::Button( ICON_LC_INFO, buttonSize ) )
-            {
-                ImGui::OpenPopup( "Menu" );
-            }
-
-            ImGui::SameLine( 0.0, buttonSpacing );
-
-            if( ImGui::Button( ICON_LC_IMAGE_DOWN, buttonSize ) )
-            {
-                ImGui::OpenPopup( "Saving" );
-            }
-
-            if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
-                ImGui::SetItemTooltip( "Save Image" );
-            ImGui::PopStyleColor( 1 );
+            ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
+            ImGui::Begin( "Menu Bar", nullptr,
+                          ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
             ImGui::PopStyleVar( 1 );
-
-            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing * 3 + buttonSize.x, buttonSpacing * 2 + buttonSize.y + 5.0f ) );
-            if( ImGui::BeginPopup( "Saving" ) )
             {
+                ImGui::SetWindowPos( glm::vec2( buttonSpacing * 2 ) );
+                ImGui::SetWindowSize( glm::vec2( buttonSize.x * 2 + buttonSpacing * 1, buttonSize.y ) );
 
-                if( ImGui::MenuItem( "Save With Background" ) )
+                ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
+                ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
+                if( ImGui::Button( ICON_LC_INFO, buttonSize ) )
                 {
-                    g_saveWithTransparency = false;
-                    // submitEvent( Events::ChangeMode, { .mode = Mode::Save } );
-                    submitEvent( Events::SaveImageRequest );
-                }
-                if( ImGui::MenuItem( "Save With Transparency" ) )
-                {
-                    g_saveWithTransparency = true;
-                    // submitEvent( Events::ChangeMode, { .mode = Mode::Save } );
-                    submitEvent( Events::SaveImageRequest );
+                    ImGui::OpenPopup( "Menu" );
                 }
 
-                ImGui::EndPopup();
-            }
-
-            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing * 2, buttonSpacing * 2 + buttonSize.y + 5.0f ) );
-            if( ImGui::BeginPopup( "Menu" ) )
-            {
-
-                if( ImGui::MenuItem( "About" ) )
-                {
-                    g_showAbout = true;
-                }
-                if( ImGui::MenuItem( "Github" ) )
-                {
-                    submitEvent( Events::OpenGithub );
-                }
-                if( ImGui::MenuItem( "Help" ) )
-                {
-                    g_showHelp = true;
-                }
-
-                ImGui::EndPopup();
-            }
-        }
-        ImGui::End();
-
-        // ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
-        // ImGui::Begin( "Undo Redo", nullptr,
-        //               ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
-        // ImGui::PopStyleVar( 1 );
-        // {
-        //     ImGui::SetWindowPos( glm::vec2( ( app->width - ( buttonSize.x * 2 + buttonSpacing * 3 ) ), app->height - buttonSpacing * 2 - buttonSize.y ) );
-        //     ImGui::SetWindowSize( glm::vec2( buttonSize.x * 2 + buttonSpacing * 1, buttonSize.y ) );
-
-        //     ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
-        //     ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
-        //     if( ImGui::Button( ICON_LC_UNDO, buttonSize ) )
-        //     {
-        //     }
-
-        //     ImGui::SameLine( 0.0, buttonSpacing );
-
-        //     if( ImGui::Button( ICON_LC_REDO, buttonSize ) )
-        //     {
-        //     }
-
-        //     ImGui::PopStyleColor( 1 );
-        //     ImGui::PopStyleVar( 1 );
-        // }
-        // ImGui::End();
-
-        ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
-        ImGui::Begin( "Toolbox", nullptr,
-                      ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
-        ImGui::PopStyleVar( 1 );
-        {
-            ImGui::SetWindowPos( glm::vec2( ( app->width - ( buttonSize.x * 5 + buttonSpacing * 4 ) ) * 0.5, app->height - buttonSpacing * 2 - buttonSize.y ) );
-            ImGui::SetWindowSize( glm::vec2( buttonSize.x * 5 + buttonSpacing * 4, buttonSize.y ) );
-
-            ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
-            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
-            ImGui::PushID( "Upload Image Button" );
-            if( ImGui::Button( ICON_LC_IMAGE_UP, buttonSize ) )
-            {
-                submitEvent( Events::LoadImage );
-            }
-            if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
-                ImGui::SetItemTooltip( "Upload Image" );
-
-            ImGui::PopID();
-
-            std::array<std::string, 4> tools    = { ICON_LC_MOUSE_POINTER, ICON_LC_BRUSH, ICON_LC_TYPE, ICON_LC_HAND };
-            std::array<std::string, 4> tooltips = { "Select [S]", "Paint Brush [B]", "Add Text [T]", "Pan [P]" };
-            std::array<Mode, 4> modes           = { Mode::Cursor, Mode::Paint, Mode::Text, Mode::Pan };
-
-            for( size_t i = 0; i < tools.size(); i++ )
-            {
                 ImGui::SameLine( 0.0, buttonSpacing );
-                ImVec4 color = ImGui::GetStyle().Colors[ImGuiCol_Button];
-                if( app->mode == modes[i] )
+
+                if( ImGui::Button( ICON_LC_IMAGE_DOWN, buttonSize ) )
                 {
-                    color = ImGui::ColorConvertU32ToFloat4( Spectrum::PURPLE400 );
+                    ImGui::OpenPopup( "Saving" );
                 }
 
-                ImGui::PushStyleColor( ImGuiCol_Button, color );
-                if( ImGui::Button( tools[i].c_str(), buttonSize ) )
+                if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
+                    ImGui::SetItemTooltip( "Save Image" );
+                ImGui::PopStyleColor( 1 );
+                ImGui::PopStyleVar( 1 );
+
+                ImGui::SetNextWindowPos( glm::vec2( buttonSpacing * 3 + buttonSize.x, buttonSpacing * 2 + buttonSize.y + 5.0f ) );
+                if( ImGui::BeginPopup( "Saving" ) )
                 {
-                    if( app->mode == Mode::Crop )
+
+                    if( ImGui::MenuItem( "Save With Background" ) )
                     {
-                        submitEvent( Events::DeleteEditLayers );
+                        g_saveWithTransparency = false;
+
+                        acceptEditModeChanges( app->mode );
+
+                        submitEvent( Events::ChangeMode, { .mode = Mode::Save } );
+                    }
+                    if( ImGui::MenuItem( "Save With Transparency" ) )
+                    {
+                        g_saveWithTransparency = true;
+
+                        acceptEditModeChanges( app->mode );
+
+                        submitEvent( Events::ChangeMode, { .mode = Mode::Save } );
                     }
 
-                    if( app->mode == Mode::Paint || app->mode == Mode::Text )
+                    ImGui::EndPopup();
+                }
+
+                ImGui::SetNextWindowPos( glm::vec2( buttonSpacing * 2, buttonSpacing * 2 + buttonSize.y + 5.0f ) );
+                if( ImGui::BeginPopup( "Menu" ) )
+                {
+
+                    if( ImGui::MenuItem( "About" ) )
                     {
-                        submitEvent( Events::MergeEditLayers );
+                        g_showAbout = true;
+                    }
+                    if( ImGui::MenuItem( "Github" ) )
+                    {
+                        submitEvent( Events::OpenGithub );
+                    }
+                    if( ImGui::MenuItem( "Help" ) )
+                    {
+                        g_showHelp = true;
                     }
 
-                    submitEvent( Events::ChangeMode, { .mode = modes[i] } );
+                    ImGui::EndPopup();
+                }
+            }
+            ImGui::End();
+
+            // ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
+            // ImGui::Begin( "Undo Redo", nullptr,
+            //               ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
+            // ImGui::PopStyleVar( 1 );
+            // {
+            //     ImGui::SetWindowPos( glm::vec2( ( app->width - ( buttonSize.x * 2 + buttonSpacing * 3 ) ), app->height - buttonSpacing * 2 - buttonSize.y )
+            //     ); ImGui::SetWindowSize( glm::vec2( buttonSize.x * 2 + buttonSpacing * 1, buttonSize.y ) );
+
+            //     ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
+            //     ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
+            //     if( ImGui::Button( ICON_LC_UNDO, buttonSize ) )
+            //     {
+            //     }
+
+            //     ImGui::SameLine( 0.0, buttonSpacing );
+
+            //     if( ImGui::Button( ICON_LC_REDO, buttonSize ) )
+            //     {
+            //     }
+
+            //     ImGui::PopStyleColor( 1 );
+            //     ImGui::PopStyleVar( 1 );
+            // }
+            // ImGui::End();
+
+            ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
+            ImGui::Begin( "Toolbox", nullptr,
+                          ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
+            ImGui::PopStyleVar( 1 );
+            {
+                ImGui::SetWindowPos(
+                    glm::vec2( ( app->width - ( buttonSize.x * 5 + buttonSpacing * 4 ) ) * 0.5, app->height - buttonSpacing * 2 - buttonSize.y ) );
+                ImGui::SetWindowSize( glm::vec2( buttonSize.x * 5 + buttonSpacing * 4, buttonSize.y ) );
+
+                ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
+                ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
+                ImGui::PushID( "Upload Image Button" );
+                if( ImGui::Button( ICON_LC_IMAGE_UP, buttonSize ) )
+                {
+                    // if its currently in an edit mode, we treat it like pressing "accept"
+                    acceptEditModeChanges( app->mode );
+
+                    submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
+
+                    submitEvent( Events::LoadImage );
+                }
+                if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
+                    ImGui::SetItemTooltip( "Upload Image" );
+
+                ImGui::PopID();
+
+                std::array<std::string, 4> tools    = { ICON_LC_MOUSE_POINTER, ICON_LC_BRUSH, ICON_LC_TYPE, ICON_LC_HAND };
+                std::array<std::string, 4> tooltips = { "Select [S]", "Paint Brush [B]", "Add Text [T]", "Pan [P]" };
+                std::array<Mode, 4> modes           = { Mode::Cursor, Mode::Paint, Mode::Text, Mode::Pan };
+
+                for( size_t i = 0; i < tools.size(); i++ )
+                {
+                    ImGui::SameLine( 0.0, buttonSpacing );
+                    ImVec4 color = ImGui::GetStyle().Colors[ImGuiCol_Button];
+                    if( app->mode == modes[i] )
+                    {
+                        color = ImGui::ColorConvertU32ToFloat4( Spectrum::PURPLE400 );
+                    }
+
+                    ImGui::PushStyleColor( ImGuiCol_Button, color );
+                    if( ImGui::Button( tools[i].c_str(), buttonSize ) )
+                    {
+                        // if its currently in an edit mode, we treat it like pressing "accept"
+                        acceptEditModeChanges( app->mode );
+
+                        submitEvent( Events::ChangeMode, { .mode = modes[i] } );
+                    }
+                    ImGui::PopStyleColor( 1 );
+                    if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
+                        ImGui::SetItemTooltip( tooltips[i].c_str() );
                 }
                 ImGui::PopStyleColor( 1 );
-                if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
-                    ImGui::SetItemTooltip( tooltips[i].c_str() );
+                ImGui::PopStyleVar( 1 );
             }
-            ImGui::PopStyleColor( 1 );
-            ImGui::PopStyleVar( 1 );
+            ImGui::End();
         }
-        ImGui::End();
 
         if( app->layers.numSelected() > 0 && app->mode == Mode::Cursor )
         {
@@ -746,12 +766,48 @@ namespace mc
             ImGui::End();
         }
 
+
         ImDrawList* drawList = ImGui::GetBackgroundDrawList();
         // draw selection box
         if( app->mode == Mode::Cursor && app->dragType == CursorDragType::Select && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
         {
             drawList->AddRect( app->mouseDragStart, app->mouseWindowPos, Spectrum::PURPLE500 );
             drawList->AddRectFilled( app->mouseDragStart, app->mouseWindowPos, Spectrum::PURPLE700 & 0x00FFFFFF | 0x33000000 );
+        }
+
+        if( app->mode == mc::Mode::Save )
+        {
+            if( app->dragType == CursorDragType::Select && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
+            {
+                int selectMinX = std::min( app->mouseDragStart.x, app->mouseWindowPos.x );
+                int selectMinY = std::min( app->mouseDragStart.y, app->mouseWindowPos.y );
+                int selectMaxX = std::max( app->mouseDragStart.x, app->mouseWindowPos.x );
+                int selectMaxY = std::max( app->mouseDragStart.y, app->mouseWindowPos.y );
+
+                selectMinX = std::clamp( selectMinX, 1, app->width - 1 );
+                selectMinY = std::clamp( selectMinY, 1, app->height - 1 );
+                selectMaxX = std::clamp( selectMaxX, 1, app->width - 1 );
+                selectMaxY = std::clamp( selectMaxY, 1, app->height - 1 );
+
+                std::array<ImVec2, 10> pointsClockwise = { glm::vec2( 0.0f ),
+                                                           glm::vec2( app->width, 0.0f ),
+                                                           glm::vec2( app->width, app->height ),
+                                                           glm::vec2( 0.0f, app->height ),
+                                                           glm::vec2( 0.0f ),
+                                                           glm::vec2( selectMinX, selectMinY ),
+                                                           glm::vec2( selectMinX, selectMaxY ),
+                                                           glm::vec2( selectMaxX, selectMaxY ),
+                                                           glm::vec2( selectMaxX, selectMinY ),
+                                                           glm::vec2( selectMinX, selectMinY ) };
+
+                drawList->AddConcavePolyFilled( pointsClockwise.data(), pointsClockwise.size(), Spectrum::PURPLE700 & 0x00FFFFFF | 0x33000000 );
+                drawList->AddRect( app->mouseDragStart, app->mouseWindowPos, Spectrum::PURPLE500 );
+            }
+            else
+            {
+                drawList->AddText( nullptr, 30, glm::vec2( 10.f ), Spectrum::Static::BLACK, "Select Save Area" );
+                drawList->AddRectFilled( glm::vec2( 0.0f ), glm::vec2( app->width, app->height ), Spectrum::PURPLE700 & 0x00FFFFFF | 0x33000000 );
+            }
         }
 
         if( app->mode == Mode::Crop )

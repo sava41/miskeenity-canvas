@@ -436,9 +436,18 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
                     app->dragType = mc::CursorDragType::ScaleBL;
                 }
             }
+            else if( app->mode == mc::Mode::Save )
+            {
+                app->dragType = mc::CursorDragType::Select;
+            }
         }
         break;
     case SDL_EVENT_MOUSE_BUTTON_UP:
+
+        if( app->mode == mc::Mode::Save )
+        {
+            mc::submitEvent( mc::Events::SaveImageRequest );
+        }
 
         // click selection if the mouse hasnt moved since mouse down
         if( app->mouseWindowPos == app->mouseDragStart && app->mode == mc::Mode::Cursor )
@@ -514,6 +523,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
     // Update mouse position in canvas coordinate space
     app->viewParams.mousePos = ( app->mouseWindowPos - app->viewParams.canvasPos ) / app->viewParams.scale;
+    app->viewParams.mouseSelectPos = ( app->mouseDragStart - app->viewParams.canvasPos ) / app->viewParams.scale;
 
     // Update zoom level
     // For zoom, we want to center it around the mouse position
@@ -550,7 +560,6 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         case mc::CursorDragType::Select:
         {
             app->viewParams.selectDispatch = mc::SelectDispatch::Box;
-            app->viewParams.mouseSelectPos = ( app->mouseDragStart - app->viewParams.canvasPos ) / app->viewParams.scale;
         }
         break;
         case mc::CursorDragType::Move:
@@ -800,14 +809,35 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
     if( app->saveImage )
     {
+        int saveMinX = std::min( app->mouseDragStart.x, app->mouseWindowPos.x );
+        int saveMinY = std::min( app->mouseDragStart.y, app->mouseWindowPos.y );
+        int saveMaxX = std::max( app->mouseDragStart.x, app->mouseWindowPos.x );
+        int saveMaxY = std::max( app->mouseDragStart.y, app->mouseWindowPos.y );
+
+        saveMinX = std::clamp( saveMinX, 0, app->width );
+        saveMinY = std::clamp( saveMinY, 0, app->height );
+        saveMaxX = std::clamp( saveMaxX, 0, app->width );
+        saveMaxY = std::clamp( saveMaxY, 0, app->height );
+
+        int saveWidth  = saveMaxX - saveMinX;
+        int saveHeight = saveMaxY - saveMinY;
+
         app->copyTextureHandle = std::make_unique<mc::ResourceHandle>(
-            app->textureManager.add( nullptr, app->width, app->height, 4, app->device,
+            app->textureManager.add( nullptr, saveWidth, saveHeight, 4, app->device,
                                      wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::TextureBinding ) );
 
-        if( app->copyTextureHandle->valid() )
+        if( app->copyTextureHandle->valid() && saveWidth > 0 && saveHeight > 0 )
         {
             mc::Uniforms outputViewParams = app->viewParams;
             outputViewParams.viewType     = mc::ViewType::CaptureTarget;
+
+            float l = ( saveMinX - app->viewParams.canvasPos.x ) * 1.0 / app->viewParams.scale;
+            float r = ( saveWidth + saveMinX - app->viewParams.canvasPos.x ) * 1.0 / app->viewParams.scale;
+            float t = ( saveMinY - app->viewParams.canvasPos.y ) * 1.0 / app->viewParams.scale;
+            float b = ( saveHeight + saveMinY - app->viewParams.canvasPos.y ) * 1.0 / app->viewParams.scale;
+
+            outputViewParams.proj = glm::mat4( 2.0 / ( r - l ), 0.0, 0.0, ( r + l ) / ( l - r ), 0.0, 2.0 / ( t - b ), 0.0, ( t + b ) / ( b - t ), 0.0, 0.0,
+                                               0.5, 0.5, 0.0, 0.0, 0.0, 1.0 );
 
             app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &outputViewParams, sizeof( mc::Uniforms ) );
 
@@ -844,6 +874,8 @@ SDL_AppResult SDL_AppIterate( void* appstate )
             }
 
             app->textureMapBuffer = mc::downloadTexture( app->textureManager.get( *app->copyTextureHandle.get() ).texture, app->device, encoder );
+
+            mc::submitEvent( mc::Events::ChangeMode, { .mode = mc::Mode::Cursor } );
         }
     }
 

@@ -130,7 +130,7 @@ namespace mc
                 if( filelist && filelist[0] )
                 {
                     std::string filepath( filelist[0] );
-                    if( !filepath.ends_with( ".png" ) || !filepath.ends_with( ".PNG" ) )
+                    if( !filepath.ends_with( ".png" ) && !filepath.ends_with( ".PNG" ) )
                     {
                         filepath += ".png";
                     }
