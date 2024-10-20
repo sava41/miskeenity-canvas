@@ -562,7 +562,7 @@ namespace mc
                     }
                     if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
                     {
-                        const char* rasterizeToolTip = app->layers.numSelected() == 1 ? "Rasterize Layer" : "Rasterize Layers";
+                        const char* rasterizeToolTip = app->layers.numSelected() == 1 ? "Rasterize Layer" : "Rasterize & Merge Layers";
                         ImGui::SetItemTooltip( rasterizeToolTip );
                     }
                 }

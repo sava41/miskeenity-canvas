@@ -131,6 +131,8 @@ namespace mc
         size_t m_totalNumTri;
 
         std::unique_ptr<Layer[]> m_array;
-        std::unordered_map<int, std::vector<ResourceHandle>> m_textureHandles;
+        std::unordered_map<int, ResourceHandle> m_textureHandles;
+        // keep internal counter of texture usage so we dont have to store multiple texture handles;
+        std::unordered_map<int, int> m_textureReferences;
     };
 } // namespace mc

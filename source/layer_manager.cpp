@@ -21,6 +21,7 @@ namespace mc
         , m_totalNumTri( source.m_totalNumTri )
         , m_array( std::make_unique<Layer[]>( source.m_maxLength ) )
         , m_textureHandles( source.m_textureHandles )
+        , m_textureReferences( source.m_textureReferences )
     {
         std::memcpy( m_array.get(), source.m_array.get(), source.m_curLength * sizeof( Layer ) );
     }
@@ -32,6 +33,7 @@ namespace mc
         , m_totalNumTri( source.m_totalNumTri )
         , m_array( std::move( source.m_array ) )
         , m_textureHandles( std::move( source.m_textureHandles ) )
+        , m_textureReferences( source.m_textureReferences )
     {
         source.m_curLength   = 0;
         source.m_maxLength   = 0;
@@ -45,15 +47,13 @@ namespace mc
         m_maxLength   = source.m_maxLength;
         m_numSelected = source.m_numSelected;
         m_totalNumTri = source.m_totalNumTri;
+        m_textureReferences = source.m_textureReferences;
 
         m_array = std::make_unique<Layer[]>( m_maxLength );
         std::memcpy( m_array.get(), source.m_array.get(), source.m_curLength * sizeof( Layer ) );
 
         m_textureHandles.clear();
-        for( auto handle : source.m_textureHandles )
-        {
-            m_textureHandles.insert( handle );
-        }
+        m_textureHandles.insert( source.m_textureHandles.begin(), source.m_textureHandles.end() );
 
         return *this;
     }
@@ -63,6 +63,7 @@ namespace mc
         m_maxLength   = source.m_maxLength;
         m_numSelected = source.m_numSelected;
         m_totalNumTri = source.m_totalNumTri;
+        m_textureReferences = source.m_textureReferences;
 
         m_array          = std::move( source.m_array );
         m_textureHandles = std::move( source.m_textureHandles );
@@ -99,12 +100,20 @@ namespace mc
 
         if( layer.flags & LayerFlags::HasColorTex )
         {
-            m_textureHandles[layer.texture].push_back( textureHandle );
+            if( !m_textureReferences.contains( layer.texture ) || m_textureReferences[layer.texture] == 0 )
+            {
+                m_textureHandles.insert( { layer.texture, textureHandle } );
+            }
+            m_textureReferences[layer.texture] += 1;
         }
 
         if( layer.flags & LayerFlags::HasMaskTex || layer.flags & LayerFlags::HasSdfMaskTex )
         {
-            m_textureHandles[layer.mask].push_back( maskHandle );
+            if( !m_textureReferences.contains( layer.mask ) || m_textureReferences[layer.mask] == 0 )
+            {
+                m_textureHandles.insert( { layer.mask, maskHandle } );
+            }
+            m_textureReferences[layer.mask] += 1;
         }
 
         if( layer.flags & LayerFlags::Selected )
@@ -147,12 +156,22 @@ namespace mc
 
         if( m_array[index].flags & LayerFlags::HasColorTex )
         {
-            m_textureHandles[m_array[index].texture].pop_back();
+            m_textureReferences[m_array[index].texture] -= 1;
+
+            if( m_textureReferences[m_array[index].texture] == 0 )
+            {
+                m_textureHandles.erase( m_array[index].texture );
+            }
         }
 
         if( m_array[index].flags & LayerFlags::HasMaskTex || m_array[index].flags & LayerFlags::HasSdfMaskTex )
         {
-            m_textureHandles[m_array[index].mask].pop_back();
+            m_textureReferences[m_array[index].mask] -= 1;
+
+            if( m_textureReferences[m_array[index].mask] == 0 )
+            {
+                m_textureHandles.erase( m_array[index].mask );
+            }
         }
 
         if( index != m_curLength - 1 )
@@ -176,12 +195,22 @@ namespace mc
             {
                 if( m_array[i].flags & LayerFlags::HasColorTex )
                 {
-                    m_textureHandles[m_array[i].texture].pop_back();
+                    m_textureReferences[m_array[i].texture] -= 1;
+
+                    if( m_textureReferences[m_array[i].texture] == 0 )
+                    {
+                        m_textureHandles.erase( m_array[i].texture );
+                    }
                 }
 
                 if( m_array[i].flags & LayerFlags::HasMaskTex || m_array[i].flags & LayerFlags::HasSdfMaskTex )
                 {
-                    m_textureHandles[m_array[i].mask].pop_back();
+                    m_textureReferences[m_array[i].mask] -= 1;
+
+                    if( m_textureReferences[m_array[i].mask] == 0 )
+                    {
+                        m_textureHandles.erase( m_array[i].mask );
+                    }
                 }
             }
 
@@ -363,12 +392,22 @@ namespace mc
             {
                 if( m_array[readIndex].flags & LayerFlags::HasColorTex )
                 {
-                    m_textureHandles[m_array[readIndex].texture].pop_back();
+                    m_textureReferences[m_array[readIndex].texture] -= 1;
+
+                    if( m_textureReferences[m_array[readIndex].texture] == 0 )
+                    {
+                        m_textureHandles.erase( m_array[readIndex].texture );
+                    }
                 }
 
                 if( m_array[readIndex].flags & LayerFlags::HasMaskTex || m_array[readIndex].flags & LayerFlags::HasSdfMaskTex )
                 {
-                    m_textureHandles[m_array[readIndex].mask].pop_back();
+                    m_textureReferences[m_array[readIndex].mask] -= 1;
+
+                    if( m_textureReferences[m_array[readIndex].mask] == 0 )
+                    {
+                        m_textureHandles.erase( m_array[readIndex].mask );
+                    }
                 }
             }
             else
@@ -407,7 +446,7 @@ namespace mc
             return ResourceHandle::invalidResource();
         }
 
-        return m_textureHandles[m_array[index].texture].back();
+        return m_textureHandles.at( m_array[index].texture );
     }
 
     ResourceHandle& LayerManager::getMask( int index )
@@ -418,7 +457,7 @@ namespace mc
             return ResourceHandle::invalidResource();
         }
 
-        return m_textureHandles[m_array[index].mask].back();
+        return m_textureHandles.at( m_array[index].mask );
     }
 
     LayerManager LayerManager::createShrunkCopy()
@@ -430,11 +469,8 @@ namespace mc
         newManager.m_curLength   = m_curLength;
         newManager.m_numSelected = m_numSelected;
         newManager.m_totalNumTri = m_totalNumTri;
-
-        for( auto handle : m_textureHandles )
-        {
-            newManager.m_textureHandles.insert( handle );
-        }
+        newManager.m_textureReferences = m_textureReferences;
+        newManager.m_textureHandles.insert( m_textureHandles.begin(), m_textureHandles.end() );
 
         return std::move( newManager );
     }
@@ -450,15 +486,30 @@ namespace mc
             m_numSelected += m_array[i].flags & LayerFlags::Selected;
         }
 
+        m_textureReferences = source.m_textureReferences;
         m_textureHandles.clear();
-        for( auto handle : source.m_textureHandles )
-        {
-            m_textureHandles.insert( handle );
-        }
+        m_textureHandles.insert( source.m_textureHandles.begin(), source.m_textureHandles.end() );
         for( int i = m_curLength; i < source.m_curLength; ++i )
         {
-            m_textureHandles.erase( source.m_array[i].texture );
-            m_textureHandles.erase( source.m_array[i].mask );
+            if( m_array[i].flags & LayerFlags::HasColorTex )
+            {
+                m_textureReferences[m_array[i].texture] -= 1;
+
+                if( m_textureReferences[m_array[i].texture] == 0 )
+                {
+                    m_textureHandles.erase( m_array[i].texture );
+                }
+            }
+
+            if( m_array[i].flags & LayerFlags::HasMaskTex || m_array[i].flags & LayerFlags::HasSdfMaskTex )
+            {
+                m_textureReferences[m_array[i].mask] -= 1;
+
+                if( m_textureReferences[m_array[i].mask] == 0 )
+                {
+                    m_textureHandles.erase( m_array[i].mask );
+                }
+            }
         }
 
         recalculateTriCount();
