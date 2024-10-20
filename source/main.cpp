@@ -331,6 +331,36 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         app->layerEditStart = app->layers.length();
         app->layersModified = true;
         break;
+    case mc::Events::MergeAndRasterizeRequest:
+        app->rasterizeSelection = true;
+        break;
+    case mc::Events::MergeAndRasterize:
+        // find how many layers down to move our new layer
+        int selectionTopLayerDelta = 0;
+        for( int i = app->layers.length() - 1; i >= 0; --i )
+        {
+            if( app->layers.isSelected( i ) )
+            {
+                break;
+            }
+            selectionTopLayerDelta += 1;
+        }
+        app->layers.removeSelection();
+
+        int width  = app->selectionBbox.x - app->selectionBbox.z;
+        int height = app->selectionBbox.y - app->selectionBbox.w;
+
+        mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
+
+        app->layers.add( app->selectionCenter, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( mc::UV_MAX_VALUE ),
+                         glm::u8vec4( 255, 255, 255, 255 ), mc::HasColorTex, meshInfo, *app->copyTextureHandle.get() );
+
+        app->layers.changeSelection( app->layers.length() - 1, true );
+        app->layers.move( app->layers.length() - selectionTopLayerDelta - 1, app->layers.length() - 1 );
+
+        app->layersModified = true;
+
+        break;
     }
 }
 
@@ -879,6 +909,57 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         }
     }
 
+    if( app->rasterizeSelection )
+    {
+        int rasterWidth  = ( app->selectionBbox.x - app->selectionBbox.z ) * app->viewParams.scale;
+        int rasterHeight = ( app->selectionBbox.y - app->selectionBbox.w ) * app->viewParams.scale;
+
+        app->copyTextureHandle = std::make_unique<mc::ResourceHandle>(
+            app->textureManager.add( nullptr, rasterWidth, rasterHeight, 4, app->device,
+                                     wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::TextureBinding ) );
+
+        if( app->copyTextureHandle->valid() && rasterWidth > 0 && rasterHeight > 0 )
+        {
+            mc::Uniforms outputViewParams = app->viewParams;
+            outputViewParams.viewType     = mc::ViewType::SelectionRasterTarget;
+
+            float l = app->selectionBbox.z;
+            float r = app->selectionBbox.x;
+            float t = app->selectionBbox.w;
+            float b = app->selectionBbox.y;
+
+            outputViewParams.proj = glm::mat4( 2.0 / ( r - l ), 0.0, 0.0, ( r + l ) / ( l - r ), 0.0, 2.0 / ( t - b ), 0.0, ( t + b ) / ( b - t ), 0.0, 0.0,
+                                               0.5, 0.5, 0.0, 0.0, 0.0, 1.0 );
+
+            app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &outputViewParams, sizeof( mc::Uniforms ) );
+
+            wgpu::RenderPassEncoder outputRenderPassEnc = mc::createRenderPassEncoder(
+                encoder, app->textureManager.get( *app->copyTextureHandle.get() ).textureView, wgpu::Color{ 0.0, 0.0, 0.0, 0.0f } );
+
+            if( app->layers.length() > 0 )
+            {
+                outputRenderPassEnc.SetPipeline( app->mainPipeline );
+                outputRenderPassEnc.SetVertexBuffer( 0, app->vertexBuf );
+                outputRenderPassEnc.SetVertexBuffer( 1, app->layerBuf );
+                outputRenderPassEnc.SetBindGroup( 0, app->globalBindGroup );
+
+                int offset = 0;
+                for( int i = 0; i < app->layers.length(); ++i )
+                {
+                    app->textureManager.bind( app->layers.getTexture( i ), 1, outputRenderPassEnc );
+                    app->textureManager.bind( app->layers.getMask( i ), 2, outputRenderPassEnc );
+                    outputRenderPassEnc.Draw( app->layers.data()[i].vertexBuffLength * 3, 1, offset );
+                    offset += app->layers.data()[i].vertexBuffLength * 3;
+                }
+            }
+
+            outputRenderPassEnc.End();
+
+            submitEvent( mc::Events::MergeAndRasterize );
+        }
+        app->rasterizeSelection = false;
+    }
+
     // We only want to recompute the selection array if a selection is requested and any
     // previously requested computations have completed aka selection ready
     bool computeSelection = app->viewParams.selectDispatch != mc::SelectDispatch::None && app->selectionReady && app->layers.length() > 0;
@@ -952,7 +1033,6 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
         app->saveImage = false;
     }
-
 
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )
     app->surface.Present();

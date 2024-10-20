@@ -558,11 +558,11 @@ namespace mc
                 {
                     if( ImGui::Button( ICON_LC_GROUP, buttonSize ) )
                     {
-                        submitEvent( mc::Events::MergeAndRasterize );
+                        submitEvent( mc::Events::MergeAndRasterizeRequest );
                     }
                     if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
                     {
-                        const char* rasterizeToolTip = app->layers.numSelected() == 1 ? "TODO: Rasterize Layer" : "TODO: Merge & Rasterize Layers";
+                        const char* rasterizeToolTip = app->layers.numSelected() == 1 ? "Rasterize Layer" : "Rasterize Layers";
                         ImGui::SetItemTooltip( rasterizeToolTip );
                     }
                 }

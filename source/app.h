@@ -90,6 +90,7 @@ namespace mc
         int bbwidth;
         int bbheight;
         float dpiFactor = 1.0f;
+        uint64_t maxBufferSize;
 
         wgpu::Instance instance;
         wgpu::Surface surface;
@@ -97,7 +98,6 @@ namespace mc
         wgpu::Adapter adapter;
 
         wgpu::TextureFormat colorFormat;
-        uint64_t maxBufferSize;
 
         wgpu::RenderPipeline mainPipeline;
         wgpu::ComputePipeline selectionPipeline;
@@ -126,6 +126,7 @@ namespace mc
         bool resetSurface              = false;
         bool updateUIStyles            = false;
         bool saveImage                 = false;
+        bool rasterizeSelection        = false;
         unsigned long resetSurfaceTime = 0;
 
         Selection* selectionData = nullptr;

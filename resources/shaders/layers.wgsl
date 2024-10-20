@@ -113,7 +113,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let pillMask: f32 = select(1.0, smoothstep(0.0, 2.0 / (max(in.size.x, in.size.y) * uniforms.scale) , -udRoundedBox((in.uv - 0.5) * aspect, vec2<f32>(0.5) * aspect, 0.5f)), bool(in.flags & (1 << 4)));
 
-    let opacity: f32 = select(texColor.a * maskValue * sdfMask * pillMask * in.color.a, f32(in.flags & 1), bool(uniforms.viewType == 2));
+    let opacity: f32 = texColor.a * maskValue * sdfMask * pillMask * in.color.a * select(1.0, f32(in.flags & 1), bool(uniforms.viewType == 2));
 
     return vec4<f32>(texColor.rgb * select(in.color.rgb, sdfOutlineColor, bool(in.flags & (1 << 3)) && in.outlineValue > 0.0) + vec3<f32>(selectColor), opacity);
 }

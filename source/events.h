@@ -45,6 +45,7 @@ namespace mc
         MergeEditLayers,
         ResetEditLayers,
         AddMergedLayer,
+        MergeAndRasterizeRequest,
         MergeAndRasterize,
         DeleteEditLayers
     };
