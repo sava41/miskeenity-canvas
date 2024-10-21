@@ -4,7 +4,7 @@ include(FetchContent)
 FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/sava41/imgui.git
-    GIT_TAG 72fa43376b7b13feb48dc21d71f377be389f84c2
+    GIT_TAG 9907cf0f9cf377381b16200d1266467a81a5fbf4
 )
 FetchContent_GetProperties(imgui)
 

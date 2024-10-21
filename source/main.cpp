@@ -413,57 +413,47 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
             }
             else if( app->mode == mc::Mode::Cursor )
             {
-                mc::MouseLocationUI mouseLocation = mc::getMouseLocationUI();
-
-                if( mouseLocation == mc::MouseLocationUI::RotateHandle )
+                switch( mc::getMouseLocationUI() )
                 {
+                case mc::MouseLocationUI::RotateHandle:
                     app->dragType = mc::CursorDragType::Rotate;
-                }
-                else if( mouseLocation == mc::MouseLocationUI::ScaleHandleTL )
-                {
+                    break;
+                case mc::MouseLocationUI::ScaleHandleTL:
                     app->dragType = mc::CursorDragType::ScaleTL;
-                }
-                else if( mouseLocation == mc::MouseLocationUI::ScaleHandleBR )
-                {
+                    break;
+                case mc::MouseLocationUI::ScaleHandleBR:
                     app->dragType = mc::CursorDragType::ScaleBR;
-                }
-                else if( mouseLocation == mc::MouseLocationUI::ScaleHandleTR )
-                {
+                    break;
+                case mc::MouseLocationUI::ScaleHandleTR:
                     app->dragType = mc::CursorDragType::ScaleTR;
-                }
-                else if( mouseLocation == mc::MouseLocationUI::ScaleHandleBL )
-                {
+                    break;
+                case mc::MouseLocationUI::ScaleHandleBL:
                     app->dragType = mc::CursorDragType::ScaleBL;
-                }
-                else if( app->selectionBbox.x > app->viewParams.mousePos.x && app->selectionBbox.y > app->viewParams.mousePos.y &&
-                         app->selectionBbox.z < app->viewParams.mousePos.x && app->selectionBbox.w < app->viewParams.mousePos.y )
-                {
+                    break;
+                case mc::MouseLocationUI::MoveHandle:
                     app->dragType = mc::CursorDragType::Move;
-                }
-                else
-                {
+                    break;
+                default:
                     app->dragType = mc::CursorDragType::Select;
+                    break;
                 }
             }
             else if( app->mode == mc::Mode::Crop )
             {
-                mc::MouseLocationUI mouseLocation = mc::getMouseLocationUI();
-
-                if( mouseLocation == mc::MouseLocationUI::ScaleHandleTL )
+                switch( mc::getMouseLocationUI() )
                 {
+                case mc::MouseLocationUI::ScaleHandleTL:
                     app->dragType = mc::CursorDragType::ScaleTL;
-                }
-                else if( mouseLocation == mc::MouseLocationUI::ScaleHandleBR )
-                {
+                    break;
+                case mc::MouseLocationUI::ScaleHandleBR:
                     app->dragType = mc::CursorDragType::ScaleBR;
-                }
-                else if( mouseLocation == mc::MouseLocationUI::ScaleHandleTR )
-                {
+                    break;
+                case mc::MouseLocationUI::ScaleHandleTR:
                     app->dragType = mc::CursorDragType::ScaleTR;
-                }
-                else if( mouseLocation == mc::MouseLocationUI::ScaleHandleBL )
-                {
+                    break;
+                case mc::MouseLocationUI::ScaleHandleBL:
                     app->dragType = mc::CursorDragType::ScaleBL;
+                    break;
                 }
             }
             else if( app->mode == mc::Mode::Save )

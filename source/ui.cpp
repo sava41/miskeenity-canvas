@@ -263,6 +263,7 @@ namespace mc
             glm::vec2 cornerTR;
             glm::vec2 cornerBL;
             glm::vec2 rotHandlePos;
+            bool insideBbox = false;
 
             int imageSelection = app->layers.getSingleSelectedImage();
             if( imageSelection >= 0 )
@@ -289,6 +290,16 @@ namespace mc
                     app->viewParams.canvasPos;
 
                 rotHandlePos = rotLineBasePos - glm::normalize( app->layers.data()[imageSelection].basisB ) * mc::RotateHandleHeight;
+
+                auto isOnRightSide = []( const glm::vec2& p1, const glm::vec2& p2, const glm::vec2& mouse ) -> bool
+                {
+                    glm::vec2 a = glm::vec2( p2.x - p1.x, p2.y - p1.y );
+                    glm::vec2 b = glm::vec2( mouse.x - p2.x, mouse.y - p2.y );
+                    return ( a.x * b.y - b.x * a.y ) > 1.0f;
+                };
+
+                insideBbox = isOnRightSide( cornerTL, cornerTR, mouseWindowPos ) && isOnRightSide( cornerTR, cornerBR, mouseWindowPos ) &&
+                             isOnRightSide( cornerBR, cornerBL, mouseWindowPos ) && isOnRightSide( cornerBL, cornerTL, mouseWindowPos );
             }
             else
             {
@@ -301,6 +312,9 @@ namespace mc
                 float screenSpaceCenterX = ( cornerTL.x + cornerBR.x ) * 0.5f;
 
                 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerTR.y - mc::RotateHandleHeight );
+
+                insideBbox = app->selectionBbox.x > mouseWindowPos.x && app->selectionBbox.y > mouseWindowPos.y && app->selectionBbox.z < mouseWindowPos.x &&
+                             app->selectionBbox.w < mouseWindowPos.y;
             }
 
             if( glm::distance( mouseWindowPos, rotHandlePos ) < HandleHalfSize * g_uiScale )
@@ -323,6 +337,10 @@ namespace mc
             {
                 g_mouseLocationUI = MouseLocationUI::ScaleHandleTL;
             }
+            else if( insideBbox )
+            {
+                g_mouseLocationUI = MouseLocationUI::MoveHandle;
+            }
         }
     }
 
@@ -330,14 +348,23 @@ namespace mc
     {
         ImDrawList* drawList = ImGui::GetForegroundDrawList();
 
-        if( appMode == Mode::Paint && g_mouseLocationUI == mc::MouseLocationUI::None )
+        if( appMode == Mode::Paint )
         {
-            drawList->AddCircle( mousePos, g_paintRadius * scale, Spectrum::PURPLE400, 600, ceilf( g_uiScale ) );
+            switch( g_mouseLocationUI )
+            {
+            case mc::MouseLocationUI::None:
+                ImGui::SetMouseCursor( ImGuiMouseCursor_None );
+                drawList->AddCircle( mousePos, g_paintRadius * scale, Spectrum::PURPLE400, 600, ceilf( g_uiScale ) );
+                break;
+            default:
+                ImGui::SetMouseCursor( ImGuiMouseCursor_Arrow );
+                break;
+            }
         }
 
         if( appMode == Mode::Save )
         {
-            // ImGui::SetMouseCursor( ImGuiMouseCursor_Crosshair );
+            ImGui::SetMouseCursor( ImGuiMouseCursor_Crosshair );
         }
 
         if( appMode == Mode::Crop )
@@ -356,6 +383,7 @@ namespace mc
                 glm::vec2 p3 = mousePos + glm::vec2( -1.0f, -1.0f ) * 12.0f * g_uiScale;
                 glm::vec2 p4 = mousePos + glm::vec2( 1.0f, -1.0f ) * 12.0f * g_uiScale;
 
+                // No idea how we associate g_cursorIconRanges to their respective icon so I'm just going to hardcode for now
                 const ImFontGlyph* glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[0] );
                 drawList->AddImageQuad( ImGui::GetIO().Fonts->TexID, p1, p2, p3, p4, glm::vec2( glyph->U1, glyph->V1 ), glm::vec2( glyph->U0, glyph->V1 ),
                                         glm::vec2( glyph->U0, glyph->V0 ), glm::vec2( glyph->U1, glyph->V0 ), Spectrum::Static::BLACK );
@@ -369,44 +397,54 @@ namespace mc
 
         if( appMode == Mode::Cursor )
         {
-            glm::vec2 perpendicular = glm::vec2( -cursorAngle.y, cursorAngle.x );
-            glm::vec2 p1            = mousePos + ( perpendicular + cursorAngle ) * 12.0f * g_uiScale;
-            glm::vec2 p2            = mousePos + ( perpendicular - cursorAngle ) * 12.0f * g_uiScale;
-            glm::vec2 p3            = mousePos + ( -perpendicular - cursorAngle ) * 12.0f * g_uiScale;
-            glm::vec2 p4            = mousePos + ( -perpendicular + cursorAngle ) * 12.0f * g_uiScale;
+            const ImFontGlyph* glyph = nullptr;
+            glm::vec2 angle          = cursorAngle;
 
             switch( g_mouseLocationUI )
             {
             case MouseLocationUI::RotateHandle:
             {
-                ImGui::SetMouseCursor( ImGuiMouseCursor_None );
-
-                const ImFontGlyph* glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[2] );
-                drawList->AddImageQuad( ImGui::GetIO().Fonts->TexID, p1, p2, p3, p4, glm::vec2( glyph->U1, glyph->V1 ), glm::vec2( glyph->U0, glyph->V1 ),
-                                        glm::vec2( glyph->U0, glyph->V0 ), glm::vec2( glyph->U1, glyph->V0 ), Spectrum::Static::BLACK );
+                // No idea how we associate g_cursorIconRanges to their respective icon so I'm just going to hardcode for now
+                glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[2] );
+                angle = glm::vec2( 1.0, 0.0 );
             }
             break;
             case MouseLocationUI::ScaleHandleTL:
             case MouseLocationUI::ScaleHandleBR:
             {
-                ImGui::SetMouseCursor( ImGuiMouseCursor_None );
-                const ImFontGlyph* glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[4] );
-                drawList->AddImageQuad( ImGui::GetIO().Fonts->TexID, p1, p2, p3, p4, glm::vec2( glyph->U1, glyph->V0 ), glm::vec2( glyph->U0, glyph->V0 ),
-                                        glm::vec2( glyph->U0, glyph->V1 ), glm::vec2( glyph->U1, glyph->V1 ), Spectrum::Static::BLACK );
+                glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[4] );
+                angle = glm::vec2( -angle.y, angle.x );
             }
             break;
             case MouseLocationUI::ScaleHandleTR:
             case MouseLocationUI::ScaleHandleBL:
             {
+                glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[4] );
+            }
+            break;
+            case MouseLocationUI::MoveHandle:
+            {
+                glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[0] );
+                angle = glm::vec2( 1.0, 0.0 );
+            }
+            break;
+            }
+
+            glm::vec2 perpendicular = glm::vec2( -angle.y, angle.x );
+            glm::vec2 p1            = mousePos + ( perpendicular + angle ) * 12.0f * g_uiScale;
+            glm::vec2 p2            = mousePos + ( perpendicular - angle ) * 12.0f * g_uiScale;
+            glm::vec2 p3            = mousePos + ( -perpendicular - angle ) * 12.0f * g_uiScale;
+            glm::vec2 p4            = mousePos + ( -perpendicular + angle ) * 12.0f * g_uiScale;
+
+            if( glyph != nullptr )
+            {
                 ImGui::SetMouseCursor( ImGuiMouseCursor_None );
-                const ImFontGlyph* glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[4] );
                 drawList->AddImageQuad( ImGui::GetIO().Fonts->TexID, p1, p2, p3, p4, glm::vec2( glyph->U1, glyph->V1 ), glm::vec2( glyph->U0, glyph->V1 ),
                                         glm::vec2( glyph->U0, glyph->V0 ), glm::vec2( glyph->U1, glyph->V0 ), Spectrum::Static::BLACK );
             }
-            break;
-            case MouseLocationUI::None:
+            else
+            {
                 ImGui::SetMouseCursor( ImGuiMouseCursor_Arrow );
-                break;
             }
         }
     }
@@ -719,7 +757,7 @@ namespace mc
 
         if( app->mode == mc::Mode::Paint )
         {
-            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 180 * g_uiScale - buttonSpacing ), ImGuiCond_FirstUseEver );
+            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 180 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
             ImGui::SetNextWindowSize( glm::vec2( 350.0, 180.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
 
             ImGui::Begin( "Paint Brush Settings", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
@@ -751,7 +789,7 @@ namespace mc
         }
         else if( app->mode == mc::Mode::Text )
         {
-            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 435 * g_uiScale - buttonSpacing ), ImGuiCond_FirstUseEver );
+            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 435 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
             ImGui::SetNextWindowSize( glm::vec2( 350.0, 435.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
 
             ImGui::Begin( "Text Settings", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
@@ -842,7 +880,7 @@ namespace mc
         }
         else if( app->mode == mc::Mode::Crop )
         {
-            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 100.0 * g_uiScale - buttonSpacing ), ImGuiCond_FirstUseEver );
+            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 100.0 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
             ImGui::SetNextWindowSize( glm::vec2( 350.0, 100.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
 
             ImGui::Begin( "Crop Image", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
@@ -902,8 +940,15 @@ namespace mc
             }
             else
             {
-                drawList->AddText( nullptr, 30, glm::vec2( 10.f ), Spectrum::Static::BLACK, "Select Save Area" );
-                drawList->AddRectFilled( glm::vec2( 0.0f ), glm::vec2( app->width, app->height ), Spectrum::PURPLE700 & 0x00FFFFFF | 0x33000000 );
+                ImGui::SetNextWindowPos( glm::vec2( buttonSpacing * 2 ), ImGuiCond_FirstUseEver );
+                ImGui::SetNextWindowSize( glm::vec2( 200.0f, 80.0f ) * g_uiScale, ImGuiCond_FirstUseEver );
+
+                ImGui::Begin( "Save Image", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoScrollWithMouse );
+                {
+                    ImGui::SetCursorPos( ( glm::vec2( ImGui::GetWindowSize() ) - glm::vec2( ImGui::CalcTextSize( "Select Save Area" ) ) ) * 0.5f );
+                    ImGui::Text( "Select Save Area" );
+                }
+                ImGui::End();
             }
         }
 
@@ -1049,7 +1094,7 @@ namespace mc
             drawList->AddCircleFilled( cornerTL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
         }
 
-        glm::vec2 cursorAngle = glm::vec2( 0.0, 1.0 );
+        glm::vec2 cursorAngle = glm::vec2( 1.0, 0.0 );
         int imageSelection    = app->layers.getSingleSelectedImage();
         if( imageSelection >= 0 )
         {

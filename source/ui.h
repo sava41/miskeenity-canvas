@@ -22,6 +22,7 @@ namespace mc
     {
         None,
         Window,
+        MoveHandle,
         RotateHandle,
         ScaleHandleTL,
         ScaleHandleBR,
