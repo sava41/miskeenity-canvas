@@ -313,8 +313,7 @@ namespace mc
 
                 rotHandlePos = glm::vec2( screenSpaceCenterX, cornerTR.y - mc::RotateHandleHeight );
 
-                insideBbox = app->selectionBbox.x > mouseWindowPos.x && app->selectionBbox.y > mouseWindowPos.y && app->selectionBbox.z < mouseWindowPos.x &&
-                             app->selectionBbox.w < mouseWindowPos.y;
+                insideBbox = cornerTL.x < mouseWindowPos.x && cornerTL.y < mouseWindowPos.y && cornerBR.x > mouseWindowPos.x && cornerBR.y > mouseWindowPos.y;
             }
 
             if( glm::distance( mouseWindowPos, rotHandlePos ) < HandleHalfSize * g_uiScale )
