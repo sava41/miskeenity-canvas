@@ -9,11 +9,6 @@
 
 namespace mc
 {
-
-    void setMouseCursor()
-    {
-    }
-
     void setWindowIcon( SDL_Window* window )
     {
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )

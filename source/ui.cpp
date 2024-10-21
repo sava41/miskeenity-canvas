@@ -33,6 +33,8 @@ namespace mc
 
     bool g_saveWithTransparency = true;
 
+    ImVector<ImWchar> g_cursorIconRanges;
+
     void changeModeUI( Mode newMode )
     {
         // reset some things when the mode changes
@@ -187,8 +189,7 @@ namespace mc
         // `pyftsubset Lucide.ttf --output-file=Lucide_compact.ttf --unicodes-file=used_lucide_unicodes.txt`
         ImFontGlyphRangesBuilder builder;
         builder.AddText( ICON_LC_IMAGE_UP );
-        builder.AddText( ICON_LC_IMAGE_DOWN );
-        builder.AddText( ICON_LC_ROTATE_CW );
+        builder.AddText( ICON_LC_SAVE );
         builder.AddText( ICON_LC_LIST_END );
         builder.AddText( ICON_LC_LIST_START );
         builder.AddText( ICON_LC_FLIP_HORIZONTAL_2 );
@@ -216,6 +217,17 @@ namespace mc
         ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( b::embed<"./resources/fonts/Lucide_compact.ttf">().data() ),
                                                     b::embed<"./resources/fonts/Lucide_compact.ttf">().size(), 24.0f * g_uiScale, &configLucide,
                                                     iconRanges.Data );
+
+        ImFontGlyphRangesBuilder cursorBuilder;
+        cursorBuilder.AddText( ICON_LC_ROTATE_CW );
+        cursorBuilder.AddText( ICON_LC_MOVE );
+        cursorBuilder.AddText( ICON_LC_MOVE_DIAGONAL );
+        cursorBuilder.BuildRanges( &g_cursorIconRanges );
+
+        ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( b::embed<"./resources/fonts/Lucide_compact.ttf">().data() ),
+                                                    b::embed<"./resources/fonts/Lucide_compact.ttf">().size(), 24.0f * g_uiScale, &configLucide,
+                                                    g_cursorIconRanges.Data );
+
         ImGui::GetIO().Fonts->Build();
     }
 
@@ -314,6 +326,91 @@ namespace mc
         }
     }
 
+    void drawCursor( const glm::vec2& mousePos, const glm::vec2& cursorAngle, float scale, const Mode& appMode )
+    {
+        ImDrawList* drawList = ImGui::GetForegroundDrawList();
+
+        if( appMode == Mode::Paint && g_mouseLocationUI == mc::MouseLocationUI::None )
+        {
+            drawList->AddCircle( mousePos, g_paintRadius * scale, Spectrum::PURPLE400, 600, ceilf( g_uiScale ) );
+        }
+
+        if( appMode == Mode::Save )
+        {
+            // ImGui::SetMouseCursor( ImGuiMouseCursor_Crosshair );
+        }
+
+        if( appMode == Mode::Crop )
+        {
+            switch( g_mouseLocationUI )
+            {
+            case MouseLocationUI::ScaleHandleTL:
+            case MouseLocationUI::ScaleHandleBR:
+            case MouseLocationUI::ScaleHandleTR:
+            case MouseLocationUI::ScaleHandleBL:
+            {
+                ImGui::SetMouseCursor( ImGuiMouseCursor_None );
+
+                glm::vec2 p1 = mousePos + glm::vec2( 1.0f, 1.0f ) * 12.0f * g_uiScale;
+                glm::vec2 p2 = mousePos + glm::vec2( -1.0f, 1.0f ) * 12.0f * g_uiScale;
+                glm::vec2 p3 = mousePos + glm::vec2( -1.0f, -1.0f ) * 12.0f * g_uiScale;
+                glm::vec2 p4 = mousePos + glm::vec2( 1.0f, -1.0f ) * 12.0f * g_uiScale;
+
+                const ImFontGlyph* glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[0] );
+                drawList->AddImageQuad( ImGui::GetIO().Fonts->TexID, p1, p2, p3, p4, glm::vec2( glyph->U1, glyph->V1 ), glm::vec2( glyph->U0, glyph->V1 ),
+                                        glm::vec2( glyph->U0, glyph->V0 ), glm::vec2( glyph->U1, glyph->V0 ), Spectrum::Static::BLACK );
+            }
+            break;
+            default:
+                ImGui::SetMouseCursor( ImGuiMouseCursor_Arrow );
+                break;
+            }
+        }
+
+        if( appMode == Mode::Cursor )
+        {
+            glm::vec2 perpendicular = glm::vec2( -cursorAngle.y, cursorAngle.x );
+            glm::vec2 p1            = mousePos + ( perpendicular + cursorAngle ) * 12.0f * g_uiScale;
+            glm::vec2 p2            = mousePos + ( perpendicular - cursorAngle ) * 12.0f * g_uiScale;
+            glm::vec2 p3            = mousePos + ( -perpendicular - cursorAngle ) * 12.0f * g_uiScale;
+            glm::vec2 p4            = mousePos + ( -perpendicular + cursorAngle ) * 12.0f * g_uiScale;
+
+            switch( g_mouseLocationUI )
+            {
+            case MouseLocationUI::RotateHandle:
+            {
+                ImGui::SetMouseCursor( ImGuiMouseCursor_None );
+
+                const ImFontGlyph* glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[2] );
+                drawList->AddImageQuad( ImGui::GetIO().Fonts->TexID, p1, p2, p3, p4, glm::vec2( glyph->U1, glyph->V1 ), glm::vec2( glyph->U0, glyph->V1 ),
+                                        glm::vec2( glyph->U0, glyph->V0 ), glm::vec2( glyph->U1, glyph->V0 ), Spectrum::Static::BLACK );
+            }
+            break;
+            case MouseLocationUI::ScaleHandleTL:
+            case MouseLocationUI::ScaleHandleBR:
+            {
+                ImGui::SetMouseCursor( ImGuiMouseCursor_None );
+                const ImFontGlyph* glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[4] );
+                drawList->AddImageQuad( ImGui::GetIO().Fonts->TexID, p1, p2, p3, p4, glm::vec2( glyph->U1, glyph->V0 ), glm::vec2( glyph->U0, glyph->V0 ),
+                                        glm::vec2( glyph->U0, glyph->V1 ), glm::vec2( glyph->U1, glyph->V1 ), Spectrum::Static::BLACK );
+            }
+            break;
+            case MouseLocationUI::ScaleHandleTR:
+            case MouseLocationUI::ScaleHandleBL:
+            {
+                ImGui::SetMouseCursor( ImGuiMouseCursor_None );
+                const ImFontGlyph* glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[4] );
+                drawList->AddImageQuad( ImGui::GetIO().Fonts->TexID, p1, p2, p3, p4, glm::vec2( glyph->U1, glyph->V1 ), glm::vec2( glyph->U0, glyph->V1 ),
+                                        glm::vec2( glyph->U0, glyph->V0 ), glm::vec2( glyph->U1, glyph->V0 ), Spectrum::Static::BLACK );
+            }
+            break;
+            case MouseLocationUI::None:
+                ImGui::SetMouseCursor( ImGuiMouseCursor_Arrow );
+                break;
+            }
+        }
+    }
+
     void drawUI( const AppContext* app, const wgpu::RenderPassEncoder& renderPass )
     {
         computeMouseLocationUI( app, app->mouseWindowPos );
@@ -359,7 +456,7 @@ namespace mc
 
                 ImGui::SameLine( 0.0, buttonSpacing );
 
-                if( ImGui::Button( ICON_LC_IMAGE_DOWN, buttonSize ) )
+                if( ImGui::Button( ICON_LC_SAVE, buttonSize ) )
                 {
                     ImGui::OpenPopup( "Saving" );
                 }
@@ -952,10 +1049,13 @@ namespace mc
             drawList->AddCircleFilled( cornerTL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
         }
 
-        if( app->mode == Mode::Paint && g_mouseLocationUI == mc::MouseLocationUI::None )
+        glm::vec2 cursorAngle = glm::vec2( 0.0, 1.0 );
+        int imageSelection    = app->layers.getSingleSelectedImage();
+        if( imageSelection >= 0 )
         {
-            drawList->AddCircle( app->mouseWindowPos, g_paintRadius * app->viewParams.scale, Spectrum::PURPLE400, 600, ceilf( g_uiScale ) );
+            cursorAngle = glm::normalize( app->layers.data()[imageSelection].basisA );
         }
+        drawCursor( app->mouseWindowPos, cursorAngle, app->viewParams.scale, app->mode );
 
         ImGui::Render();
 
