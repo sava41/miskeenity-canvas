@@ -631,6 +631,11 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         // this might be easier to do if we construct the layer transform and inverse transform matricies but whatever
 
         int layer          = app->layers.getSingleSelectedImage();
+
+        // see if the layer is mirrored
+        glm::vec3 cross = glm::cross( glm::vec3( app->layers.data()[layer].basisA, 0.0f ), glm::vec3( app->layers.data()[layer].basisB, 0.0f ) );
+        bool mirrored   = glm::sign( cross ).z < 0.0f;
+
         glm::vec2 basisA   = glm::normalize( app->layers.data()[layer].basisA );
         glm::vec2 basisB   = glm::normalize( app->layers.data()[layer].basisB );
         glm::vec2 offset   = app->layers.data()[layer].offset;
@@ -656,6 +661,11 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         else if( app->dragType == mc::CursorDragType::ScaleBL )
         {
             orientation.x = -1.0;
+        }
+
+        if( mirrored )
+        {
+            orientation.x *= -1.0;
         }
 
         // calculate uv coordinate offsets using uncropped layer

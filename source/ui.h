@@ -30,6 +30,17 @@ namespace mc
         ScaleHandleBL
     };
 
+    struct TransformBox
+    {
+        glm::vec2 cornerHandleTL;
+        glm::vec2 cornerHandleBR;
+        glm::vec2 cornerHandleTR;
+        glm::vec2 cornerHandleBL;
+        glm::vec2 rotationHandle;
+        glm::vec2 rotationHandleBase;
+        bool insideBox;
+    };
+
     constexpr float HandleHalfSize     = 7.0;
     constexpr float HandleCornerRadius = 3.0;
     constexpr float RotateHandleHeight = 40.0;

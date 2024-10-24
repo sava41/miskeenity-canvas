@@ -33,6 +33,8 @@ namespace mc
 
     bool g_saveWithTransparency = true;
 
+    TransformBox g_transformBox;
+
     ImVector<ImWchar> g_cursorIconRanges;
 
     void changeModeUI( Mode newMode )
@@ -255,95 +257,99 @@ namespace mc
     {
         g_mouseLocationUI = ImGui::GetIO().WantCaptureMouse ? MouseLocationUI::Window : MouseLocationUI::None;
 
-        if( g_mouseLocationUI == MouseLocationUI::None && app->selectionReady && app->layers.numSelected() > 0 && app->dragType == CursorDragType::Select &&
-            !app->mouseDown )
+        if( app->selectionReady && app->layers.numSelected() > 0 )
         {
-            glm::vec2 cornerTL;
-            glm::vec2 cornerBR;
-            glm::vec2 cornerTR;
-            glm::vec2 cornerBL;
-            glm::vec2 rotHandlePos;
-            bool insideBbox = false;
-
-            int imageSelection = app->layers.getSingleSelectedImage();
-            if( imageSelection >= 0 )
-            {
-                cornerTL = ( app->layers.data()[imageSelection].offset -
-                             ( app->layers.data()[imageSelection].basisA + app->layers.data()[imageSelection].basisB ) * 0.5f ) *
-                               app->viewParams.scale +
-                           app->viewParams.canvasPos;
-                cornerBR = ( app->layers.data()[imageSelection].offset +
-                             ( app->layers.data()[imageSelection].basisA + app->layers.data()[imageSelection].basisB ) * 0.5f ) *
-                               app->viewParams.scale +
-                           app->viewParams.canvasPos;
-                cornerTR = ( app->layers.data()[imageSelection].offset +
-                             ( app->layers.data()[imageSelection].basisA - app->layers.data()[imageSelection].basisB ) * 0.5f ) *
-                               app->viewParams.scale +
-                           app->viewParams.canvasPos;
-                cornerBL = ( app->layers.data()[imageSelection].offset -
-                             ( app->layers.data()[imageSelection].basisA - app->layers.data()[imageSelection].basisB ) * 0.5f ) *
-                               app->viewParams.scale +
-                           app->viewParams.canvasPos;
-
-                glm::vec2 rotLineBasePos =
-                    ( app->layers.data()[imageSelection].offset - app->layers.data()[imageSelection].basisB * 0.5f ) * app->viewParams.scale +
-                    app->viewParams.canvasPos;
-
-                rotHandlePos = rotLineBasePos - glm::normalize( app->layers.data()[imageSelection].basisB ) * mc::RotateHandleHeight;
-
-                auto isOnRightSide = []( const glm::vec2& p1, const glm::vec2& p2, const glm::vec2& mouse ) -> bool
-                {
-                    glm::vec2 a = glm::vec2( p2.x - p1.x, p2.y - p1.y );
-                    glm::vec2 b = glm::vec2( mouse.x - p2.x, mouse.y - p2.y );
-                    return ( a.x * b.y - b.x * a.y ) > 1.0f;
-                };
-
-                insideBbox = isOnRightSide( cornerTL, cornerTR, mouseWindowPos ) && isOnRightSide( cornerTR, cornerBR, mouseWindowPos ) &&
-                             isOnRightSide( cornerBR, cornerBL, mouseWindowPos ) && isOnRightSide( cornerBL, cornerTL, mouseWindowPos );
-            }
-            else
-            {
-
-                cornerTL = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
-                cornerBR = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
-                cornerTR = glm::vec2( cornerBR.x, cornerTL.y );
-                cornerBL = glm::vec2( cornerTL.x, cornerBR.y );
-
-                float screenSpaceCenterX = ( cornerTL.x + cornerBR.x ) * 0.5f;
-
-                rotHandlePos = glm::vec2( screenSpaceCenterX, cornerTR.y - mc::RotateHandleHeight );
-
-                insideBbox = cornerTL.x < mouseWindowPos.x && cornerTL.y < mouseWindowPos.y && cornerBR.x > mouseWindowPos.x && cornerBR.y > mouseWindowPos.y;
-            }
-
-            if( glm::distance( mouseWindowPos, rotHandlePos ) < HandleHalfSize * g_uiScale )
+            if( glm::distance( mouseWindowPos, g_transformBox.rotationHandle ) < HandleHalfSize * g_uiScale )
             {
                 g_mouseLocationUI = MouseLocationUI::RotateHandle;
             }
-            else if( glm::distance( mouseWindowPos, cornerBR ) < HandleHalfSize * g_uiScale )
+            else if( glm::distance( mouseWindowPos, g_transformBox.cornerHandleBR ) < HandleHalfSize * g_uiScale )
             {
                 g_mouseLocationUI = MouseLocationUI::ScaleHandleBR;
             }
-            else if( glm::distance( mouseWindowPos, cornerBL ) < HandleHalfSize * g_uiScale )
+            else if( glm::distance( mouseWindowPos, g_transformBox.cornerHandleBL ) < HandleHalfSize * g_uiScale )
             {
                 g_mouseLocationUI = MouseLocationUI::ScaleHandleBL;
             }
-            else if( glm::distance( mouseWindowPos, cornerTR ) < HandleHalfSize * g_uiScale )
+            else if( glm::distance( mouseWindowPos, g_transformBox.cornerHandleTR ) < HandleHalfSize * g_uiScale )
             {
                 g_mouseLocationUI = MouseLocationUI::ScaleHandleTR;
             }
-            else if( glm::distance( mouseWindowPos, cornerTL ) < HandleHalfSize * g_uiScale )
+            else if( glm::distance( mouseWindowPos, g_transformBox.cornerHandleTL ) < HandleHalfSize * g_uiScale )
             {
                 g_mouseLocationUI = MouseLocationUI::ScaleHandleTL;
             }
-            else if( insideBbox )
+            else if( g_transformBox.insideBox )
             {
                 g_mouseLocationUI = MouseLocationUI::MoveHandle;
             }
         }
     }
 
-    void drawCursor( const glm::vec2& mousePos, const glm::vec2& cursorAngle, float scale, const Mode& appMode )
+    void computeTransformBox( const AppContext* app, glm::vec2 mouseWindowPos )
+    {
+        int imageSelection = app->layers.getSingleSelectedImage();
+        if( imageSelection >= 0 )
+        {
+            // see if the layer is mirrored
+            glm::vec3 cross =
+                glm::cross( glm::vec3( app->layers.data()[imageSelection].basisA, 0.0f ), glm::vec3( app->layers.data()[imageSelection].basisB, 0.0f ) );
+            float sign = glm::sign( cross ).z;
+
+            g_transformBox.cornerHandleTL = ( app->layers.data()[imageSelection].offset -
+                                              ( app->layers.data()[imageSelection].basisA * sign + app->layers.data()[imageSelection].basisB ) * 0.5f ) *
+                                                app->viewParams.scale +
+                                            app->viewParams.canvasPos;
+            g_transformBox.cornerHandleBR = ( app->layers.data()[imageSelection].offset +
+                                              ( app->layers.data()[imageSelection].basisA * sign + app->layers.data()[imageSelection].basisB ) * 0.5f ) *
+                                                app->viewParams.scale +
+                                            app->viewParams.canvasPos;
+            g_transformBox.cornerHandleTR = ( app->layers.data()[imageSelection].offset +
+                                              ( app->layers.data()[imageSelection].basisA * sign - app->layers.data()[imageSelection].basisB ) * 0.5f ) *
+                                                app->viewParams.scale +
+                                            app->viewParams.canvasPos;
+            g_transformBox.cornerHandleBL = ( app->layers.data()[imageSelection].offset -
+                                              ( app->layers.data()[imageSelection].basisA * sign - app->layers.data()[imageSelection].basisB ) * 0.5f ) *
+                                                app->viewParams.scale +
+                                            app->viewParams.canvasPos;
+
+            g_transformBox.rotationHandleBase =
+                ( app->layers.data()[imageSelection].offset - app->layers.data()[imageSelection].basisB * 0.5f ) * app->viewParams.scale +
+                app->viewParams.canvasPos;
+
+            g_transformBox.rotationHandle =
+                g_transformBox.rotationHandleBase - glm::normalize( app->layers.data()[imageSelection].basisB ) * mc::RotateHandleHeight;
+
+            auto isOnRightSide = []( const glm::vec2& p1, const glm::vec2& p2, const glm::vec2& mouse ) -> bool
+            {
+                glm::vec2 a = glm::vec2( p2.x - p1.x, p2.y - p1.y );
+                glm::vec2 b = glm::vec2( mouse.x - p2.x, mouse.y - p2.y );
+                return ( a.x * b.y - b.x * a.y ) > 1.0f;
+            };
+
+            g_transformBox.insideBox = isOnRightSide( g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, mouseWindowPos ) &&
+                                       isOnRightSide( g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR, mouseWindowPos ) &&
+                                       isOnRightSide( g_transformBox.cornerHandleBR, g_transformBox.cornerHandleBL, mouseWindowPos ) &&
+                                       isOnRightSide( g_transformBox.cornerHandleBL, g_transformBox.cornerHandleTL, mouseWindowPos );
+        }
+        else
+        {
+
+            g_transformBox.cornerHandleTL = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
+            g_transformBox.cornerHandleBR = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
+            g_transformBox.cornerHandleTR = glm::vec2( g_transformBox.cornerHandleBR.x, g_transformBox.cornerHandleTL.y );
+            g_transformBox.cornerHandleBL = glm::vec2( g_transformBox.cornerHandleTL.x, g_transformBox.cornerHandleBR.y );
+
+            g_transformBox.rotationHandleBase = ( g_transformBox.cornerHandleTL + g_transformBox.cornerHandleTR ) * 0.5f;
+
+            g_transformBox.rotationHandle = glm::vec2( g_transformBox.rotationHandleBase.x, g_transformBox.rotationHandleBase.y - mc::RotateHandleHeight );
+
+            g_transformBox.insideBox = g_transformBox.cornerHandleTL.x < mouseWindowPos.x && g_transformBox.cornerHandleTL.y < mouseWindowPos.y &&
+                                       g_transformBox.cornerHandleBR.x > mouseWindowPos.x && g_transformBox.cornerHandleBR.y > mouseWindowPos.y;
+        }
+    }
+
+    void drawCursor( const glm::vec2& mousePos, const glm::vec2& cursorAngle, float scale, const Mode& appMode, bool mouseDown )
     {
         ImDrawList* drawList = ImGui::GetForegroundDrawList();
 
@@ -368,29 +374,32 @@ namespace mc
 
         if( appMode == Mode::Crop )
         {
-            switch( g_mouseLocationUI )
+            if( !mouseDown )
             {
-            case MouseLocationUI::ScaleHandleTL:
-            case MouseLocationUI::ScaleHandleBR:
-            case MouseLocationUI::ScaleHandleTR:
-            case MouseLocationUI::ScaleHandleBL:
-            {
-                ImGui::SetMouseCursor( ImGuiMouseCursor_None );
+                switch( g_mouseLocationUI )
+                {
+                case MouseLocationUI::ScaleHandleTL:
+                case MouseLocationUI::ScaleHandleBR:
+                case MouseLocationUI::ScaleHandleTR:
+                case MouseLocationUI::ScaleHandleBL:
+                {
+                    ImGui::SetMouseCursor( ImGuiMouseCursor_None );
 
-                glm::vec2 p1 = mousePos + glm::vec2( 1.0f, 1.0f ) * 12.0f * g_uiScale;
-                glm::vec2 p2 = mousePos + glm::vec2( -1.0f, 1.0f ) * 12.0f * g_uiScale;
-                glm::vec2 p3 = mousePos + glm::vec2( -1.0f, -1.0f ) * 12.0f * g_uiScale;
-                glm::vec2 p4 = mousePos + glm::vec2( 1.0f, -1.0f ) * 12.0f * g_uiScale;
+                    glm::vec2 p1 = mousePos + glm::vec2( 1.0f, 1.0f ) * 12.0f * g_uiScale;
+                    glm::vec2 p2 = mousePos + glm::vec2( -1.0f, 1.0f ) * 12.0f * g_uiScale;
+                    glm::vec2 p3 = mousePos + glm::vec2( -1.0f, -1.0f ) * 12.0f * g_uiScale;
+                    glm::vec2 p4 = mousePos + glm::vec2( 1.0f, -1.0f ) * 12.0f * g_uiScale;
 
-                // No idea how we associate g_cursorIconRanges to their respective icon so I'm just going to hardcode for now
-                const ImFontGlyph* glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[0] );
-                drawList->AddImageQuad( ImGui::GetIO().Fonts->TexID, p1, p2, p3, p4, glm::vec2( glyph->U1, glyph->V1 ), glm::vec2( glyph->U0, glyph->V1 ),
-                                        glm::vec2( glyph->U0, glyph->V0 ), glm::vec2( glyph->U1, glyph->V0 ), Spectrum::Static::BLACK );
-            }
-            break;
-            default:
-                ImGui::SetMouseCursor( ImGuiMouseCursor_Arrow );
+                    // No idea how we associate g_cursorIconRanges to their respective icon so I'm just going to hardcode for now
+                    const ImFontGlyph* glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[0] );
+                    drawList->AddImageQuad( ImGui::GetIO().Fonts->TexID, p1, p2, p3, p4, glm::vec2( glyph->U1, glyph->V1 ), glm::vec2( glyph->U0, glyph->V1 ),
+                                            glm::vec2( glyph->U0, glyph->V0 ), glm::vec2( glyph->U1, glyph->V0 ), Spectrum::Static::BLACK );
+                }
                 break;
+                default:
+                    ImGui::SetMouseCursor( ImGuiMouseCursor_Arrow );
+                    break;
+                }
             }
         }
 
@@ -399,34 +408,38 @@ namespace mc
             const ImFontGlyph* glyph = nullptr;
             glm::vec2 angle          = cursorAngle;
 
-            switch( g_mouseLocationUI )
+            if( !mouseDown )
             {
-            case MouseLocationUI::RotateHandle:
-            {
-                // No idea how we associate g_cursorIconRanges to their respective icon so I'm just going to hardcode for now
-                glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[2] );
-                angle = glm::vec2( 1.0, 0.0 );
-            }
-            break;
-            case MouseLocationUI::ScaleHandleTL:
-            case MouseLocationUI::ScaleHandleBR:
-            {
-                glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[4] );
-                angle = glm::vec2( -angle.y, angle.x );
-            }
-            break;
-            case MouseLocationUI::ScaleHandleTR:
-            case MouseLocationUI::ScaleHandleBL:
-            {
-                glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[4] );
-            }
-            break;
-            case MouseLocationUI::MoveHandle:
-            {
-                glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[0] );
-                angle = glm::vec2( 1.0, 0.0 );
-            }
-            break;
+
+                switch( g_mouseLocationUI )
+                {
+                case MouseLocationUI::RotateHandle:
+                {
+                    // No idea how we associate g_cursorIconRanges to their respective icon so I'm just going to hardcode for now
+                    glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[2] );
+                    angle = glm::vec2( 1.0, 0.0 );
+                }
+                break;
+                case MouseLocationUI::ScaleHandleTL:
+                case MouseLocationUI::ScaleHandleBR:
+                {
+                    glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[4] );
+                    angle = glm::vec2( -angle.y, angle.x );
+                }
+                break;
+                case MouseLocationUI::ScaleHandleTR:
+                case MouseLocationUI::ScaleHandleBL:
+                {
+                    glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[4] );
+                }
+                break;
+                case MouseLocationUI::MoveHandle:
+                {
+                    glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[0] );
+                    angle = glm::vec2( 1.0, 0.0 );
+                }
+                break;
+                }
             }
 
             glm::vec2 perpendicular = glm::vec2( -angle.y, angle.x );
@@ -434,6 +447,7 @@ namespace mc
             glm::vec2 p2            = mousePos + ( perpendicular - angle ) * 12.0f * g_uiScale;
             glm::vec2 p3            = mousePos + ( -perpendicular - angle ) * 12.0f * g_uiScale;
             glm::vec2 p4            = mousePos + ( -perpendicular + angle ) * 12.0f * g_uiScale;
+
 
             if( glyph != nullptr )
             {
@@ -450,6 +464,7 @@ namespace mc
 
     void drawUI( const AppContext* app, const wgpu::RenderPassEncoder& renderPass )
     {
+        computeTransformBox( app, app->mouseWindowPos );
         computeMouseLocationUI( app, app->mouseWindowPos );
 
         ImGui_ImplWGPU_NewFrame();
@@ -948,35 +963,14 @@ namespace mc
                     ImGui::Text( "Select Save Area" );
                 }
                 ImGui::End();
+
+                drawList->AddRectFilled( glm::vec2( 0.0f ), glm::vec2( app->width, app->height ), Spectrum::PURPLE700 & 0x00FFFFFF | 0x33000000 );
             }
         }
 
         if( app->mode == Mode::Crop )
         {
             int imageSelection = app->layers.getSingleSelectedImage();
-
-            glm::vec2 cornerTL = ( app->layers.data()[imageSelection].offset -
-                                   ( app->layers.data()[imageSelection].basisA + app->layers.data()[imageSelection].basisB ) * 0.5f ) *
-                                     app->viewParams.scale +
-                                 app->viewParams.canvasPos;
-            glm::vec2 cornerBR = ( app->layers.data()[imageSelection].offset +
-                                   ( app->layers.data()[imageSelection].basisA + app->layers.data()[imageSelection].basisB ) * 0.5f ) *
-                                     app->viewParams.scale +
-                                 app->viewParams.canvasPos;
-            glm::vec2 cornerTR = ( app->layers.data()[imageSelection].offset +
-                                   ( app->layers.data()[imageSelection].basisA - app->layers.data()[imageSelection].basisB ) * 0.5f ) *
-                                     app->viewParams.scale +
-                                 app->viewParams.canvasPos;
-            glm::vec2 cornerBL = ( app->layers.data()[imageSelection].offset -
-                                   ( app->layers.data()[imageSelection].basisA - app->layers.data()[imageSelection].basisB ) * 0.5f ) *
-                                     app->viewParams.scale +
-                                 app->viewParams.canvasPos;
-
-            glm::vec2 rotLineBasePos =
-                ( app->layers.data()[imageSelection].offset - app->layers.data()[imageSelection].basisB * 0.5f ) * app->viewParams.scale +
-                app->viewParams.canvasPos;
-
-            glm::vec2 rotHandlePos = rotLineBasePos - glm::normalize( app->layers.data()[imageSelection].basisB ) * mc::RotateHandleHeight;
 
             ImU32 color = Spectrum::PURPLE400;
 
@@ -986,7 +980,8 @@ namespace mc
             glm::vec2 screenCornerTR( app->width, 0.0 );
             glm::vec2 screenCornerBL( 0.0, app->height );
 
-            std::array<glm::vec2, 4> pointsYSorted = { cornerTL, cornerBR, cornerTR, cornerBL };
+            std::array<glm::vec2, 4> pointsYSorted = { g_transformBox.cornerHandleTL, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleTR,
+                                                       g_transformBox.cornerHandleBL };
             std::sort( pointsYSorted.begin(), pointsYSorted.end(),
                        []( const glm::vec2& a, const glm::vec2& b ) { return ( a.y < b.y ) || ( a.y == b.y && a.x < b.x ); } );
 
@@ -1005,92 +1000,57 @@ namespace mc
 
             drawList->AddConcavePolyFilled( pointsClockwise.data(), pointsClockwise.size(), Spectrum::PURPLE700 & 0x00FFFFFF | 0x33000000 );
 
-            drawList->AddLine( cornerTL, cornerTR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
-            drawList->AddLine( cornerTR, cornerBR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
-            drawList->AddLine( cornerBR, cornerBL, Spectrum::PURPLE400, ceilf( g_uiScale ) );
-            drawList->AddLine( cornerBL, cornerTL, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+            drawList->AddLine( g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+            drawList->AddLine( g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+            drawList->AddLine( g_transformBox.cornerHandleBR, g_transformBox.cornerHandleBL, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+            drawList->AddLine( g_transformBox.cornerHandleBL, g_transformBox.cornerHandleTL, Spectrum::PURPLE400, ceilf( g_uiScale ) );
 
-            drawList->AddCircleFilled( cornerBR, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
+            drawList->AddCircleFilled( g_transformBox.cornerHandleBR, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::ScaleHandleBR ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
-            drawList->AddCircleFilled( cornerBR, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
+            drawList->AddCircleFilled( g_transformBox.cornerHandleBR, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
 
-            drawList->AddCircleFilled( cornerBL, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
+            drawList->AddCircleFilled( g_transformBox.cornerHandleBL, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::ScaleHandleBL ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
-            drawList->AddCircleFilled( cornerBL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
+            drawList->AddCircleFilled( g_transformBox.cornerHandleBL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
 
-            drawList->AddCircleFilled( cornerTR, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
+            drawList->AddCircleFilled( g_transformBox.cornerHandleTR, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::ScaleHandleTR ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
-            drawList->AddCircleFilled( cornerTR, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
+            drawList->AddCircleFilled( g_transformBox.cornerHandleTR, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
 
-            drawList->AddCircleFilled( cornerTL, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
+            drawList->AddCircleFilled( g_transformBox.cornerHandleTL, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::ScaleHandleTL ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
-            drawList->AddCircleFilled( cornerTL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
+            drawList->AddCircleFilled( g_transformBox.cornerHandleTL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
         }
 
         if( app->layers.numSelected() > 0 && app->dragType == CursorDragType::Select && app->mode == Mode::Cursor )
         {
-            glm::vec2 cornerTL = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
-            glm::vec2 cornerBR = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
-            glm::vec2 cornerTR = glm::vec2( cornerBR.x, cornerTL.y );
-            glm::vec2 cornerBL = glm::vec2( cornerTL.x, cornerBR.y );
-
-            glm::vec2 rotLineBasePos = glm::vec2( ( cornerTL.x + cornerTR.x ) * 0.5f, cornerTL.y );
-
-            glm::vec2 rotHandlePos = glm::vec2( rotLineBasePos.x, rotLineBasePos.y - mc::RotateHandleHeight );
-
-            int imageSelection = app->layers.getSingleSelectedImage();
-            if( imageSelection >= 0 )
-            {
-                cornerTL = ( app->layers.data()[imageSelection].offset -
-                             ( app->layers.data()[imageSelection].basisA + app->layers.data()[imageSelection].basisB ) * 0.5f ) *
-                               app->viewParams.scale +
-                           app->viewParams.canvasPos;
-                cornerBR = ( app->layers.data()[imageSelection].offset +
-                             ( app->layers.data()[imageSelection].basisA + app->layers.data()[imageSelection].basisB ) * 0.5f ) *
-                               app->viewParams.scale +
-                           app->viewParams.canvasPos;
-                cornerTR = ( app->layers.data()[imageSelection].offset +
-                             ( app->layers.data()[imageSelection].basisA - app->layers.data()[imageSelection].basisB ) * 0.5f ) *
-                               app->viewParams.scale +
-                           app->viewParams.canvasPos;
-                cornerBL = ( app->layers.data()[imageSelection].offset -
-                             ( app->layers.data()[imageSelection].basisA - app->layers.data()[imageSelection].basisB ) * 0.5f ) *
-                               app->viewParams.scale +
-                           app->viewParams.canvasPos;
-
-                rotLineBasePos = ( app->layers.data()[imageSelection].offset - app->layers.data()[imageSelection].basisB * 0.5f ) * app->viewParams.scale +
-                                 app->viewParams.canvasPos;
-
-                rotHandlePos = rotLineBasePos - glm::normalize( app->layers.data()[imageSelection].basisB ) * mc::RotateHandleHeight;
-            }
-
             ImU32 color = Spectrum::PURPLE400;
-            drawList->AddLine( rotLineBasePos, rotHandlePos, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+            drawList->AddLine( g_transformBox.rotationHandleBase, g_transformBox.rotationHandle, Spectrum::PURPLE400, ceilf( g_uiScale ) );
 
-            drawList->AddCircleFilled( rotHandlePos, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
+            drawList->AddCircleFilled( g_transformBox.rotationHandle, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::RotateHandle ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
-            drawList->AddCircleFilled( rotHandlePos, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
+            drawList->AddCircleFilled( g_transformBox.rotationHandle, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
 
-            drawList->AddLine( cornerTL, cornerTR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
-            drawList->AddLine( cornerTR, cornerBR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
-            drawList->AddLine( cornerBR, cornerBL, Spectrum::PURPLE400, ceilf( g_uiScale ) );
-            drawList->AddLine( cornerBL, cornerTL, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+            drawList->AddLine( g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+            drawList->AddLine( g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+            drawList->AddLine( g_transformBox.cornerHandleBR, g_transformBox.cornerHandleBL, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+            drawList->AddLine( g_transformBox.cornerHandleBL, g_transformBox.cornerHandleTL, Spectrum::PURPLE400, ceilf( g_uiScale ) );
 
-            drawList->AddCircleFilled( cornerBR, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
+            drawList->AddCircleFilled( g_transformBox.cornerHandleBR, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::ScaleHandleBR ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
-            drawList->AddCircleFilled( cornerBR, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
+            drawList->AddCircleFilled( g_transformBox.cornerHandleBR, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
 
-            drawList->AddCircleFilled( cornerBL, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
+            drawList->AddCircleFilled( g_transformBox.cornerHandleBL, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::ScaleHandleBL ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
-            drawList->AddCircleFilled( cornerBL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
+            drawList->AddCircleFilled( g_transformBox.cornerHandleBL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
 
-            drawList->AddCircleFilled( cornerTR, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
+            drawList->AddCircleFilled( g_transformBox.cornerHandleTR, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::ScaleHandleTR ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
-            drawList->AddCircleFilled( cornerTR, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
+            drawList->AddCircleFilled( g_transformBox.cornerHandleTR, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
 
-            drawList->AddCircleFilled( cornerTL, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
+            drawList->AddCircleFilled( g_transformBox.cornerHandleTL, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::ScaleHandleTL ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
-            drawList->AddCircleFilled( cornerTL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
+            drawList->AddCircleFilled( g_transformBox.cornerHandleTL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
         }
 
         glm::vec2 cursorAngle = glm::vec2( 1.0, 0.0 );
@@ -1099,7 +1059,7 @@ namespace mc
         {
             cursorAngle = glm::normalize( app->layers.data()[imageSelection].basisA );
         }
-        drawCursor( app->mouseWindowPos, cursorAngle, app->viewParams.scale, app->mode );
+        drawCursor( app->mouseWindowPos, cursorAngle, app->viewParams.scale, app->mode, app->mouseDown );
 
         ImGui::Render();
 
