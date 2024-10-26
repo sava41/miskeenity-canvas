@@ -97,9 +97,11 @@ namespace mc
         wgpu::Device device;
         wgpu::Adapter adapter;
 
+        std::unique_ptr<mc::ResourceHandle> canvasRenderTextureHandle;
         wgpu::TextureFormat colorFormat;
 
         wgpu::RenderPipeline mainPipeline;
+        wgpu::RenderPipeline postPipeline;
         wgpu::ComputePipeline selectionPipeline;
         wgpu::ComputePipeline meshPipeline;
         wgpu::Buffer meshBuf;

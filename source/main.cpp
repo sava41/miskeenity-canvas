@@ -83,11 +83,14 @@ SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
     SDL_GetWindowSize( app->window, &app->width, &app->height );
     SDL_GetWindowSizeInPixels( app->window, &app->bbwidth, &app->bbheight );
     app->dpiFactor = SDL_GetWindowDisplayScale( app->window );
+
     mc::configureSurface( app );
+    app->canvasRenderTextureHandle = std::make_unique<mc::ResourceHandle>( app->textureManager.add(
+        nullptr, app->bbwidth, app->bbheight, 4, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
 
     mc::initUI( app );
 
-    mc::initMainPipeline( app );
+    mc::initPipelines( app );
 
     // print some information about the window
     SDL_ShowWindow( app->window );
@@ -520,6 +523,9 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )
         mc::configureSurface( app );
 #endif
+        app->canvasRenderTextureHandle = std::make_unique<mc::ResourceHandle>( app->textureManager.add(
+            nullptr, app->bbwidth, app->bbheight, 4, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
+
         app->resetSurface = false;
         app->updateView   = true;
     }
@@ -806,11 +812,8 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         }
     }
 
-    wgpu::SurfaceTexture surfaceTexture;
-    app->surface.GetCurrentTexture( &surfaceTexture );
-
     wgpu::RenderPassEncoder canvasRenderPassEnc =
-        mc::createRenderPassEncoder( encoder, surfaceTexture.texture.CreateView(),
+        mc::createRenderPassEncoder( encoder, app->textureManager.get( *app->canvasRenderTextureHandle.get() ).textureView,
                                      wgpu::Color{ Spectrum::ColorR( Spectrum::Static::BONE ), Spectrum::ColorG( Spectrum::Static::BONE ),
                                                   Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f } );
 
@@ -833,9 +836,26 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         }
     }
 
-    mc::drawUI( app, canvasRenderPassEnc );
-
     canvasRenderPassEnc.End();
+
+    wgpu::SurfaceTexture surfaceTexture;
+    app->surface.GetCurrentTexture( &surfaceTexture );
+
+    wgpu::RenderPassEncoder postRenderPassEnc =
+        mc::createRenderPassEncoder( encoder, surfaceTexture.texture.CreateView(),
+                                     wgpu::Color{ Spectrum::ColorR( Spectrum::Static::BONE ), Spectrum::ColorG( Spectrum::Static::BONE ),
+                                                  Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f } );
+
+    postRenderPassEnc.SetPipeline( app->postPipeline );
+
+    postRenderPassEnc.SetBindGroup( 0, app->globalBindGroup );
+    app->textureManager.bind( *app->canvasRenderTextureHandle.get(), 1, postRenderPassEnc );
+
+    postRenderPassEnc.Draw( 6 );
+
+    mc::drawUI( app, postRenderPassEnc );
+
+    postRenderPassEnc.End();
 
     if( app->saveImage )
     {

@@ -51,6 +51,7 @@ b_embed(miskeenity-canvas ./resources/fonts/Arimo_compact.ttf)
 b_embed(miskeenity-canvas ./resources/fonts/Anton_compact.ttf)
 b_embed(miskeenity-canvas ./resources/fonts/EBGaramond_compact.ttf)
 b_embed(miskeenity-canvas ./resources/shaders/layers.wgsl)
+b_embed(miskeenity-canvas ./resources/shaders/postprocess.wgsl)
 b_embed(miskeenity-canvas ./resources/shaders/selection.wgsl)
 b_embed(miskeenity-canvas ./resources/shaders/mesh.wgsl)
 

@@ -87,7 +87,7 @@ namespace mc
         return true;
     }
 
-    void initMainPipeline( mc::AppContext* app )
+    void initPipelines( mc::AppContext* app )
     {
         // we have one vertex buffers
         // the vertex buffer is populated in the mesh assember compute shader
@@ -138,7 +138,7 @@ namespace mc
         blendState.alpha.operation = wgpu::BlendOperation::Add;
 
         wgpu::ColorTargetState colorTarget;
-        colorTarget.format    = app->colorFormat;
+        colorTarget.format    = wgpu::TextureFormat::RGBA8Unorm;
         colorTarget.blend     = &blendState;
         colorTarget.writeMask = wgpu::ColorWriteMask::All;
 
@@ -267,6 +267,61 @@ namespace mc
 
         vertexBufferDesc.usage = wgpu::BufferUsage::MapRead | wgpu::BufferUsage::CopyDst;
         app->vertexCopyBuf     = app->device.CreateBuffer( &vertexBufferDesc );
+
+        // Set up post process pipeline
+        {
+            wgpu::ShaderModuleWGSLDescriptor postShaderCodeDesc;
+            postShaderCodeDesc.code = b::embed<"./resources/shaders/postprocess.wgsl">().data();
+
+            wgpu::ShaderModuleDescriptor postShaderDesc;
+            postShaderDesc.nextInChain = &postShaderCodeDesc;
+
+            wgpu::ShaderModule postShaderModule = app->device.CreateShaderModule( &postShaderDesc );
+
+            blendState.alpha.srcFactor = wgpu::BlendFactor::Zero;
+            blendState.alpha.dstFactor = wgpu::BlendFactor::One;
+            blendState.alpha.operation = wgpu::BlendOperation::Add;
+
+            wgpu::ColorTargetState postColorTarget;
+            postColorTarget.format    = app->colorFormat;
+            postColorTarget.blend     = &blendState;
+            postColorTarget.writeMask = wgpu::ColorWriteMask::All;
+
+            wgpu::FragmentState postFragmentState;
+            postFragmentState.module        = postShaderModule;
+            postFragmentState.entryPoint    = "fs_post";
+            postFragmentState.constantCount = 0;
+            postFragmentState.targetCount   = 1;
+            postFragmentState.targets       = &postColorTarget;
+
+            wgpu::VertexState postVertexState;
+            postVertexState.module        = postShaderModule;
+            postVertexState.entryPoint    = "vs_post";
+            postVertexState.bufferCount   = 0;
+            postVertexState.constantCount = 0;
+
+            std::array<wgpu::BindGroupLayout, 2> postBindGroupLayouts = { globalGroupLayout, textureGroupLayout };
+
+            wgpu::PipelineLayoutDescriptor postPipelineLayoutDesc;
+            postPipelineLayoutDesc.bindGroupLayoutCount = static_cast<uint32_t>( postBindGroupLayouts.size() );
+            postPipelineLayoutDesc.bindGroupLayouts     = postBindGroupLayouts.data();
+
+            wgpu::PipelineLayout postPipelineLayout = app->device.CreatePipelineLayout( &postPipelineLayoutDesc );
+
+            wgpu::RenderPipelineDescriptor postPipelineDesc;
+            postPipelineDesc.label                              = "Post Process";
+            postPipelineDesc.vertex                             = postVertexState;
+            postPipelineDesc.fragment                           = &postFragmentState;
+            postPipelineDesc.layout                             = postPipelineLayout;
+            postPipelineDesc.primitive.topology                 = wgpu::PrimitiveTopology::TriangleList;
+            postPipelineDesc.primitive.stripIndexFormat         = wgpu::IndexFormat::Undefined;
+            postPipelineDesc.primitive.frontFace                = wgpu::FrontFace::CCW;
+            postPipelineDesc.multisample.count                  = 1;
+            postPipelineDesc.multisample.mask                   = ~0u;
+            postPipelineDesc.multisample.alphaToCoverageEnabled = false;
+
+            app->postPipeline = app->device.CreateRenderPipeline( &postPipelineDesc );
+        }
 
         // Set up compute shader used to compute selection
         {

@@ -8,7 +8,7 @@
 namespace mc
 {
     bool initDevice( mc::AppContext* app );
-    void initMainPipeline( mc::AppContext* app );
+    void initPipelines( mc::AppContext* app );
     void configureSurface( mc::AppContext* app );
     void updateMeshBuffers( mc::AppContext* app );
     wgpu::BindGroupLayout createTextureBindGroupLayout( const wgpu::Device& device );
