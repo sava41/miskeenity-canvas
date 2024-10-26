@@ -954,10 +954,10 @@ namespace mc
             }
             else
             {
-                ImGui::SetNextWindowPos( glm::vec2( buttonSpacing * 2 ), ImGuiCond_FirstUseEver );
+                ImGui::SetNextWindowPos( glm::vec2( buttonSpacing * 2 ), ImGuiCond_Always );
                 ImGui::SetNextWindowSize( glm::vec2( 200.0f, 80.0f ) * g_uiScale, ImGuiCond_FirstUseEver );
 
-                ImGui::Begin( "Save Image", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoScrollWithMouse );
+                ImGui::Begin( "Save Image", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs );
                 {
                     ImGui::SetCursorPos( ( glm::vec2( ImGui::GetWindowSize() ) - glm::vec2( ImGui::CalcTextSize( "Select Save Area" ) ) ) * 0.5f );
                     ImGui::Text( "Select Save Area" );
