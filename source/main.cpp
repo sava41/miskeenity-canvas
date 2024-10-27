@@ -756,7 +756,6 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         app->layersModified = true;
     }
 
-
     if( app->layersModified )
     {
         app->viewParams.numLayers = static_cast<uint32_t>( app->layers.length() );
@@ -857,6 +856,15 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
     postRenderPassEnc.End();
 
+    wgpu::CommandBufferDescriptor cmdBufferDescriptor;
+    cmdBufferDescriptor.label   = "Melchior";
+    wgpu::CommandBuffer command = encoder.Finish( &cmdBufferDescriptor );
+
+    app->device.GetQueue().Submit( 1, &command );
+
+    commandEncoderDesc.label              = "Secondary Encoder";
+    wgpu::CommandEncoder secondaryEncoder = app->device.CreateCommandEncoder( &commandEncoderDesc );
+
     if( app->saveImage )
     {
         int saveMinX = std::min( app->mouseDragStart.x, app->mouseWindowPos.x );
@@ -897,7 +905,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
                                                              Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f };
 
             wgpu::RenderPassEncoder outputRenderPassEnc =
-                mc::createRenderPassEncoder( encoder, app->textureManager.get( *app->copyTextureHandle.get() ).textureView, backgroundColor );
+                mc::createRenderPassEncoder( secondaryEncoder, app->textureManager.get( *app->copyTextureHandle.get() ).textureView, backgroundColor );
 
             if( app->layers.length() > 0 )
             {
@@ -923,7 +931,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
                 app->textureMapBuffer.Destroy();
             }
 
-            app->textureMapBuffer = mc::downloadTexture( app->textureManager.get( *app->copyTextureHandle.get() ).texture, app->device, encoder );
+            app->textureMapBuffer = mc::downloadTexture( app->textureManager.get( *app->copyTextureHandle.get() ).texture, app->device, secondaryEncoder );
 
             mc::submitEvent( mc::Events::ChangeMode, { .mode = mc::Mode::Cursor } );
         }
@@ -954,7 +962,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
             app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &outputViewParams, sizeof( mc::Uniforms ) );
 
             wgpu::RenderPassEncoder outputRenderPassEnc = mc::createRenderPassEncoder(
-                encoder, app->textureManager.get( *app->copyTextureHandle.get() ).textureView, wgpu::Color{ 0.0, 0.0, 0.0, 0.0f } );
+                secondaryEncoder, app->textureManager.get( *app->copyTextureHandle.get() ).textureView, wgpu::Color{ 0.0, 0.0, 0.0, 0.0f } );
 
             if( app->layers.length() > 0 )
             {
@@ -985,8 +993,8 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     bool computeSelection = app->viewParams.selectDispatch != mc::SelectDispatch::None && app->selectionReady && app->layers.length() > 0;
     if( computeSelection )
     {
-        encoder.ClearBuffer( app->selectionBuf, 0, app->layers.length() * sizeof( mc::Selection ) );
-        wgpu::ComputePassEncoder computePassEnc = encoder.BeginComputePass();
+        secondaryEncoder.ClearBuffer( app->selectionBuf, 0, app->layers.length() * sizeof( mc::Selection ) );
+        wgpu::ComputePassEncoder computePassEnc = secondaryEncoder.BeginComputePass();
         computePassEnc.SetPipeline( app->selectionPipeline );
         computePassEnc.SetBindGroup( 0, app->globalBindGroup );
         computePassEnc.SetBindGroup( 1, app->meshBindGroup );
@@ -995,14 +1003,13 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         computePassEnc.DispatchWorkgroups( ( app->layers.getTotalTriCount() + 256 - 1 ) / 256, 1, 1 );
         computePassEnc.End();
 
-        encoder.CopyBufferToBuffer( app->selectionBuf, 0, app->selectionMapBuf, 0, app->layers.getTotalTriCount() * sizeof( mc::Selection ) );
+        secondaryEncoder.CopyBufferToBuffer( app->selectionBuf, 0, app->selectionMapBuf, 0, app->layers.getTotalTriCount() * sizeof( mc::Selection ) );
     }
 
-    wgpu::CommandBufferDescriptor cmdBufferDescriptor;
-    cmdBufferDescriptor.label   = "Melchior";
-    wgpu::CommandBuffer command = encoder.Finish( &cmdBufferDescriptor );
+    cmdBufferDescriptor.label             = "Secondary Command Buffer";
+    wgpu::CommandBuffer secondaryCommands = secondaryEncoder.Finish( &cmdBufferDescriptor );
 
-    app->device.GetQueue().Submit( 1, &command );
+    app->device.GetQueue().Submit( 1, &secondaryCommands );
 
     // Reset
     app->mouseDelta  = glm::vec2( 0.0 );
