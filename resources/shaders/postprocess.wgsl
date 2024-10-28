@@ -69,7 +69,6 @@ fn fs_post(@location(0) uv : vec2<f32>) -> @location(0) vec4<f32> {
     
     //search in a circle if we are on the edge
     var onEdge: bool = false;
-    var test: f32 = 0.0;
     for(var i: u32 = 0; i < samples; i = i + 1u)
     {
         let angle: f32 = f32(i)/f32(samples) * 2.0 * pi;
