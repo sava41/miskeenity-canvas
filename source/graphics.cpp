@@ -128,6 +128,7 @@ namespace mc
         wgpu::ShaderModule shaderModule = app->device.CreateShaderModule( &shaderDesc );
 
         wgpu::BlendState blendState;
+        wgpu::BlendState maskBlendState;
 
         blendState.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
         blendState.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
@@ -137,17 +138,34 @@ namespace mc
         blendState.alpha.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
         blendState.alpha.operation = wgpu::BlendOperation::Add;
 
-        wgpu::ColorTargetState colorTarget;
-        colorTarget.format    = wgpu::TextureFormat::RGBA8Unorm;
-        colorTarget.blend     = &blendState;
-        colorTarget.writeMask = wgpu::ColorWriteMask::All;
+        maskBlendState.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
+        maskBlendState.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
+        maskBlendState.color.operation = wgpu::BlendOperation::Add;
+
+        maskBlendState.alpha.srcFactor = wgpu::BlendFactor::One;
+        maskBlendState.alpha.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
+        maskBlendState.alpha.operation = wgpu::BlendOperation::Add;
+
+        std::array<wgpu::ColorTargetState, 3> mainRenderTargets;
+
+        mainRenderTargets[0].format    = wgpu::TextureFormat::RGBA8Unorm;
+        mainRenderTargets[0].blend     = &blendState;
+        mainRenderTargets[0].writeMask = wgpu::ColorWriteMask::All;
+
+        mainRenderTargets[1].format    = wgpu::TextureFormat::R8Unorm;
+        mainRenderTargets[1].blend     = &maskBlendState;
+        mainRenderTargets[1].writeMask = wgpu::ColorWriteMask::Red;
+
+        mainRenderTargets[2].format    = wgpu::TextureFormat::R8Unorm;
+        mainRenderTargets[2].blend     = &maskBlendState;
+        mainRenderTargets[2].writeMask = wgpu::ColorWriteMask::Red;
 
         wgpu::FragmentState fragmentState;
         fragmentState.module        = shaderModule;
         fragmentState.entryPoint    = "fs_main";
         fragmentState.constantCount = 0;
-        fragmentState.targetCount   = 1;
-        fragmentState.targets       = &colorTarget;
+        fragmentState.targetCount   = mainRenderTargets.size();
+        fragmentState.targets       = mainRenderTargets.data();
 
         wgpu::VertexState vertexState;
         vertexState.module        = shaderModule;
@@ -218,7 +236,15 @@ namespace mc
         renderPipelineDesc.multisample.mask                   = ~0u;
         renderPipelineDesc.multisample.alphaToCoverageEnabled = false;
 
-        app->mainPipeline = app->device.CreateRenderPipeline( &renderPipelineDesc );
+        app->canvasPipeline = app->device.CreateRenderPipeline( &renderPipelineDesc );
+
+        // export pipeline is the exact same as canvas but we only need the main color render target
+        mainRenderTargets[1].writeMask = wgpu::ColorWriteMask::None;
+        mainRenderTargets[2].writeMask = wgpu::ColorWriteMask::None;
+
+        renderPipelineDesc.label = "Export";
+
+        app->exportPipeline = app->device.CreateRenderPipeline( &renderPipelineDesc );
 
         // Create buffers
         wgpu::BufferDescriptor uboBufDesc;
@@ -300,7 +326,8 @@ namespace mc
             postVertexState.bufferCount   = 0;
             postVertexState.constantCount = 0;
 
-            std::array<wgpu::BindGroupLayout, 2> postBindGroupLayouts = { globalGroupLayout, textureGroupLayout };
+            // Create main pipeline
+            std::array<wgpu::BindGroupLayout, 4> postBindGroupLayouts = { globalGroupLayout, textureGroupLayout, textureGroupLayout, textureGroupLayout };
 
             wgpu::PipelineLayoutDescriptor postPipelineLayoutDesc;
             postPipelineLayoutDesc.bindGroupLayoutCount = static_cast<uint32_t>( postBindGroupLayouts.size() );
@@ -475,21 +502,6 @@ namespace mc
         groupLayoutDesc.entries    = groupLayoutEntries.data();
 
         return device.CreateBindGroupLayout( &groupLayoutDesc );
-    }
-
-    wgpu::RenderPassEncoder createRenderPassEncoder( const wgpu::CommandEncoder& encoder, const wgpu::TextureView& renderTarget, const wgpu::Color& clearColor )
-    {
-        wgpu::RenderPassColorAttachment renderPassColorAttachment;
-        renderPassColorAttachment.view       = renderTarget;
-        renderPassColorAttachment.loadOp     = wgpu::LoadOp::Clear;
-        renderPassColorAttachment.storeOp    = wgpu::StoreOp::Store;
-        renderPassColorAttachment.clearValue = clearColor;
-
-        wgpu::RenderPassDescriptor renderPassDesc;
-        renderPassDesc.colorAttachmentCount = 1;
-        renderPassDesc.colorAttachments     = &renderPassColorAttachment;
-
-        return encoder.BeginRenderPass( &renderPassDesc );
     }
 
     void uploadTexture( const wgpu::Queue& queue, const wgpu::Texture& texture, void* data, int width, int height, int channels )

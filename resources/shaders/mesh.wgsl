@@ -9,6 +9,8 @@ struct Uniforms {
     windowHeight: u32,
     scale: f32,
     numLayers: u32,
+    dpiScale: f32,
+    ticks: u32,
 };
 
 struct Layer {

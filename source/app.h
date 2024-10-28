@@ -71,8 +71,10 @@ namespace mc
         uint32_t height;
         float scale        = 1.0;
         uint32_t numLayers = 0;
+        float dpiScale     = 1.0;
+        uint32_t ticks     = 0;
 
-        float _pad[4];
+        float _pad[2];
     };
 #pragma pack( pop )
     // Have the compiler check byte alignment
@@ -98,10 +100,13 @@ namespace mc
         wgpu::Adapter adapter;
 
         std::unique_ptr<mc::ResourceHandle> canvasRenderTextureHandle;
+        std::unique_ptr<mc::ResourceHandle> canvasSelectMaskHandle;
+        std::unique_ptr<mc::ResourceHandle> canvasSelectOccludedMaskHandle;
         wgpu::TextureFormat colorFormat;
 
-        wgpu::RenderPipeline mainPipeline;
+        wgpu::RenderPipeline canvasPipeline;
         wgpu::RenderPipeline postPipeline;
+        wgpu::RenderPipeline exportPipeline;
         wgpu::ComputePipeline selectionPipeline;
         wgpu::ComputePipeline meshPipeline;
         wgpu::Buffer meshBuf;

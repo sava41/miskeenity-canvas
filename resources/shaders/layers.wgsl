@@ -18,6 +18,12 @@ struct VertexOutput {
     @location(6) sdfSize: f32,
 };
 
+struct FragmentOutput {
+    @location(0) color: vec4<f32>,
+    @location(1) selectionMask: vec4<f32>,
+    @location(2) selectionOccludedMask: vec4<f32>,
+}
+
 struct Uniforms {
     proj: mat4x4<f32>,
     canvasPos: vec2<f32>,
@@ -29,6 +35,8 @@ struct Uniforms {
     windowHeight: u32,
     scale: f32,
     numLayers: u32,
+    dpiScale: f32,
+    ticks: u32,
 };
 
 struct Layer {
@@ -98,7 +106,7 @@ fn udRoundedBox( p: vec2<f32>, b: vec2<f32>, r: f32 ) -> f32
 }
 
 @fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+fn fs_main(in: VertexOutput) -> FragmentOutput {
     let aspect: vec2<f32> = in.size / min(in.size.x, in.size.y);
 
     let texColor: vec4<f32> = select(vec4<f32>(1.0), textureSample(texture, textureSampler, in.uv).rgba, bool(in.flags & (1 << 1)));
@@ -109,11 +117,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let sdfMask:  f32 = select(1.0, smoothstep(max(0.05, 0.5 - in.outlineValue - smoothing), 0.5 - in.outlineValue + smoothing, textureSample(mask, maskSampler, in.uv).r), bool(in.flags & (1 << 3)));
     let sdfOutlineColor: vec3<f32> = mix(in.outlineColor.rgb, in.color.rgb, smoothstep(0.5 - smoothing, 0.5 + smoothing, textureSample(mask, maskSampler, in.uv).r));
 
-    let selectColor: f32 = f32(((modf(in.position.x / f32(15.0) + f32(modf(in.position.y / f32(15.0)).whole % 2)).whole % 2) * 0.1 - 0.05) * f32(in.flags & 1) * f32(uniforms.viewType == 0));
-
     let pillMask: f32 = select(1.0, smoothstep(0.0, 2.0 / (max(in.size.x, in.size.y) * uniforms.scale) , -udRoundedBox((in.uv - 0.5) * aspect, vec2<f32>(0.5) * aspect, 0.5f)), bool(in.flags & (1 << 4)));
 
     let opacity: f32 = texColor.a * maskValue * sdfMask * pillMask * in.color.a * select(1.0, f32(in.flags & 1), bool(uniforms.viewType == 2));
 
-    return vec4<f32>(texColor.rgb * select(in.color.rgb, sdfOutlineColor, bool(in.flags & (1 << 3)) && in.outlineValue > 0.0) + vec3<f32>(selectColor), opacity);
+    var out: FragmentOutput;
+    out.color = vec4<f32>(texColor.rgb * select(in.color.rgb, sdfOutlineColor, bool(in.flags & (1 << 3)) && in.outlineValue > 0.0), opacity);
+    out.selectionOccludedMask = vec4<f32>(f32(in.flags & 1), 0.0, 0.0, opacity);
+    out.selectionMask = vec4<f32>(1.0, 0.0, 0.0, opacity * f32(in.flags & 1));
+
+    return out;
 }

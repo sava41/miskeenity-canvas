@@ -83,10 +83,15 @@ SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
     SDL_GetWindowSize( app->window, &app->width, &app->height );
     SDL_GetWindowSizeInPixels( app->window, &app->bbwidth, &app->bbheight );
     app->dpiFactor = SDL_GetWindowDisplayScale( app->window );
+    app->viewParams.dpiScale = SDL_GetWindowDisplayScale( app->window );
 
     mc::configureSurface( app );
     app->canvasRenderTextureHandle = std::make_unique<mc::ResourceHandle>( app->textureManager.add(
         nullptr, app->bbwidth, app->bbheight, 4, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
+    app->canvasSelectMaskHandle         = std::make_unique<mc::ResourceHandle>( app->textureManager.add(
+        nullptr, app->bbwidth, app->bbheight, 1, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
+    app->canvasSelectOccludedMaskHandle = std::make_unique<mc::ResourceHandle>( app->textureManager.add(
+        nullptr, app->bbwidth, app->bbheight, 1, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
 
     mc::initUI( app );
 
@@ -392,6 +397,7 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
         if( static_cast<int>( app->dpiFactor * 100 ) != static_cast<int>( SDL_GetWindowDisplayScale( app->window ) * 100 ) )
         {
             app->dpiFactor      = SDL_GetWindowDisplayScale( app->window );
+            app->viewParams.dpiScale = SDL_GetWindowDisplayScale( app->window );
             app->updateUIStyles = true;
         }
         break;
@@ -525,6 +531,10 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 #endif
         app->canvasRenderTextureHandle = std::make_unique<mc::ResourceHandle>( app->textureManager.add(
             nullptr, app->bbwidth, app->bbheight, 4, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
+        app->canvasSelectMaskHandle         = std::make_unique<mc::ResourceHandle>( app->textureManager.add(
+            nullptr, app->bbwidth, app->bbheight, 1, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
+        app->canvasSelectOccludedMaskHandle = std::make_unique<mc::ResourceHandle>( app->textureManager.add(
+            nullptr, app->bbwidth, app->bbheight, 1, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
 
         app->resetSurface = false;
         app->updateView   = true;
@@ -760,6 +770,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     {
         app->viewParams.numLayers = static_cast<uint32_t>( app->layers.length() );
     }
+    app->viewParams.ticks = static_cast<uint32_t>( SDL_GetTicks() );
     app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &app->viewParams, sizeof( mc::Uniforms ) );
 
     wgpu::CommandEncoderDescriptor commandEncoderDesc;
@@ -812,13 +823,17 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     }
 
     wgpu::RenderPassEncoder canvasRenderPassEnc =
-        mc::createRenderPassEncoder( encoder, app->textureManager.get( *app->canvasRenderTextureHandle.get() ).textureView,
-                                     wgpu::Color{ Spectrum::ColorR( Spectrum::Static::BONE ), Spectrum::ColorG( Spectrum::Static::BONE ),
-                                                  Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f } );
+        mc::createRenderPassEncoder<3>( encoder,
+                                        { app->textureManager.get( *app->canvasRenderTextureHandle.get() ).textureView,
+                                          app->textureManager.get( *app->canvasSelectMaskHandle.get() ).textureView,
+                                          app->textureManager.get( *app->canvasSelectOccludedMaskHandle.get() ).textureView },
+                                        { wgpu::Color{ Spectrum::ColorR( Spectrum::Static::BONE ), Spectrum::ColorG( Spectrum::Static::BONE ),
+                                                       Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f },
+                                          wgpu::Color{ 0.0, 0.0, 0.0, 1.0f }, wgpu::Color{ 0.0, 0.0, 0.0, 1.0f } } );
 
     if( app->layers.length() > 0 )
     {
-        canvasRenderPassEnc.SetPipeline( app->mainPipeline );
+        canvasRenderPassEnc.SetPipeline( app->canvasPipeline );
         canvasRenderPassEnc.SetVertexBuffer( 0, app->vertexBuf );
         canvasRenderPassEnc.SetVertexBuffer( 1, app->layerBuf );
         canvasRenderPassEnc.SetBindGroup( 0, app->globalBindGroup );
@@ -841,14 +856,16 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     app->surface.GetCurrentTexture( &surfaceTexture );
 
     wgpu::RenderPassEncoder postRenderPassEnc =
-        mc::createRenderPassEncoder( encoder, surfaceTexture.texture.CreateView(),
-                                     wgpu::Color{ Spectrum::ColorR( Spectrum::Static::BONE ), Spectrum::ColorG( Spectrum::Static::BONE ),
-                                                  Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f } );
+        mc::createRenderPassEncoder<1>( encoder, { surfaceTexture.texture.CreateView() },
+                                        { wgpu::Color{ Spectrum::ColorR( Spectrum::Static::BONE ), Spectrum::ColorG( Spectrum::Static::BONE ),
+                                                       Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f } } );
 
     postRenderPassEnc.SetPipeline( app->postPipeline );
 
     postRenderPassEnc.SetBindGroup( 0, app->globalBindGroup );
     app->textureManager.bind( *app->canvasRenderTextureHandle.get(), 1, postRenderPassEnc );
+    app->textureManager.bind( *app->canvasSelectMaskHandle.get(), 2, postRenderPassEnc );
+    app->textureManager.bind( *app->canvasSelectOccludedMaskHandle.get(), 3, postRenderPassEnc );
 
     postRenderPassEnc.Draw( 6 );
 
@@ -904,12 +921,12 @@ SDL_AppResult SDL_AppIterate( void* appstate )
                                               : wgpu::Color{ Spectrum::ColorR( Spectrum::Static::BONE ), Spectrum::ColorG( Spectrum::Static::BONE ),
                                                              Spectrum::ColorB( Spectrum::Static::BONE ), 1.0f };
 
-            wgpu::RenderPassEncoder outputRenderPassEnc =
-                mc::createRenderPassEncoder( secondaryEncoder, app->textureManager.get( *app->copyTextureHandle.get() ).textureView, backgroundColor );
+            wgpu::RenderPassEncoder outputRenderPassEnc = mc::createRenderPassEncoder<1>(
+                secondaryEncoder, { app->textureManager.get( *app->copyTextureHandle.get() ).textureView }, { backgroundColor } );
 
             if( app->layers.length() > 0 )
             {
-                outputRenderPassEnc.SetPipeline( app->mainPipeline );
+                outputRenderPassEnc.SetPipeline( app->exportPipeline );
                 outputRenderPassEnc.SetVertexBuffer( 0, app->vertexBuf );
                 outputRenderPassEnc.SetVertexBuffer( 1, app->layerBuf );
                 outputRenderPassEnc.SetBindGroup( 0, app->globalBindGroup );
@@ -961,12 +978,12 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
             app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &outputViewParams, sizeof( mc::Uniforms ) );
 
-            wgpu::RenderPassEncoder outputRenderPassEnc = mc::createRenderPassEncoder(
-                secondaryEncoder, app->textureManager.get( *app->copyTextureHandle.get() ).textureView, wgpu::Color{ 0.0, 0.0, 0.0, 0.0f } );
+            wgpu::RenderPassEncoder outputRenderPassEnc = mc::createRenderPassEncoder<1>(
+                secondaryEncoder, { app->textureManager.get( *app->copyTextureHandle.get() ).textureView }, { wgpu::Color{ 0.0, 0.0, 0.0, 0.0f } } );
 
             if( app->layers.length() > 0 )
             {
-                outputRenderPassEnc.SetPipeline( app->mainPipeline );
+                outputRenderPassEnc.SetPipeline( app->exportPipeline );
                 outputRenderPassEnc.SetVertexBuffer( 0, app->vertexBuf );
                 outputRenderPassEnc.SetVertexBuffer( 1, app->layerBuf );
                 outputRenderPassEnc.SetBindGroup( 0, app->globalBindGroup );
