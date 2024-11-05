@@ -63,26 +63,9 @@ namespace mc
 #endif
         app->device = mc::requestDevice( app->adapter, &deviceDesc );
 
-#if defined( SDL_PLATFORM_EMSCRIPTEN )
         wgpu::SurfaceCapabilities capabilities;
         app->surface.GetCapabilities( app->adapter, &capabilities );
-
-        // our app for now only supports rgba8unorm rendering so make sure the device supports it
-        bool supported = false;
-        for( int i = 0; i < capabilities.formatCount; ++i )
-        {
-            if( capabilities.formats[i] == wgpu::TextureFormat::RGBA8Unorm )
-            {
-                supported = true;
-            }
-        }
-
-        if( !supported )
-        {
-            return false;
-        }
-#endif
-        app->colorFormat = wgpu::TextureFormat::RGBA8Unorm;
+        app->colorFormat = capabilities.formats[0];
 
         return true;
     }

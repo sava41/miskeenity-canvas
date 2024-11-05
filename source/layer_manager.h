@@ -18,7 +18,8 @@ namespace mc
         HasColorTex     = 1 << 1,
         HasMaskTex      = 1 << 2,
         HasSdfMaskTex   = 1 << 3,
-        HasPillAlphaTex = 1 << 4
+        HasPillAlphaTex = 1 << 4,
+        InvertMask      = 1 << 5
     };
 
 #pragma pack( push, 4 )
@@ -115,6 +116,7 @@ namespace mc
         void rotateSelection( const glm::vec2& center, float angle );
         void scaleSelection( const glm::vec2& center, const glm::vec2& ammount );
         void bringFrontSelection( bool reverse = false );
+        void duplicateSelection( const glm::vec2& offset );
         void removeSelection();
 
         LayerManager createShrunkCopy();

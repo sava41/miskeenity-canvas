@@ -377,6 +377,28 @@ namespace mc
         m_array = std::move( newArray );
     }
 
+    void LayerManager::duplicateSelection( const glm::vec2& offset )
+    {
+        int length = m_curLength;
+
+        for( int i = 0; i < length; ++i )
+        {
+            if( m_array[i].flags & LayerFlags::Selected )
+            {
+                Layer duplicateLayer = m_array[i];
+                duplicateLayer.offset += offset;
+
+                ResourceHandle texture =
+                    m_array[i].flags & LayerFlags::HasColorTex ? m_textureHandles.at( m_array[i].texture ) : ResourceHandle::invalidResource();
+                ResourceHandle mask = m_array[i].flags & LayerFlags::HasMaskTex || m_array[i].flags & LayerFlags::HasSdfMaskTex
+                                          ? m_textureHandles.at( m_array[i].mask )
+                                          : ResourceHandle::invalidResource();
+
+                add( duplicateLayer, texture, mask );
+            }
+        }
+    }
+
     void LayerManager::removeSelection()
     {
         if( m_numSelected == 0 )

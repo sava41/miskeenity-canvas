@@ -153,7 +153,7 @@ namespace mc
         return getHandle( textureIndex );
     }
 
-    Texture TextureManager::get( const ResourceHandle& texHandle )
+    Texture TextureManager::get( const ResourceHandle& texHandle ) const
     {
         if( !texHandle.valid() )
         {
@@ -163,7 +163,7 @@ namespace mc
         return m_array[texHandle.resourceIndex()];
     }
 
-    bool TextureManager::bind( const ResourceHandle& texHandle, int bindGroupIndex, const wgpu::RenderPassEncoder& encoder )
+    bool TextureManager::bind( const ResourceHandle& texHandle, int bindGroupIndex, const wgpu::RenderPassEncoder& encoder ) const
     {
         if( !texHandle.valid() )
         {

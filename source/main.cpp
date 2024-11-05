@@ -82,11 +82,11 @@ SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
 
     SDL_GetWindowSize( app->window, &app->width, &app->height );
     SDL_GetWindowSizeInPixels( app->window, &app->bbwidth, &app->bbheight );
-    app->dpiFactor = SDL_GetWindowDisplayScale( app->window );
+    app->dpiFactor           = SDL_GetWindowDisplayScale( app->window );
     app->viewParams.dpiScale = SDL_GetWindowDisplayScale( app->window );
 
     mc::configureSurface( app );
-    app->canvasRenderTextureHandle = std::make_unique<mc::ResourceHandle>( app->textureManager.add(
+    app->canvasRenderTextureHandle      = std::make_unique<mc::ResourceHandle>( app->textureManager.add(
         nullptr, app->bbwidth, app->bbheight, 4, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
     app->canvasSelectMaskHandle         = std::make_unique<mc::ResourceHandle>( app->textureManager.add(
         nullptr, app->bbwidth, app->bbheight, 1, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
@@ -144,7 +144,9 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         if( selectionData == nullptr )
         {
             app->selectionMapBuf.Unmap();
-            app->selectionReady = true;
+            app->selectionReady            = true;
+            app->viewParams.selectDispatch = mc::SelectDispatch::None;
+            app->dragType                  = mc::CursorDragType::Select;
             return;
         }
 
@@ -283,6 +285,17 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
             return;
         }
 
+        if( newMode == mc::Mode::Cut )
+        {
+            int index = app->layers.getSingleSelectedImage();
+
+            int width  = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth();
+            int height = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight();
+
+            app->editMaskTextureHandle = std::make_unique<mc::ResourceHandle>(
+                app->textureManager.add( nullptr, width, height, 4, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
+        }
+
         app->layerEditStart = app->layers.length();
         app->editBackup     = app->layers.createShrunkCopy();
 
@@ -396,9 +409,9 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
         // do comparison with ints to eliminate precision error
         if( static_cast<int>( app->dpiFactor * 100 ) != static_cast<int>( SDL_GetWindowDisplayScale( app->window ) * 100 ) )
         {
-            app->dpiFactor      = SDL_GetWindowDisplayScale( app->window );
+            app->dpiFactor           = SDL_GetWindowDisplayScale( app->window );
             app->viewParams.dpiScale = SDL_GetWindowDisplayScale( app->window );
-            app->updateUIStyles = true;
+            app->updateUIStyles      = true;
         }
         break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -529,7 +542,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )
         mc::configureSurface( app );
 #endif
-        app->canvasRenderTextureHandle = std::make_unique<mc::ResourceHandle>( app->textureManager.add(
+        app->canvasRenderTextureHandle      = std::make_unique<mc::ResourceHandle>( app->textureManager.add(
             nullptr, app->bbwidth, app->bbheight, 4, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
         app->canvasSelectMaskHandle         = std::make_unique<mc::ResourceHandle>( app->textureManager.add(
             nullptr, app->bbwidth, app->bbheight, 1, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
@@ -558,7 +571,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     }
 
     // Update mouse position in canvas coordinate space
-    app->viewParams.mousePos = ( app->mouseWindowPos - app->viewParams.canvasPos ) / app->viewParams.scale;
+    app->viewParams.mousePos       = ( app->mouseWindowPos - app->viewParams.canvasPos ) / app->viewParams.scale;
     app->viewParams.mouseSelectPos = ( app->mouseDragStart - app->viewParams.canvasPos ) / app->viewParams.scale;
 
     // Update zoom level
@@ -646,7 +659,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     {
         // this might be easier to do if we construct the layer transform and inverse transform matricies but whatever
 
-        int layer          = app->layers.getSingleSelectedImage();
+        int layer = app->layers.getSingleSelectedImage();
 
         // see if the layer is mirrored
         glm::vec3 cross = glm::cross( glm::vec3( app->layers.data()[layer].basisA, 0.0f ), glm::vec3( app->layers.data()[layer].basisB, 0.0f ) );
@@ -770,6 +783,44 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     {
         app->viewParams.numLayers = static_cast<uint32_t>( app->layers.length() );
     }
+
+    if( app->mode == mc::Mode::Cut && app->layers.length() > 0 )
+    {
+        mc::Uniforms maskUniforms = app->viewParams;
+
+        app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &maskUniforms, sizeof( mc::Uniforms ) );
+
+        wgpu::CommandEncoderDescriptor commandEncoderDesc;
+        commandEncoderDesc.label = "Mask Render";
+
+        wgpu::CommandEncoder maskEncoder = app->device.CreateCommandEncoder( &commandEncoderDesc );
+
+        wgpu::RenderPassEncoder maskRenderPassEnc = mc::createRenderPassEncoder<1>(
+            maskEncoder, { app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView }, { wgpu::Color{ 1.0, 1.0, 1.0, 1.0f } } );
+
+        maskRenderPassEnc.SetPipeline( app->exportPipeline );
+        maskRenderPassEnc.SetVertexBuffer( 0, app->vertexBuf );
+        maskRenderPassEnc.SetVertexBuffer( 1, app->layerBuf );
+        maskRenderPassEnc.SetBindGroup( 0, app->globalBindGroup );
+
+        int offset = 0;
+        for( int i = 0; i < app->layers.length(); ++i )
+        {
+            app->textureManager.bind( app->layers.getTexture( i ), 1, maskRenderPassEnc );
+            app->textureManager.bind( app->layers.getMask( i ), 2, maskRenderPassEnc );
+            maskRenderPassEnc.Draw( app->layers.data()[i].vertexBuffLength * 3, 1, offset );
+            offset += app->layers.data()[i].vertexBuffLength * 3;
+        }
+
+        maskRenderPassEnc.End();
+
+        wgpu::CommandBufferDescriptor cmdBufferDescriptor;
+        cmdBufferDescriptor.label   = "Mask Command";
+        wgpu::CommandBuffer command = maskEncoder.Finish( &cmdBufferDescriptor );
+
+        app->device.GetQueue().Submit( 1, &command );
+    }
+
     app->viewParams.ticks = static_cast<uint32_t>( SDL_GetTicks() );
     app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &app->viewParams, sizeof( mc::Uniforms ) );
 

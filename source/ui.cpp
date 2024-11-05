@@ -20,7 +20,7 @@ namespace mc
     bool g_showAbout = false;
     bool g_showHelp  = false;
 
-    glm::vec3 g_paintColor = glm::vec3( 1.0, 0.0, 0.0 );
+    glm::vec3 g_paintColor = glm::vec3( 0.0, 0.0, 0.0 );
     float g_paintRadius    = 100;
 
     std::string g_inputTextString               = "";
@@ -44,6 +44,7 @@ namespace mc
         g_inputTextColor        = glm::vec3( 0.0, 0.0, 0.0 );
         g_inputTextOutline      = 0.0;
         g_inputTextOutlineColor = glm::vec3( 1.0, 1.0, 1.0 );
+        g_paintColor            = glm::vec3( 0.0, 0.0, 0.0 );
 
         if( newMode == Mode::Text )
         {
@@ -318,7 +319,7 @@ namespace mc
                 app->viewParams.canvasPos;
 
             g_transformBox.rotationHandle =
-                g_transformBox.rotationHandleBase - glm::normalize( app->layers.data()[imageSelection].basisB ) * mc::RotateHandleHeight;
+                g_transformBox.rotationHandleBase - glm::normalize( app->layers.data()[imageSelection].basisB ) * RotateHandleHeight;
 
             auto isOnRightSide = []( const glm::vec2& p1, const glm::vec2& p2, const glm::vec2& mouse ) -> bool
             {
@@ -342,7 +343,7 @@ namespace mc
 
             g_transformBox.rotationHandleBase = ( g_transformBox.cornerHandleTL + g_transformBox.cornerHandleTR ) * 0.5f;
 
-            g_transformBox.rotationHandle = glm::vec2( g_transformBox.rotationHandleBase.x, g_transformBox.rotationHandleBase.y - mc::RotateHandleHeight );
+            g_transformBox.rotationHandle = glm::vec2( g_transformBox.rotationHandleBase.x, g_transformBox.rotationHandleBase.y - RotateHandleHeight );
 
             g_transformBox.insideBox = g_transformBox.cornerHandleTL.x < mouseWindowPos.x && g_transformBox.cornerHandleTL.y < mouseWindowPos.y &&
                                        g_transformBox.cornerHandleBR.x > mouseWindowPos.x && g_transformBox.cornerHandleBR.y > mouseWindowPos.y;
@@ -353,11 +354,11 @@ namespace mc
     {
         ImDrawList* drawList = ImGui::GetForegroundDrawList();
 
-        if( appMode == Mode::Paint )
+        if( appMode == Mode::Paint || appMode == Mode::Cut )
         {
             switch( g_mouseLocationUI )
             {
-            case mc::MouseLocationUI::None:
+            case MouseLocationUI::None:
                 ImGui::SetMouseCursor( ImGuiMouseCursor_None );
                 drawList->AddCircle( mousePos, g_paintRadius * scale, Spectrum::PURPLE400, 600, ceilf( g_uiScale ) );
                 break;
@@ -659,11 +660,10 @@ namespace mc
                 ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
                 ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
 
-                std::array<std::string, 5> tools     = { ICON_LC_TRASH_2, ICON_LC_LIST_START, ICON_LC_LIST_END, ICON_LC_FLIP_HORIZONTAL_2,
-                                                         ICON_LC_FLIP_VERTICAL_2 };
-                std::array<std::string, 5> tooltips  = { "Delete", "Bring To Front", "Move To Back", "Flip Horizontal", "Flip Vertical" };
-                std::array<mc::Events, 5> toolEvents = { mc::Events::Delete, mc::Events::MoveFront, mc::Events::MoveBack, mc::Events::FlipHorizontal,
-                                                         mc::Events::FlipVertical };
+                std::array<std::string, 5> tools    = { ICON_LC_TRASH_2, ICON_LC_LIST_START, ICON_LC_LIST_END, ICON_LC_FLIP_HORIZONTAL_2,
+                                                        ICON_LC_FLIP_VERTICAL_2 };
+                std::array<std::string, 5> tooltips = { "Delete", "Bring To Front", "Move To Back", "Flip Horizontal", "Flip Vertical" };
+                std::array<Events, 5> toolEvents    = { Events::Delete, Events::MoveFront, Events::MoveBack, Events::FlipHorizontal, Events::FlipVertical };
 
                 for( size_t i = 0; i < tools.size(); i++ )
                 {
@@ -681,7 +681,7 @@ namespace mc
                 if( app->layers.getSingleSelectedImage() >= 0 )
                 {
                     std::array<std::string, 3> imageTools    = { ICON_LC_CROP, ICON_LC_SQUARE_BOTTOM_DASHED_SCISSORS, ICON_LC_SQUARE_DASHED_MOUSE_POINTER };
-                    std::array<std::string, 3> imageTooltips = { "Crop", "TODO: Cut", "TODO: Segment Cut" };
+                    std::array<std::string, 3> imageTooltips = { "Crop", "Cut", "TODO: Segment Cut" };
                     std::array<Mode, 4> imageToolModes       = { Mode::Crop, Mode::Cut, Mode::SegmentCut };
 
                     for( size_t i = 0; i < imageTools.size(); i++ )
@@ -707,7 +707,7 @@ namespace mc
                 {
                     if( ImGui::Button( ICON_LC_GROUP, buttonSize ) )
                     {
-                        submitEvent( mc::Events::MergeAndRasterizeRequest );
+                        submitEvent( Events::MergeAndRasterizeRequest );
                     }
                     if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
                     {
@@ -769,7 +769,7 @@ namespace mc
             ImGui::OpenPopup( "Help" );
         }
 
-        if( app->mode == mc::Mode::Paint )
+        if( app->mode == Mode::Paint )
         {
             ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 180 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
             ImGui::SetNextWindowSize( glm::vec2( 350.0, 180.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
@@ -801,7 +801,7 @@ namespace mc
             }
             ImGui::End();
         }
-        else if( app->mode == mc::Mode::Text )
+        else if( app->mode == Mode::Text )
         {
             ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 435 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
             ImGui::SetNextWindowSize( glm::vec2( 350.0, 435.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
@@ -892,13 +892,46 @@ namespace mc
             }
             ImGui::End();
         }
-        else if( app->mode == mc::Mode::Crop )
+        else if( app->mode == Mode::Crop )
         {
             ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 100.0 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
             ImGui::SetNextWindowSize( glm::vec2( 350.0, 100.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
 
             ImGui::Begin( "Crop Image", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
             {
+                ImGui::PushItemWidth( ImGui::GetContentRegionAvail().x );
+
+                ImGui::SliderFloat( "##Mask Paint Radius", &g_paintRadius, 0.0f, 200.0f );
+
+                ImGui::SeparatorText( "" );
+
+                float width = ( ImGui::GetContentRegionAvail().x - 8 ) * 0.5;
+                if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
+                {
+                    submitEvent( Events::DeleteEditLayers );
+                    submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
+                }
+                ImGui::SameLine( 0.0, 8.0 );
+                if( ImGui::Button( "Cancel", glm::vec2( width, 0.0 ) ) )
+                {
+                    submitEvent( Events::ResetEditLayers );
+                    submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
+                }
+            }
+            ImGui::End();
+        }
+        else if( app->mode == Mode::Cut )
+        {
+            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 100.0 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
+            ImGui::SetNextWindowSize( glm::vec2( 350.0, 100.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
+
+            ImGui::Begin( "Cut Image Via Mask", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
+            {
+
+                ImGui::Image( (ImTextureID)(intptr_t)app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView.Get(), ImVec2( 512, 512 ) );
+
+                ImGui::SeparatorText( "" );
+
                 float width = ( ImGui::GetContentRegionAvail().x - 8 ) * 0.5;
                 if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
                 {
@@ -924,7 +957,7 @@ namespace mc
             drawList->AddRectFilled( app->mouseDragStart, app->mouseWindowPos, Spectrum::PURPLE700 & 0x00FFFFFF | 0x33000000 );
         }
 
-        if( app->mode == mc::Mode::Save )
+        if( app->mode == Mode::Save )
         {
             if( app->dragType == CursorDragType::Select && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
             {
