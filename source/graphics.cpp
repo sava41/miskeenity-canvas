@@ -239,9 +239,7 @@ namespace mc
         app->canvasPipeline = app->device.CreateRenderPipeline( &renderPipelineDesc );
 
         // export pipeline is the exact same as canvas but we only need the main color render target
-        mainRenderTargets[1].writeMask = wgpu::ColorWriteMask::None;
-        mainRenderTargets[2].writeMask = wgpu::ColorWriteMask::None;
-
+        fragmentState.targetCount = 1;
         renderPipelineDesc.label = "Export";
 
         app->exportPipeline = app->device.CreateRenderPipeline( &renderPipelineDesc );
