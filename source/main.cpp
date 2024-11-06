@@ -285,17 +285,6 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
             return;
         }
 
-        if( newMode == mc::Mode::Cut )
-        {
-            int index = app->layers.getSingleSelectedImage();
-
-            int width  = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth();
-            int height = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight();
-
-            app->editMaskTextureHandle = std::make_unique<mc::ResourceHandle>(
-                app->textureManager.add( nullptr, width, height, 4, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
-        }
-
         app->layerEditStart = app->layers.length();
         app->editBackup     = app->layers.createShrunkCopy();
 
@@ -329,6 +318,16 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
                 submitEvent( mc::Events::ResetEditLayers );
                 app->mode = mc::Mode::Cursor;
             }
+        }
+        else if( app->mode == mc::Mode::Cut )
+        {
+            int index = app->layers.getSingleSelectedImage();
+
+            int width  = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth();
+            int height = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight();
+
+            app->editMaskTextureHandle = std::make_unique<mc::ResourceHandle>(
+                app->textureManager.add( nullptr, width, height, 4, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
         }
         else
         {
@@ -786,7 +785,19 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
     if( app->mode == mc::Mode::Cut && app->layers.length() > 0 )
     {
+        int index        = app->layers.getSingleSelectedImage();
+        glm::vec2 basisA = app->layers.data()[index].basisA * 0.5f;
+        glm::vec2 basisB = -app->layers.data()[index].basisB * 0.5f;
+        glm::vec2 offset = app->layers.data()[index].offset;
+
+        float det           = basisA.x * basisB.y - basisA.y * basisB.x;
+        glm::vec2 invBasisA = glm::vec2( basisB.y, -basisA.y ) / det;
+        glm::vec2 invBasisB = glm::vec2( -basisB.x, basisA.x ) / det;
+        glm::vec2 invOffset = -glm::vec2( offset.x * invBasisA.x + offset.y * invBasisB.x, offset.x * invBasisA.y + offset.y * invBasisB.y );
+
         mc::Uniforms maskUniforms = app->viewParams;
+        maskUniforms.proj = glm::mat4x4( invBasisA.x, invBasisA.y, 0.0f, invOffset.x, invBasisB.x, invBasisB.y, 0.0f, invOffset.y, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                                         0.0f, 0.0f, 1.0f );
 
         app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &maskUniforms, sizeof( mc::Uniforms ) );
 
@@ -803,13 +814,13 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         maskRenderPassEnc.SetVertexBuffer( 1, app->layerBuf );
         maskRenderPassEnc.SetBindGroup( 0, app->globalBindGroup );
 
-        int offset = 0;
+        int lol = 0;
         for( int i = 0; i < app->layers.length(); ++i )
         {
             app->textureManager.bind( app->layers.getTexture( i ), 1, maskRenderPassEnc );
             app->textureManager.bind( app->layers.getMask( i ), 2, maskRenderPassEnc );
-            maskRenderPassEnc.Draw( app->layers.data()[i].vertexBuffLength * 3, 1, offset );
-            offset += app->layers.data()[i].vertexBuffLength * 3;
+            maskRenderPassEnc.Draw( app->layers.data()[i].vertexBuffLength * 3, 1, lol );
+            lol += app->layers.data()[i].vertexBuffLength * 3;
         }
 
         maskRenderPassEnc.End();

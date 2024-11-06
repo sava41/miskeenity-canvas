@@ -922,13 +922,13 @@ namespace mc
         }
         else if( app->mode == Mode::Cut )
         {
-            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 100.0 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
-            ImGui::SetNextWindowSize( glm::vec2( 350.0, 100.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
+            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 400 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
+            ImGui::SetNextWindowSize( glm::vec2( 350.0, 400 ) * g_uiScale, ImGuiCond_FirstUseEver );
 
             ImGui::Begin( "Cut Image Via Mask", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
             {
 
-                ImGui::Image( (ImTextureID)(intptr_t)app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView.Get(), ImVec2( 512, 512 ) );
+                ImGui::Image( (ImTextureID)(intptr_t)app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView.Get(), ImVec2( 200, 200 ) );
 
                 ImGui::SeparatorText( "" );
 
