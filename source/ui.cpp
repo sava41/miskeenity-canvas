@@ -354,13 +354,27 @@ namespace mc
     {
         ImDrawList* drawList = ImGui::GetForegroundDrawList();
 
-        if( appMode == Mode::Paint || appMode == Mode::Cut )
+        if( appMode == Mode::Paint )
         {
             switch( g_mouseLocationUI )
             {
             case MouseLocationUI::None:
                 ImGui::SetMouseCursor( ImGuiMouseCursor_None );
-                drawList->AddCircle( mousePos, g_paintRadius * scale, Spectrum::PURPLE400, 600, ceilf( g_uiScale ) );
+                drawList->AddCircle( mousePos, g_paintRadius * scale, Spectrum::Static::BLACK, 600, ceilf( g_uiScale ) );
+                break;
+            default:
+                ImGui::SetMouseCursor( ImGuiMouseCursor_Arrow );
+                break;
+            }
+        }
+
+        if( appMode == Mode::Cut )
+        {
+            switch( g_mouseLocationUI )
+            {
+            case MouseLocationUI::MoveHandle:
+                ImGui::SetMouseCursor( ImGuiMouseCursor_None );
+                drawList->AddCircle( mousePos, g_paintRadius * scale, Spectrum::Static::BLACK, 600, ceilf( g_uiScale ) );
                 break;
             default:
                 ImGui::SetMouseCursor( ImGuiMouseCursor_Arrow );
@@ -461,6 +475,33 @@ namespace mc
                 ImGui::SetMouseCursor( ImGuiMouseCursor_Arrow );
             }
         }
+    }
+
+    void drawShadedRectangleMask( int width, int height, const std::array<glm::vec2, 4>& points, ImDrawList* drawList )
+    {
+        std::array<glm::vec2, 4> pointsSorted = points;
+        std::sort( pointsSorted.begin(), pointsSorted.end(),
+                   []( const glm::vec2& a, const glm::vec2& b ) { return ( a.y < b.y ) || ( a.y == b.y && a.x < b.x ); } );
+
+        bool flipMidPoints = pointsSorted[1].x > pointsSorted[2].x;
+
+        glm::vec2 screenCornerTL( 0.0, 0.0 );
+        glm::vec2 screenCornerBR( width, height );
+        glm::vec2 screenCornerTR( width, 0.0 );
+        glm::vec2 screenCornerBL( 0.0, height );
+
+        std::array<ImVec2, 10> pointsClockwise = { screenCornerTL,
+                                                   screenCornerTR,
+                                                   screenCornerBR,
+                                                   screenCornerBL,
+                                                   screenCornerTL,
+                                                   pointsSorted[0],
+                                                   pointsSorted[flipMidPoints ? 2 : 1],
+                                                   pointsSorted[3],
+                                                   pointsSorted[flipMidPoints ? 1 : 2],
+                                                   pointsSorted[0] };
+
+        drawList->AddConcavePolyFilled( pointsClockwise.data(), pointsClockwise.size(), Spectrum::PURPLE700 & 0x00FFFFFF | 0x33000000 );
     }
 
     void drawUI( const AppContext* app, const wgpu::RenderPassEncoder& renderPass )
@@ -899,11 +940,6 @@ namespace mc
 
             ImGui::Begin( "Crop Image", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
             {
-                ImGui::PushItemWidth( ImGui::GetContentRegionAvail().x );
-
-                ImGui::SliderFloat( "##Mask Paint Radius", &g_paintRadius, 0.0f, 200.0f );
-
-                ImGui::SeparatorText( "" );
 
                 float width = ( ImGui::GetContentRegionAvail().x - 8 ) * 0.5;
                 if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
@@ -925,10 +961,15 @@ namespace mc
             ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 400 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
             ImGui::SetNextWindowSize( glm::vec2( 350.0, 400 ) * g_uiScale, ImGuiCond_FirstUseEver );
 
-            ImGui::Begin( "Cut Image Via Mask", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
+            ImGui::Begin( "Cut Image Via Painted Mask", nullptr,
+                          ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
             {
 
                 ImGui::Image( (ImTextureID)(intptr_t)app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView.Get(), ImVec2( 200, 200 ) );
+
+                ImGui::PushItemWidth( ImGui::GetContentRegionAvail().x );
+
+                ImGui::SliderFloat( "##Mask Paint Radius", &g_paintRadius, 0.0f, 200.0f );
 
                 ImGui::SeparatorText( "" );
 
@@ -936,6 +977,7 @@ namespace mc
                 if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
                 {
                     submitEvent( Events::DeleteEditLayers );
+                    submitEvent( Events::Cut );
                     submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
                 ImGui::SameLine( 0.0, 8.0 );
@@ -1003,35 +1045,12 @@ namespace mc
 
         if( app->mode == Mode::Crop )
         {
-            int imageSelection = app->layers.getSingleSelectedImage();
 
             ImU32 color = Spectrum::PURPLE400;
 
-            //  draw shaded area around crop area to better visualize the crop
-            glm::vec2 screenCornerTL( 0.0, 0.0 );
-            glm::vec2 screenCornerBR( app->width, app->height );
-            glm::vec2 screenCornerTR( app->width, 0.0 );
-            glm::vec2 screenCornerBL( 0.0, app->height );
-
-            std::array<glm::vec2, 4> pointsYSorted = { g_transformBox.cornerHandleTL, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleTR,
-                                                       g_transformBox.cornerHandleBL };
-            std::sort( pointsYSorted.begin(), pointsYSorted.end(),
-                       []( const glm::vec2& a, const glm::vec2& b ) { return ( a.y < b.y ) || ( a.y == b.y && a.x < b.x ); } );
-
-            bool flipMidPoints = pointsYSorted[1].x > pointsYSorted[2].x;
-
-            std::array<ImVec2, 10> pointsClockwise = { screenCornerTL,
-                                                       screenCornerTR,
-                                                       screenCornerBR,
-                                                       screenCornerBL,
-                                                       screenCornerTL,
-                                                       pointsYSorted[0],
-                                                       pointsYSorted[flipMidPoints ? 2 : 1],
-                                                       pointsYSorted[3],
-                                                       pointsYSorted[flipMidPoints ? 1 : 2],
-                                                       pointsYSorted[0] };
-
-            drawList->AddConcavePolyFilled( pointsClockwise.data(), pointsClockwise.size(), Spectrum::PURPLE700 & 0x00FFFFFF | 0x33000000 );
+            drawShadedRectangleMask(
+                app->width, app->height,
+                { g_transformBox.cornerHandleTL, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBL }, drawList );
 
             drawList->AddLine( g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
             drawList->AddLine( g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
@@ -1053,6 +1072,23 @@ namespace mc
             drawList->AddCircleFilled( g_transformBox.cornerHandleTL, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::ScaleHandleTL ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
             drawList->AddCircleFilled( g_transformBox.cornerHandleTL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
+        }
+
+        if( app->mode == Mode::Cut )
+        {
+            drawShadedRectangleMask(
+                app->width, app->height,
+                { g_transformBox.cornerHandleTL, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBL }, drawList );
+
+            drawList->AddImageQuad( (ImTextureID)(intptr_t)app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView.Get(),
+                                    g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleBL,
+                                    glm::vec2( 0.0f ), glm::vec2( 1.0f, 0.0f ), glm::vec2( 1.0f ), glm::vec2( 0.0f, 1.0f ),
+                                    Spectrum::ORANGE600 & 0x00FFFFFF | 0x55000000 );
+
+            drawList->AddLine( g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+            drawList->AddLine( g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+            drawList->AddLine( g_transformBox.cornerHandleBR, g_transformBox.cornerHandleBL, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+            drawList->AddLine( g_transformBox.cornerHandleBL, g_transformBox.cornerHandleTL, Spectrum::PURPLE400, ceilf( g_uiScale ) );
         }
 
         if( app->layers.numSelected() > 0 && app->dragType == CursorDragType::Select && app->mode == Mode::Cursor )
@@ -1155,11 +1191,6 @@ namespace mc
     {
         return g_inputTextFont;
     }
-
-    // Mode getAppMode()
-    // {
-    //     return app->mode;
-    // }
 
     bool getSaveWithTransparency()
     {

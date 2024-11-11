@@ -112,7 +112,7 @@ namespace mc
         int getSingleSelectedImage() const;
         size_t numSelected() const;
 
-        void moveSelection( const glm::vec2& offset );
+        void translateSelection( const glm::vec2& offset );
         void rotateSelection( const glm::vec2& center, float angle );
         void scaleSelection( const glm::vec2& center, const glm::vec2& ammount );
         void bringFrontSelection( bool reverse = false );

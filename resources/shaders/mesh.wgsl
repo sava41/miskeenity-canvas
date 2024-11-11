@@ -49,15 +49,11 @@ struct Vertex {
     layer: u32,
 };
 
-@group(0) @binding(0)
-var<uniform> uniforms: Uniforms;
-@group(0) @binding(1)
-var<storage,read> layerBuff: array<Layer>;
+@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+@group(0) @binding(1) var<storage,read> layerBuff: array<Layer>;
 
-@group(1) @binding(0)
-var<storage, read> meshVertexBuff: array<MeshVertex>;
-@group(1) @binding(1)
-var<storage, read_write> vertexBuff: array<Vertex>;
+@group(1) @binding(0) var<storage, read> meshVertexBuff: array<MeshVertex>;
+@group(1) @binding(1) var<storage, read_write> vertexBuff: array<Vertex>;
 
 fn u32toVec2(a: u32)->vec2<u32> {
     return vec2(u32(( a >> 0 ) & 0xFFFF ), u32(( a >> 16 ) & 0xFFFF ));
