@@ -518,6 +518,7 @@ namespace mc
         ImGui::Text( "Width: %d, Height: %d, Dpi factor: %.1f", app->width, app->height, g_uiScale );
         ImGui::Text( "Mouse x:%.1f Mouse y:%.1f Zoom:%.1f\n", app->viewParams.mousePos.x, app->viewParams.mousePos.y, app->viewParams.scale );
         ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate );
+        ImGui::Text( "Num selected %d", app->layers.numSelected() );
         if( ImGui::Button( "Hard Quit" ) )
         {
             submitEvent( Events::AppQuit );
