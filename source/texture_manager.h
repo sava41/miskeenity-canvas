@@ -26,8 +26,8 @@ namespace mc
         ResourceHandle add( void* imageBuffer, int width, int height, int channels, const wgpu::Device& device,
                             const wgpu::TextureUsage& usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst );
 
-        Texture get( const ResourceHandle& texHandle );
-        bool bind( const ResourceHandle& texHandle, int bindGroupIndex, const wgpu::RenderPassEncoder& encoder );
+        Texture get( const ResourceHandle& texHandle ) const;
+        bool bind( const ResourceHandle& texHandle, int bindGroupIndex, const wgpu::RenderPassEncoder& encoder ) const;
 
       private:
         virtual void freeResource( int resourceIndex ) override;

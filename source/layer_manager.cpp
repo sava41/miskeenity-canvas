@@ -94,32 +94,35 @@ namespace mc
         }
 
         m_array[m_curLength] = layer;
+
+        if( layer.flags & LayerFlags::HasColorTex && textureHandle.valid() )
+        {
+            if( !m_textureReferences.contains( textureHandle.resourceIndex() ) || m_textureReferences[textureHandle.resourceIndex()] == 0 )
+            {
+                m_textureHandles.insert( { textureHandle.resourceIndex(), textureHandle } );
+            }
+            m_textureReferences[textureHandle.resourceIndex()] += 1;
+            m_array[m_curLength].texture = textureHandle.resourceIndex();
+        }
+
+        if( ( layer.flags & LayerFlags::HasMaskTex || layer.flags & LayerFlags::HasSdfMaskTex ) && maskHandle.valid() )
+        {
+            if( !m_textureReferences.contains( maskHandle.resourceIndex() ) || m_textureReferences[maskHandle.resourceIndex()] == 0 )
+            {
+                m_textureHandles.insert( { maskHandle.resourceIndex(), maskHandle } );
+            }
+            m_textureReferences[maskHandle.resourceIndex()] += 1;
+            m_array[m_curLength].mask = maskHandle.resourceIndex();
+        }
+
         m_curLength += 1;
-
-        recalculateTriCount();
-
-        if( layer.flags & LayerFlags::HasColorTex )
-        {
-            if( !m_textureReferences.contains( layer.texture ) || m_textureReferences[layer.texture] == 0 )
-            {
-                m_textureHandles.insert( { layer.texture, textureHandle } );
-            }
-            m_textureReferences[layer.texture] += 1;
-        }
-
-        if( layer.flags & LayerFlags::HasMaskTex || layer.flags & LayerFlags::HasSdfMaskTex )
-        {
-            if( !m_textureReferences.contains( layer.mask ) || m_textureReferences[layer.mask] == 0 )
-            {
-                m_textureHandles.insert( { layer.mask, maskHandle } );
-            }
-            m_textureReferences[layer.mask] += 1;
-        }
 
         if( layer.flags & LayerFlags::Selected )
         {
             m_numSelected += 1;
         }
+
+        recalculateTriCount();
 
         return true;
     }
@@ -297,7 +300,7 @@ namespace mc
         return m_numSelected;
     }
 
-    void LayerManager::moveSelection( const glm::vec2& offset )
+    void LayerManager::translateSelection( const glm::vec2& offset )
     {
         for( int i = 0; i < m_curLength; ++i )
         {
@@ -375,6 +378,28 @@ namespace mc
         }
 
         m_array = std::move( newArray );
+    }
+
+    void LayerManager::duplicateSelection( const glm::vec2& offset )
+    {
+        int length = m_curLength;
+
+        for( int i = 0; i < length; ++i )
+        {
+            if( m_array[i].flags & LayerFlags::Selected )
+            {
+                Layer duplicateLayer = m_array[i];
+                duplicateLayer.offset += offset;
+
+                ResourceHandle texture =
+                    m_array[i].flags & LayerFlags::HasColorTex ? m_textureHandles.at( m_array[i].texture ) : ResourceHandle::invalidResource();
+                ResourceHandle mask = m_array[i].flags & LayerFlags::HasMaskTex || m_array[i].flags & LayerFlags::HasSdfMaskTex
+                                          ? m_textureHandles.at( m_array[i].mask )
+                                          : ResourceHandle::invalidResource();
+
+                add( duplicateLayer, texture, mask );
+            }
+        }
     }
 
     void LayerManager::removeSelection()

@@ -20,7 +20,7 @@ namespace mc
     bool g_showAbout = false;
     bool g_showHelp  = false;
 
-    glm::vec3 g_paintColor = glm::vec3( 1.0, 0.0, 0.0 );
+    glm::vec3 g_paintColor = glm::vec3( 0.0, 0.0, 0.0 );
     float g_paintRadius    = 100;
 
     std::string g_inputTextString               = "";
@@ -44,6 +44,7 @@ namespace mc
         g_inputTextColor        = glm::vec3( 0.0, 0.0, 0.0 );
         g_inputTextOutline      = 0.0;
         g_inputTextOutlineColor = glm::vec3( 1.0, 1.0, 1.0 );
+        g_paintColor            = glm::vec3( 0.0, 0.0, 0.0 );
 
         if( newMode == Mode::Text )
         {
@@ -318,7 +319,7 @@ namespace mc
                 app->viewParams.canvasPos;
 
             g_transformBox.rotationHandle =
-                g_transformBox.rotationHandleBase - glm::normalize( app->layers.data()[imageSelection].basisB ) * mc::RotateHandleHeight;
+                g_transformBox.rotationHandleBase - glm::normalize( app->layers.data()[imageSelection].basisB ) * RotateHandleHeight;
 
             auto isOnRightSide = []( const glm::vec2& p1, const glm::vec2& p2, const glm::vec2& mouse ) -> bool
             {
@@ -342,7 +343,7 @@ namespace mc
 
             g_transformBox.rotationHandleBase = ( g_transformBox.cornerHandleTL + g_transformBox.cornerHandleTR ) * 0.5f;
 
-            g_transformBox.rotationHandle = glm::vec2( g_transformBox.rotationHandleBase.x, g_transformBox.rotationHandleBase.y - mc::RotateHandleHeight );
+            g_transformBox.rotationHandle = glm::vec2( g_transformBox.rotationHandleBase.x, g_transformBox.rotationHandleBase.y - RotateHandleHeight );
 
             g_transformBox.insideBox = g_transformBox.cornerHandleTL.x < mouseWindowPos.x && g_transformBox.cornerHandleTL.y < mouseWindowPos.y &&
                                        g_transformBox.cornerHandleBR.x > mouseWindowPos.x && g_transformBox.cornerHandleBR.y > mouseWindowPos.y;
@@ -357,9 +358,23 @@ namespace mc
         {
             switch( g_mouseLocationUI )
             {
-            case mc::MouseLocationUI::None:
+            case MouseLocationUI::None:
                 ImGui::SetMouseCursor( ImGuiMouseCursor_None );
-                drawList->AddCircle( mousePos, g_paintRadius * scale, Spectrum::PURPLE400, 600, ceilf( g_uiScale ) );
+                drawList->AddCircle( mousePos, g_paintRadius * scale, Spectrum::Static::BLACK, 600, ceilf( g_uiScale ) );
+                break;
+            default:
+                ImGui::SetMouseCursor( ImGuiMouseCursor_Arrow );
+                break;
+            }
+        }
+
+        if( appMode == Mode::Cut )
+        {
+            switch( g_mouseLocationUI )
+            {
+            case MouseLocationUI::MoveHandle:
+                ImGui::SetMouseCursor( ImGuiMouseCursor_None );
+                drawList->AddCircle( mousePos, g_paintRadius * scale, Spectrum::Static::BLACK, 600, ceilf( g_uiScale ) );
                 break;
             default:
                 ImGui::SetMouseCursor( ImGuiMouseCursor_Arrow );
@@ -460,6 +475,33 @@ namespace mc
                 ImGui::SetMouseCursor( ImGuiMouseCursor_Arrow );
             }
         }
+    }
+
+    void drawShadedRectangleMask( int width, int height, const std::array<glm::vec2, 4>& points, ImDrawList* drawList )
+    {
+        std::array<glm::vec2, 4> pointsSorted = points;
+        std::sort( pointsSorted.begin(), pointsSorted.end(),
+                   []( const glm::vec2& a, const glm::vec2& b ) { return ( a.y < b.y ) || ( a.y == b.y && a.x < b.x ); } );
+
+        bool flipMidPoints = pointsSorted[1].x > pointsSorted[2].x;
+
+        glm::vec2 screenCornerTL( 0.0, 0.0 );
+        glm::vec2 screenCornerBR( width, height );
+        glm::vec2 screenCornerTR( width, 0.0 );
+        glm::vec2 screenCornerBL( 0.0, height );
+
+        std::array<ImVec2, 10> pointsClockwise = { screenCornerTL,
+                                                   screenCornerTR,
+                                                   screenCornerBR,
+                                                   screenCornerBL,
+                                                   screenCornerTL,
+                                                   pointsSorted[0],
+                                                   pointsSorted[flipMidPoints ? 2 : 1],
+                                                   pointsSorted[3],
+                                                   pointsSorted[flipMidPoints ? 1 : 2],
+                                                   pointsSorted[0] };
+
+        drawList->AddConcavePolyFilled( pointsClockwise.data(), pointsClockwise.size(), Spectrum::PURPLE700 & 0x00FFFFFF | 0x33000000 );
     }
 
     void drawUI( const AppContext* app, const wgpu::RenderPassEncoder& renderPass )
@@ -659,11 +701,10 @@ namespace mc
                 ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
                 ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
 
-                std::array<std::string, 5> tools     = { ICON_LC_TRASH_2, ICON_LC_LIST_START, ICON_LC_LIST_END, ICON_LC_FLIP_HORIZONTAL_2,
-                                                         ICON_LC_FLIP_VERTICAL_2 };
-                std::array<std::string, 5> tooltips  = { "Delete", "Bring To Front", "Move To Back", "Flip Horizontal", "Flip Vertical" };
-                std::array<mc::Events, 5> toolEvents = { mc::Events::Delete, mc::Events::MoveFront, mc::Events::MoveBack, mc::Events::FlipHorizontal,
-                                                         mc::Events::FlipVertical };
+                std::array<std::string, 5> tools    = { ICON_LC_TRASH_2, ICON_LC_LIST_START, ICON_LC_LIST_END, ICON_LC_FLIP_HORIZONTAL_2,
+                                                        ICON_LC_FLIP_VERTICAL_2 };
+                std::array<std::string, 5> tooltips = { "Delete", "Bring To Front", "Move To Back", "Flip Horizontal", "Flip Vertical" };
+                std::array<Events, 5> toolEvents    = { Events::Delete, Events::MoveFront, Events::MoveBack, Events::FlipHorizontal, Events::FlipVertical };
 
                 for( size_t i = 0; i < tools.size(); i++ )
                 {
@@ -681,7 +722,7 @@ namespace mc
                 if( app->layers.getSingleSelectedImage() >= 0 )
                 {
                     std::array<std::string, 3> imageTools    = { ICON_LC_CROP, ICON_LC_SQUARE_BOTTOM_DASHED_SCISSORS, ICON_LC_SQUARE_DASHED_MOUSE_POINTER };
-                    std::array<std::string, 3> imageTooltips = { "Crop", "TODO: Cut", "TODO: Segment Cut" };
+                    std::array<std::string, 3> imageTooltips = { "Crop", "Cut", "TODO: Segment Cut" };
                     std::array<Mode, 4> imageToolModes       = { Mode::Crop, Mode::Cut, Mode::SegmentCut };
 
                     for( size_t i = 0; i < imageTools.size(); i++ )
@@ -707,7 +748,7 @@ namespace mc
                 {
                     if( ImGui::Button( ICON_LC_GROUP, buttonSize ) )
                     {
-                        submitEvent( mc::Events::MergeAndRasterizeRequest );
+                        submitEvent( Events::MergeAndRasterizeRequest );
                     }
                     if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
                     {
@@ -769,7 +810,7 @@ namespace mc
             ImGui::OpenPopup( "Help" );
         }
 
-        if( app->mode == mc::Mode::Paint )
+        if( app->mode == Mode::Paint )
         {
             ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 180 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
             ImGui::SetNextWindowSize( glm::vec2( 350.0, 180.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
@@ -801,7 +842,7 @@ namespace mc
             }
             ImGui::End();
         }
-        else if( app->mode == mc::Mode::Text )
+        else if( app->mode == Mode::Text )
         {
             ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 435 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
             ImGui::SetNextWindowSize( glm::vec2( 350.0, 435.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
@@ -892,17 +933,51 @@ namespace mc
             }
             ImGui::End();
         }
-        else if( app->mode == mc::Mode::Crop )
+        else if( app->mode == Mode::Crop )
         {
             ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 100.0 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
             ImGui::SetNextWindowSize( glm::vec2( 350.0, 100.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
 
             ImGui::Begin( "Crop Image", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
             {
+
                 float width = ( ImGui::GetContentRegionAvail().x - 8 ) * 0.5;
                 if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
                 {
                     submitEvent( Events::DeleteEditLayers );
+                    submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
+                }
+                ImGui::SameLine( 0.0, 8.0 );
+                if( ImGui::Button( "Cancel", glm::vec2( width, 0.0 ) ) )
+                {
+                    submitEvent( Events::ResetEditLayers );
+                    submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
+                }
+            }
+            ImGui::End();
+        }
+        else if( app->mode == Mode::Cut )
+        {
+            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 400 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
+            ImGui::SetNextWindowSize( glm::vec2( 350.0, 400 ) * g_uiScale, ImGuiCond_FirstUseEver );
+
+            ImGui::Begin( "Cut Image Via Painted Mask", nullptr,
+                          ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
+            {
+
+                ImGui::Image( (ImTextureID)(intptr_t)app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView.Get(), ImVec2( 200, 200 ) );
+
+                ImGui::PushItemWidth( ImGui::GetContentRegionAvail().x );
+
+                ImGui::SliderFloat( "##Mask Paint Radius", &g_paintRadius, 0.0f, 200.0f );
+
+                ImGui::SeparatorText( "" );
+
+                float width = ( ImGui::GetContentRegionAvail().x - 8 ) * 0.5;
+                if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
+                {
+                    submitEvent( Events::DeleteEditLayers );
+                    submitEvent( Events::Cut );
                     submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
                 ImGui::SameLine( 0.0, 8.0 );
@@ -924,7 +999,7 @@ namespace mc
             drawList->AddRectFilled( app->mouseDragStart, app->mouseWindowPos, Spectrum::PURPLE700 & 0x00FFFFFF | 0x33000000 );
         }
 
-        if( app->mode == mc::Mode::Save )
+        if( app->mode == Mode::Save )
         {
             if( app->dragType == CursorDragType::Select && app->mouseDown && app->mouseDragStart != app->mouseWindowPos )
             {
@@ -970,35 +1045,12 @@ namespace mc
 
         if( app->mode == Mode::Crop )
         {
-            int imageSelection = app->layers.getSingleSelectedImage();
 
             ImU32 color = Spectrum::PURPLE400;
 
-            //  draw shaded area around crop area to better visualize the crop
-            glm::vec2 screenCornerTL( 0.0, 0.0 );
-            glm::vec2 screenCornerBR( app->width, app->height );
-            glm::vec2 screenCornerTR( app->width, 0.0 );
-            glm::vec2 screenCornerBL( 0.0, app->height );
-
-            std::array<glm::vec2, 4> pointsYSorted = { g_transformBox.cornerHandleTL, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleTR,
-                                                       g_transformBox.cornerHandleBL };
-            std::sort( pointsYSorted.begin(), pointsYSorted.end(),
-                       []( const glm::vec2& a, const glm::vec2& b ) { return ( a.y < b.y ) || ( a.y == b.y && a.x < b.x ); } );
-
-            bool flipMidPoints = pointsYSorted[1].x > pointsYSorted[2].x;
-
-            std::array<ImVec2, 10> pointsClockwise = { screenCornerTL,
-                                                       screenCornerTR,
-                                                       screenCornerBR,
-                                                       screenCornerBL,
-                                                       screenCornerTL,
-                                                       pointsYSorted[0],
-                                                       pointsYSorted[flipMidPoints ? 2 : 1],
-                                                       pointsYSorted[3],
-                                                       pointsYSorted[flipMidPoints ? 1 : 2],
-                                                       pointsYSorted[0] };
-
-            drawList->AddConcavePolyFilled( pointsClockwise.data(), pointsClockwise.size(), Spectrum::PURPLE700 & 0x00FFFFFF | 0x33000000 );
+            drawShadedRectangleMask(
+                app->width, app->height,
+                { g_transformBox.cornerHandleTL, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBL }, drawList );
 
             drawList->AddLine( g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
             drawList->AddLine( g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
@@ -1020,6 +1072,23 @@ namespace mc
             drawList->AddCircleFilled( g_transformBox.cornerHandleTL, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::ScaleHandleTL ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
             drawList->AddCircleFilled( g_transformBox.cornerHandleTL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
+        }
+
+        if( app->mode == Mode::Cut )
+        {
+            drawShadedRectangleMask(
+                app->width, app->height,
+                { g_transformBox.cornerHandleTL, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBL }, drawList );
+
+            drawList->AddImageQuad( (ImTextureID)(intptr_t)app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView.Get(),
+                                    g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleBL,
+                                    glm::vec2( 0.0f ), glm::vec2( 1.0f, 0.0f ), glm::vec2( 1.0f ), glm::vec2( 0.0f, 1.0f ),
+                                    Spectrum::ORANGE600 & 0x00FFFFFF | 0x55000000 );
+
+            drawList->AddLine( g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+            drawList->AddLine( g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+            drawList->AddLine( g_transformBox.cornerHandleBR, g_transformBox.cornerHandleBL, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+            drawList->AddLine( g_transformBox.cornerHandleBL, g_transformBox.cornerHandleTL, Spectrum::PURPLE400, ceilf( g_uiScale ) );
         }
 
         if( app->layers.numSelected() > 0 && app->dragType == CursorDragType::Select && app->mode == Mode::Cursor )
@@ -1122,11 +1191,6 @@ namespace mc
     {
         return g_inputTextFont;
     }
-
-    // Mode getAppMode()
-    // {
-    //     return app->mode;
-    // }
 
     bool getSaveWithTransparency()
     {

@@ -38,7 +38,7 @@ https://emscripten.org/docs/getting_started/downloads.html#installation-instruct
 ```
 
 ## Planned Features
-- layer masking
+- layer AI masking
 - canvas history (undo/redo)
 - copy/paste
 - keyboard shortcuts

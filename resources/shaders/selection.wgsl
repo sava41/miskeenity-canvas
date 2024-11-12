@@ -57,18 +57,13 @@ struct Selection {
     flags: u32,
 };
 
-@group(0) @binding(0)
-var<uniform> uniforms: Uniforms;
-@group(0) @binding(1)
-var<storage,read> layerBuff: array<Layer>;
+@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+@group(0) @binding(1) var<storage,read> layerBuff: array<Layer>;
 
-@group(1) @binding(0)
-var<storage, read> meshVertexBuff: array<MeshVertex>;
-@group(1) @binding(1)
-var<storage, read_write> vertexBuff: array<Vertex>;
+@group(1) @binding(0) var<storage, read> meshVertexBuff: array<MeshVertex>;
+@group(1) @binding(1) var<storage, read_write> vertexBuff: array<Vertex>;
 
-@group(2) @binding(0)
-var<storage,read_write> outBuffer: array<Selection>;
+@group(2) @binding(0) var<storage,read_write> outBuffer: array<Selection>;
 
 fn barycentric(v1: vec2<f32>, v2: vec2<f32>, v3: vec2<f32>, p: vec2<f32>) -> vec3<f32> {
     let u = cross(

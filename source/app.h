@@ -107,6 +107,7 @@ namespace mc
         wgpu::RenderPipeline canvasPipeline;
         wgpu::RenderPipeline postPipeline;
         wgpu::RenderPipeline exportPipeline;
+        wgpu::RenderPipeline cutMaskPipeline;
         wgpu::ComputePipeline selectionPipeline;
         wgpu::ComputePipeline meshPipeline;
         wgpu::Buffer meshBuf;
@@ -136,8 +137,6 @@ namespace mc
         bool rasterizeSelection        = false;
         unsigned long resetSurfaceTime = 0;
 
-        Selection* selectionData = nullptr;
-
         // Input variables
         glm::vec2 mouseWindowPos  = glm::vec2( 0.0 );
         glm::vec2 mouseDragStart  = glm::vec2( 0.0 );
@@ -151,6 +150,7 @@ namespace mc
         LayerManager editBackup = LayerManager( 0 );
 
         std::unique_ptr<mc::ResourceHandle> copyTextureHandle;
+        std::unique_ptr<mc::ResourceHandle> editMaskTextureHandle;
 
         LayerManager layers           = LayerManager( NumLayers );
         TextureManager textureManager = TextureManager( 100 );
