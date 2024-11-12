@@ -427,7 +427,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
         app->device.GetQueue().Submit( 1, &command );
 
-        app->layers.removeTop( app->layers.length() - 1 );
+        app->layers.remove( app->layers.length() - 1 );
 
         app->layers.add( app->layers.data()[index], maskedTextureA );
         app->layers.add( app->layers.data()[index], maskedTextureB );

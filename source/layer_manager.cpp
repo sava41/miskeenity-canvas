@@ -157,6 +157,11 @@ namespace mc
             return false;
         }
 
+        if( m_array[index].flags & LayerFlags::Selected )
+        {
+            m_numSelected -= 1;
+        }
+
         if( m_array[index].flags & LayerFlags::HasColorTex )
         {
             m_textureReferences[m_array[index].texture] -= 1;
@@ -196,6 +201,11 @@ namespace mc
 
             for( int i = newLength; i < m_curLength; ++i )
             {
+                if( m_array[i].flags & LayerFlags::Selected )
+                {
+                    m_numSelected -= 1;
+                }
+
                 if( m_array[i].flags & LayerFlags::HasColorTex )
                 {
                     m_textureReferences[m_array[i].texture] -= 1;
@@ -216,7 +226,6 @@ namespace mc
                     }
                 }
             }
-
 
             m_curLength = newLength;
 
