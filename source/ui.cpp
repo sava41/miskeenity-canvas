@@ -64,6 +64,12 @@ namespace mc
         {
             submitEvent( Events::MergeEditLayers );
         }
+
+        if( currentMode == Mode::Cut )
+        {
+            submitEvent( Events::DeleteEditLayers );
+            submitEvent( Events::Cut );
+        }
     }
 
     void setColorsUI()
@@ -256,7 +262,7 @@ namespace mc
 
     void computeMouseLocationUI( const AppContext* app, glm::vec2 mouseWindowPos )
     {
-        g_mouseLocationUI = ImGui::GetIO().WantCaptureMouse ? MouseLocationUI::Window : MouseLocationUI::None;
+        g_mouseLocationUI = MouseLocationUI::None;
 
         if( app->selectionReady && app->layers.numSelected() > 0 )
         {
@@ -284,6 +290,11 @@ namespace mc
             {
                 g_mouseLocationUI = MouseLocationUI::MoveHandle;
             }
+        }
+
+        if( ImGui::GetIO().WantCaptureMouse )
+        {
+            g_mouseLocationUI = MouseLocationUI::Window;
         }
     }
 
@@ -959,14 +970,12 @@ namespace mc
         }
         else if( app->mode == Mode::Cut )
         {
-            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 400 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
-            ImGui::SetNextWindowSize( glm::vec2( 350.0, 400 ) * g_uiScale, ImGuiCond_FirstUseEver );
+            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 150 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
+            ImGui::SetNextWindowSize( glm::vec2( 350.0, 150 ) * g_uiScale, ImGuiCond_FirstUseEver );
 
             ImGui::Begin( "Cut Image Via Painted Mask", nullptr,
                           ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
             {
-
-                ImGui::Image( (ImTextureID)(intptr_t)app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView.Get(), ImVec2( 200, 200 ) );
 
                 ImGui::PushItemWidth( ImGui::GetContentRegionAvail().x );
 
