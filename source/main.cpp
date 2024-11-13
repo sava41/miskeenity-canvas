@@ -150,7 +150,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
             return;
         }
 
-        app->selectionBbox = glm::vec4( -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
+        app->selectionAabb = glm::vec4( -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
                                         std::numeric_limits<float>::max() );
 
         int numSelected    = 0;
@@ -196,10 +196,10 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
             }
             else if( app->viewParams.selectDispatch != mc::SelectDispatch::ComputeBbox || app->layers.isSelected( i ) )
             {
-                app->selectionBbox.x = std::max( app->selectionBbox.x, layerSelectionBbox.x );
-                app->selectionBbox.y = std::max( app->selectionBbox.y, layerSelectionBbox.y );
-                app->selectionBbox.z = std::min( app->selectionBbox.z, layerSelectionBbox.z );
-                app->selectionBbox.w = std::min( app->selectionBbox.w, layerSelectionBbox.w );
+                app->selectionAabb.x = std::max( app->selectionAabb.x, layerSelectionBbox.x );
+                app->selectionAabb.y = std::max( app->selectionAabb.y, layerSelectionBbox.y );
+                app->selectionAabb.z = std::min( app->selectionAabb.z, layerSelectionBbox.z );
+                app->selectionAabb.w = std::min( app->selectionAabb.w, layerSelectionBbox.w );
 
                 app->layers.changeSelection( i, true );
                 numSelected += 1;
@@ -207,7 +207,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         }
         app->selectionMapBuf.Unmap();
 
-        app->selectionCenter = ( glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) + glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) ) * 0.5f;
+        app->selectionCenter = ( glm::vec2( app->selectionAabb.x, app->selectionAabb.y ) + glm::vec2( app->selectionAabb.z, app->selectionAabb.w ) ) * 0.5f;
 
         app->selectionReady            = true;
         app->layersModified            = true;
@@ -382,8 +382,8 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         }
         app->layers.removeSelection();
 
-        int width  = app->selectionBbox.x - app->selectionBbox.z;
-        int height = app->selectionBbox.y - app->selectionBbox.w;
+        int width  = app->selectionAabb.x - app->selectionAabb.z;
+        int height = app->selectionAabb.y - app->selectionAabb.w;
 
         mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
@@ -1032,8 +1032,8 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
     if( app->rasterizeSelection )
     {
-        int rasterWidth  = ( app->selectionBbox.x - app->selectionBbox.z ) * app->viewParams.scale;
-        int rasterHeight = ( app->selectionBbox.y - app->selectionBbox.w ) * app->viewParams.scale;
+        int rasterWidth  = ( app->selectionAabb.x - app->selectionAabb.z ) * app->viewParams.scale;
+        int rasterHeight = ( app->selectionAabb.y - app->selectionAabb.w ) * app->viewParams.scale;
 
         app->copyTextureHandle = std::make_unique<mc::ResourceHandle>(
             app->textureManager.add( nullptr, rasterWidth, rasterHeight, 4, app->device,
@@ -1044,10 +1044,10 @@ SDL_AppResult SDL_AppIterate( void* appstate )
             mc::Uniforms outputViewParams = app->viewParams;
             outputViewParams.viewType     = mc::ViewType::SelectionRasterTarget;
 
-            float l = app->selectionBbox.z;
-            float r = app->selectionBbox.x;
-            float t = app->selectionBbox.w;
-            float b = app->selectionBbox.y;
+            float l = app->selectionAabb.z;
+            float r = app->selectionAabb.x;
+            float t = app->selectionAabb.w;
+            float b = app->selectionAabb.y;
 
             outputViewParams.proj = glm::mat4( 2.0 / ( r - l ), 0.0, 0.0, ( r + l ) / ( l - r ), 0.0, 2.0 / ( t - b ), 0.0, ( t + b ) / ( b - t ), 0.0, 0.0,
                                                0.5, 0.5, 0.0, 0.0, 0.0, 1.0 );
@@ -1084,14 +1084,23 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     if( app->mode == mc::Mode::Cut && app->layers.length() > 0 )
     {
         int index        = app->layers.getSingleSelectedImage();
-        glm::vec2 basisA = app->layers.data()[index].basisA * 0.5f;
-        glm::vec2 basisB = -app->layers.data()[index].basisB * 0.5f;
-        glm::vec2 offset = app->layers.data()[index].offset;
+        mc::Layer layer  = app->layers.data()[index];
 
-        float det           = basisA.x * basisB.y - basisA.y * basisB.x;
-        glm::vec2 invBasisA = glm::vec2( basisB.y, -basisA.y ) / det;
-        glm::vec2 invBasisB = glm::vec2( -basisB.x, basisA.x ) / det;
-        glm::vec2 invOffset = -glm::vec2( offset.x * invBasisA.x + offset.y * invBasisB.x, offset.x * invBasisA.y + offset.y * invBasisB.y );
+        glm::vec2 scale = static_cast<float>( mc::UV_MAX_VALUE ) / glm::vec2( layer.uvBottom - layer.uvTop );
+        layer.basisA *= scale.x;
+        layer.basisB *= scale.y;
+
+        glm::vec2 uvCenter = ( glm::vec2( layer.uvTop ) + glm::vec2( layer.uvBottom ) ) / static_cast<float>( mc::UV_MAX_VALUE ) * 0.5f;
+        layer.offset -= layer.basisA * ( uvCenter.x - 0.5f ) + layer.basisB * ( uvCenter.y - 0.5f );
+
+        layer.basisA *= 0.5f;
+        layer.basisB *= -0.5f;
+
+        float det           = layer.basisA.x * layer.basisB.y - layer.basisA.y * layer.basisB.x;
+        glm::vec2 invBasisA = glm::vec2( layer.basisB.y, -layer.basisA.y ) / det;
+        glm::vec2 invBasisB = glm::vec2( -layer.basisB.x, layer.basisA.x ) / det;
+        glm::vec2 invOffset =
+            -glm::vec2( layer.offset.x * invBasisA.x + layer.offset.y * invBasisB.x, layer.offset.x * invBasisA.y + layer.offset.y * invBasisB.y );
 
         mc::Uniforms maskUniforms = app->viewParams;
         maskUniforms.proj = glm::mat4x4( invBasisA.x, invBasisA.y, 0.0f, invOffset.x, invBasisB.x, invBasisB.y, 0.0f, invOffset.y, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,

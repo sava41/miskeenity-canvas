@@ -142,7 +142,7 @@ namespace mc
         glm::vec2 mouseDragStart  = glm::vec2( 0.0 );
         glm::vec2 mouseDelta      = glm::vec2( 0.0 );
         glm::vec2 scrollDelta     = glm::vec2( 0.0 );
-        glm::vec4 selectionBbox   = glm::vec4( 0.0 );
+        glm::vec4 selectionAabb   = glm::vec4( 0.0 );
         glm::vec2 selectionCenter = glm::vec2( 0.0 );
 
         // we need this to store a backup in case the user cancels an edit op

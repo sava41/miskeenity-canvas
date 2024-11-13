@@ -347,8 +347,8 @@ namespace mc
         else
         {
 
-            g_transformBox.cornerHandleTL = glm::vec2( app->selectionBbox.z, app->selectionBbox.w ) * app->viewParams.scale + app->viewParams.canvasPos;
-            g_transformBox.cornerHandleBR = glm::vec2( app->selectionBbox.x, app->selectionBbox.y ) * app->viewParams.scale + app->viewParams.canvasPos;
+            g_transformBox.cornerHandleTL = glm::vec2( app->selectionAabb.z, app->selectionAabb.w ) * app->viewParams.scale + app->viewParams.canvasPos;
+            g_transformBox.cornerHandleBR = glm::vec2( app->selectionAabb.x, app->selectionAabb.y ) * app->viewParams.scale + app->viewParams.canvasPos;
             g_transformBox.cornerHandleTR = glm::vec2( g_transformBox.cornerHandleBR.x, g_transformBox.cornerHandleTL.y );
             g_transformBox.cornerHandleBL = glm::vec2( g_transformBox.cornerHandleTL.x, g_transformBox.cornerHandleBR.y );
 
@@ -488,31 +488,48 @@ namespace mc
         }
     }
 
-    void drawShadedRectangleMask( int width, int height, const std::array<glm::vec2, 4>& points, ImDrawList* drawList )
+    void drawShadedRectangleMask( int width, int height, glm::vec4 selectionAabb, const std::array<glm::vec2, 4>& points, ImDrawList* drawList )
     {
-        std::array<glm::vec2, 4> pointsSorted = points;
-        std::sort( pointsSorted.begin(), pointsSorted.end(),
-                   []( const glm::vec2& a, const glm::vec2& b ) { return ( a.y < b.y ) || ( a.y == b.y && a.x < b.x ); } );
+        // check if points are in viewport
+        bool inside = false;
+        for( const glm::vec2& point : points )
+        {
+            if( point.x > 0.0f && point.x < width && point.y > 0.0 && point.y < height )
+            {
+                inside = true;
+            }
+        }
 
-        bool flipMidPoints = pointsSorted[1].x > pointsSorted[2].x;
+        if( inside )
+        {
+            std::array<glm::vec2, 4> pointsSorted = points;
+            std::sort( pointsSorted.begin(), pointsSorted.end(),
+                       []( const glm::vec2& a, const glm::vec2& b ) { return ( a.y < b.y ) || ( a.y == b.y && a.x < b.x ); } );
 
-        glm::vec2 screenCornerTL( 0.0, 0.0 );
-        glm::vec2 screenCornerBR( width, height );
-        glm::vec2 screenCornerTR( width, 0.0 );
-        glm::vec2 screenCornerBL( 0.0, height );
+            bool flipMidPoints = pointsSorted[1].x > pointsSorted[2].x;
 
-        std::array<ImVec2, 10> pointsClockwise = { screenCornerTL,
-                                                   screenCornerTR,
-                                                   screenCornerBR,
-                                                   screenCornerBL,
-                                                   screenCornerTL,
-                                                   pointsSorted[0],
-                                                   pointsSorted[flipMidPoints ? 2 : 1],
-                                                   pointsSorted[3],
-                                                   pointsSorted[flipMidPoints ? 1 : 2],
-                                                   pointsSorted[0] };
+            glm::vec2 screenCornerTL( std::min<float>( 0.0f, selectionAabb.z ), std::min<float>( 0.0f, selectionAabb.w ) );
+            glm::vec2 screenCornerBR( std::max<float>( width, selectionAabb.x ), std::max<float>( height, selectionAabb.y ) );
+            glm::vec2 screenCornerTR( std::max<float>( width, selectionAabb.x ), std::min<float>( 0.0f, selectionAabb.w ) );
+            glm::vec2 screenCornerBL( std::min<float>( 0.0f, selectionAabb.z ), std::max<float>( height, selectionAabb.y ) );
 
-        drawList->AddConcavePolyFilled( pointsClockwise.data(), pointsClockwise.size(), Spectrum::PURPLE700 & 0x00FFFFFF | 0x33000000 );
+            std::array<ImVec2, 10> pointsClockwise = { screenCornerTL,
+                                                       screenCornerTR,
+                                                       screenCornerBR,
+                                                       screenCornerBL,
+                                                       screenCornerTL,
+                                                       pointsSorted[0],
+                                                       pointsSorted[flipMidPoints ? 2 : 1],
+                                                       pointsSorted[3],
+                                                       pointsSorted[flipMidPoints ? 1 : 2],
+                                                       pointsSorted[0] };
+
+            drawList->AddConcavePolyFilled( pointsClockwise.data(), pointsClockwise.size(), Spectrum::PURPLE700 & 0x00FFFFFF | 0x33000000 );
+        }
+        else
+        {
+            drawList->AddRectFilled( glm::vec2( 0.0f ), glm::vec2( width, height ), Spectrum::PURPLE700 & 0x00FFFFFF | 0x33000000 );
+        }
     }
 
     void drawUI( const AppContext* app, const wgpu::RenderPassEncoder& renderPass )
@@ -1059,7 +1076,7 @@ namespace mc
             ImU32 color = Spectrum::PURPLE400;
 
             drawShadedRectangleMask(
-                app->width, app->height,
+                app->width, app->height, app->selectionAabb * app->viewParams.scale + glm::vec4( app->viewParams.canvasPos, app->viewParams.canvasPos ),
                 { g_transformBox.cornerHandleTL, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBL }, drawList );
 
             drawList->AddLine( g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
@@ -1087,12 +1104,17 @@ namespace mc
         if( app->mode == Mode::Cut )
         {
             drawShadedRectangleMask(
-                app->width, app->height,
+                app->width, app->height, app->selectionAabb * app->viewParams.scale + glm::vec4( app->viewParams.canvasPos, app->viewParams.canvasPos ),
                 { g_transformBox.cornerHandleTL, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBL }, drawList );
+
+            int index = app->layers.getSingleSelectedImage();
+
+            glm::vec2 uvTop    = glm::vec2( app->layers.data()[index].uvTop ) / float( UV_MAX_VALUE );
+            glm::vec2 uvBottom = glm::vec2( app->layers.data()[index].uvBottom ) / float( UV_MAX_VALUE );
 
             drawList->AddImageQuad( (ImTextureID)(intptr_t)app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView.Get(),
                                     g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleBL,
-                                    glm::vec2( 0.0f ), glm::vec2( 1.0f, 0.0f ), glm::vec2( 1.0f ), glm::vec2( 0.0f, 1.0f ),
+                                    uvTop, glm::vec2( uvBottom.x, uvTop.y ), uvBottom, glm::vec2( uvTop.x, uvBottom.y ),
                                     Spectrum::ORANGE600 & 0x00FFFFFF | 0x55000000 );
 
             drawList->AddLine( g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
