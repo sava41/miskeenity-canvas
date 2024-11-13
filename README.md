@@ -3,7 +3,17 @@
 Cross platform 2d infinite canvas app inspired by [dingboard.com](https://dingboard.com/).
 
 **Web version available to try here (chromium browsers only): https://sava41.github.io/miskeenity-canvas/**
-![Miskeenity Canvas screenshot](./resources/images/miskeenity-canvas-screenshot.png)
+
+## Features
+
+**Paint**
+![Paint Feature Gif](./resources/images/paint.gif)
+
+**Add Text**
+![Text Feature Gif](./resources/images/text.gif)
+
+**Add and Edit Images**
+![Image Feature Gif](./resources/images/image.gif)
 
 ## Requirements:
 - CMake 3.28 or later
