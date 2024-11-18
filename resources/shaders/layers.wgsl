@@ -116,10 +116,10 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
 
     let sdfMask:  f32 = select(1.0, smoothstep(max(0.05, 0.5 - in.outlineValue - smoothing), 0.5 - in.outlineValue + smoothing, textureSample(mask, maskSampler, in.uv).r), bool(in.flags & (1 << 3)));
     let pillMask: f32 = select(1.0, smoothstep(0.0, 2.0 / (max(in.size.x, in.size.y) * uniforms.scale) , -udRoundedBox((in.uv - 0.5) * aspect, vec2<f32>(0.5) * aspect, 0.5f)), bool(in.flags & (1 << 4)));
-    let masks: f32 = maskValue * sdfMask * pillMask * in.color.a * select(1.0, f32(in.flags & 1), bool(uniforms.viewType == 2));
+    let masks: f32 = maskValue * sdfMask * pillMask * in.color.a;
 
     var out: FragmentOutput;
-    out.color = select(vec4<f32>(sdfColor * masks, masks), texColor, bool(in.flags & (1 << 1)));
+    out.color = select(vec4<f32>(sdfColor * masks, masks), texColor, bool(in.flags & (1 << 1))) * select(1.0, f32(in.flags & 1), bool(uniforms.viewType == 2));
     out.selectionOccludedMask = vec4<f32>(f32(in.flags & 1), 0.0, 0.0, out.color.a);
     out.selectionMask = vec4<f32>(1.0, 0.0, 0.0, out.color.a * f32(in.flags & 1));
 
