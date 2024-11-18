@@ -442,7 +442,7 @@ namespace mc
         app->preAlphaPipeline = app->device.CreateComputePipeline( &pipelineDesc );
 
         wgpu::ShaderModuleWGSLDescriptor maskMutiplyShaderCodeDesc;
-        maskMutiplyShaderCodeDesc.code = b::embed<"./resources/shaders/mask_multiply.wgsl">().data();
+        maskMutiplyShaderCodeDesc.code = b::embed<"./resources/shaders/maskmultiply.wgsl">().data();
 
         wgpu::ShaderModuleDescriptor maskMutiplyShaderModuleDesc;
         maskMutiplyShaderModuleDesc.nextInChain = &maskMutiplyShaderCodeDesc;
