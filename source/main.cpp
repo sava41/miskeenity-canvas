@@ -412,7 +412,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         wgpu::BindGroup inputBindGroup =
             mc::createComputeTextureBindGroup( app->device, app->textureManager.get( app->layers.getTexture( index ) ).texture, false );
         wgpu::BindGroup inputMaskBindGroup =
-            mc::createComputeTextureBindGroup( app->device, app->textureManager.get( app->layers.getTexture( app->editMaskTextureHandle ) ).texture, false );
+            mc::createComputeTextureBindGroup( app->device, app->textureManager.get( *app->editMaskTextureHandle.get() ).texture, false );
         wgpu::BindGroup outputBindGroupA = mc::createComputeTextureBindGroup( app->device, app->textureManager.get( maskedTextureA ).texture, true );
         wgpu::BindGroup outputBindGroupB = mc::createComputeTextureBindGroup( app->device, app->textureManager.get( maskedTextureB ).texture, true );
 
