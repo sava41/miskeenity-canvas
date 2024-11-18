@@ -15,5 +15,5 @@ fn inv_mask_multipy(@builtin(global_invocation_id) id: vec3<u32>) {
     let input = textureLoad(inputTexture, vec2<u32>(id.x, id.y), 0);
     let mask = textureLoad(inputMask, vec2<u32>(id.x, id.y), 0);
     
-    textureStore(outputTexture, id.xy, vec4<f32>(input.rgb * mask.r, input.a * mask.r));
+    textureStore(outputTexture, id.xy, vec4<f32>(input.rgb * (1.0 - mask.r), input.a * (1.0 - mask.r)));
 }
