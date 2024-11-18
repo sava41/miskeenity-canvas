@@ -405,27 +405,36 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         int height = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight();
 
         mc::ResourceHandle maskedTextureA =
-            app->textureManager.add( nullptr, width, height, 4, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding );
+            app->textureManager.add( nullptr, width, height, 4, app->device, wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding );
         mc::ResourceHandle maskedTextureB =
-            app->textureManager.add( nullptr, width, height, 4, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding );
+            app->textureManager.add( nullptr, width, height, 4, app->device, wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding );
+
+        wgpu::BindGroup inputBindGroup =
+            mc::createComputeTextureBindGroup( app->device, app->textureManager.get( app->layers.getTexture( index ) ).texture, false );
+        wgpu::BindGroup inputMaskBindGroup =
+            mc::createComputeTextureBindGroup( app->device, app->textureManager.get( app->layers.getTexture( app->editMaskTextureHandle ) ).texture, false );
+        wgpu::BindGroup outputBindGroupA = mc::createComputeTextureBindGroup( app->device, app->textureManager.get( maskedTextureA ).texture, true );
+        wgpu::BindGroup outputBindGroupB = mc::createComputeTextureBindGroup( app->device, app->textureManager.get( maskedTextureB ).texture, true );
 
         wgpu::CommandEncoderDescriptor commandEncoderDesc;
         commandEncoderDesc.label        = "Cut Mask Encoder";
         wgpu::CommandEncoder cutEncoder = app->device.CreateCommandEncoder( &commandEncoderDesc );
 
-        wgpu::RenderPassEncoder renderPassEnc = mc::createRenderPassEncoder<2>(
-            cutEncoder, { app->textureManager.get( maskedTextureA ).textureView, app->textureManager.get( maskedTextureB ).textureView },
-            { wgpu::Color{ 0.0, 0.0, 0.0, 0.0f }, wgpu::Color{ 0.0, 0.0, 0.0, 0.0f } } );
+        wgpu::ComputePassEncoder computePassEnc = cutEncoder.BeginComputePass();
 
-        renderPassEnc.SetPipeline( app->cutMaskPipeline );
-        app->textureManager.bind( app->layers.getTexture( index ), 0, renderPassEnc );
-        app->textureManager.bind( *app->editMaskTextureHandle.get(), 1, renderPassEnc );
+        computePassEnc.SetPipeline( app->maskMultiplyPipeline );
+        computePassEnc.SetBindGroup( 0, inputBindGroup );
+        computePassEnc.SetBindGroup( 1, inputMaskBindGroup );
+        computePassEnc.SetBindGroup( 2, outputBindGroupA );
+        computePassEnc.DispatchWorkgroups( ( width + 8 - 1 ) / 8, ( height + 8 - 1 ) / 8, 1 );
 
-        renderPassEnc.Draw( 6 );
-        renderPassEnc.End();
+        computePassEnc.SetPipeline( app->invMaskMultiplyPipeline );
+        computePassEnc.SetBindGroup( 2, outputBindGroupB );
+        computePassEnc.DispatchWorkgroups( ( width + 8 - 1 ) / 8, ( height + 8 - 1 ) / 8, 1 );
+
+        computePassEnc.End();
 
         wgpu::CommandBuffer command = cutEncoder.Finish();
-
         app->device.GetQueue().Submit( 1, &command );
 
         app->layers.remove( app->layers.length() - 1 );

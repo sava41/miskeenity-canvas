@@ -107,7 +107,6 @@ namespace mc
         wgpu::RenderPipeline canvasPipeline;
         wgpu::RenderPipeline postPipeline;
         wgpu::RenderPipeline exportPipeline;
-        wgpu::RenderPipeline cutMaskPipeline;
         wgpu::ComputePipeline selectionPipeline;
         wgpu::ComputePipeline meshPipeline;
         wgpu::ComputePipeline preAlphaPipeline;
