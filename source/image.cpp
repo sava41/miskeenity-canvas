@@ -25,24 +25,48 @@ namespace mc
         if( imageData != nullptr )
         {
 
-            ResourceHandle textureHandle = app->textureManager.add( imageData, width, height, channels, app->device );
+            ResourceHandle rawTextureHandle =
+                app->textureManager.add( imageData, width, height, channels, app->device, wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst );
+            ResourceHandle processedTextureHandle = app->textureManager.add( nullptr, width, height, channels, app->device,
+                                                                             wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::StorageBinding );
 
-            if( !textureHandle.valid() )
+            if( !rawTextureHandle.valid() || !processedTextureHandle.valid() )
             {
                 stbi_image_free( imageData );
                 return;
             }
 
-            app->device.GetQueue().OnSubmittedWorkDone( []( WGPUQueueWorkDoneStatus status, void* imageData ) { stbi_image_free( imageData ); }, imageData );
+            wgpu::CommandEncoderDescriptor commandEncoderDesc;
+            commandEncoderDesc.label = "Image";
+
+            wgpu::CommandEncoder encoder = app->device.CreateCommandEncoder( &commandEncoderDesc );
+
+            wgpu::BindGroup inputBindGroup  = createComputeTextureBindGroup( app->device, app->textureManager.get( rawTextureHandle ).texture, false );
+            wgpu::BindGroup outputBindGroup = createComputeTextureBindGroup( app->device, app->textureManager.get( processedTextureHandle ).texture, true );
+
+            wgpu::ComputePassEncoder computePassEnc = encoder.BeginComputePass();
+            computePassEnc.SetPipeline( app->preAlphaPipeline );
+            computePassEnc.SetBindGroup( 0, inputBindGroup );
+            computePassEnc.SetBindGroup( 1, outputBindGroup );
+
+            computePassEnc.DispatchWorkgroups( ( width + 8 - 1 ) / 8, ( height + 8 - 1 ) / 8, 1 );
+            computePassEnc.End();
+
+            wgpu::CommandBufferDescriptor cmdBufferDescriptor;
+            cmdBufferDescriptor.label         = "Image Command Buffer";
+            wgpu::CommandBuffer imageCommands = encoder.Finish( &cmdBufferDescriptor );
+            app->device.GetQueue().Submit( 1, &imageCommands );
 
             glm::vec2 pos = ( glm::vec2( app->width / 2.0, app->height / 2.0 ) - app->viewParams.canvasPos ) / app->viewParams.scale;
 
             mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
             app->layers.add( pos, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( UV_MAX_VALUE ),
-                             glm::u8vec4( 255, 255, 255, 255 ), mc::HasColorTex, meshInfo, std::move( textureHandle ) );
+                             glm::u8vec4( 255, 255, 255, 255 ), mc::HasColorTex, meshInfo, std::move( processedTextureHandle ) );
 
             app->layersModified = true;
+
+            stbi_image_free( imageData );
 
             SDL_Log( "loaded image with width %d and height %d", width, height );
         }

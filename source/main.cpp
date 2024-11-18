@@ -96,6 +96,7 @@ SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
     mc::initUI( app );
 
     mc::initPipelines( app );
+    mc::initImageProcessingPipelines( app );
 
     // print some information about the window
     SDL_ShowWindow( app->window );

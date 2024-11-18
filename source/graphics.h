@@ -9,9 +9,13 @@ namespace mc
 {
     bool initDevice( mc::AppContext* app );
     void initPipelines( mc::AppContext* app );
+    void initImageProcessingPipelines( mc::AppContext* app );
     void configureSurface( mc::AppContext* app );
     void updateMeshBuffers( mc::AppContext* app );
     wgpu::BindGroupLayout createTextureBindGroupLayout( const wgpu::Device& device );
+    wgpu::BindGroupLayout createReadTextureBindGroupLayout( const wgpu::Device& device );
+    wgpu::BindGroupLayout createWriteTextureBindGroupLayout( const wgpu::Device& device );
+    wgpu::BindGroup createComputeTextureBindGroup( const wgpu::Device& device, const wgpu::Texture& texture, bool storage );
     void uploadTexture( const wgpu::Queue& queue, const wgpu::Texture& texture, void* data, int width, int height, int channels );
     wgpu::Buffer downloadTexture( const wgpu::Texture& texture, const wgpu::Device& device, const wgpu::CommandEncoder& encoder );
     wgpu::Device requestDevice( const wgpu::Adapter& adapter, const wgpu::DeviceDescriptor* descriptor );

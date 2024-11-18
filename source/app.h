@@ -110,6 +110,10 @@ namespace mc
         wgpu::RenderPipeline cutMaskPipeline;
         wgpu::ComputePipeline selectionPipeline;
         wgpu::ComputePipeline meshPipeline;
+        wgpu::ComputePipeline preAlphaPipeline;
+        wgpu::ComputePipeline maskMultiplyPipeline;
+        wgpu::ComputePipeline invMaskMultiplyPipeline;
+
         wgpu::Buffer meshBuf;
         wgpu::Buffer vertexBuf;
         wgpu::Buffer vertexCopyBuf;
@@ -118,6 +122,7 @@ namespace mc
         wgpu::Buffer viewParamBuf;
         wgpu::Buffer selectionBuf;
         wgpu::Buffer selectionMapBuf;
+
         wgpu::BindGroup globalBindGroup;
         wgpu::BindGroup selectionBindGroup;
         wgpu::BindGroup meshBindGroup;

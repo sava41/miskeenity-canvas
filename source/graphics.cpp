@@ -113,7 +113,7 @@ namespace mc
         wgpu::BlendState blendState;
         wgpu::BlendState maskBlendState;
 
-        blendState.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
+        blendState.color.srcFactor = wgpu::BlendFactor::One;
         blendState.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
         blendState.color.operation = wgpu::BlendOperation::Add;
 
@@ -285,10 +285,6 @@ namespace mc
 
             wgpu::ShaderModule postShaderModule = app->device.CreateShaderModule( &postShaderDesc );
 
-            blendState.alpha.srcFactor = wgpu::BlendFactor::Zero;
-            blendState.alpha.dstFactor = wgpu::BlendFactor::One;
-            blendState.alpha.operation = wgpu::BlendOperation::Add;
-
             wgpu::ColorTargetState postColorTarget;
             postColorTarget.format    = app->colorFormat;
             postColorTarget.blend     = &blendState;
@@ -340,7 +336,7 @@ namespace mc
 
             wgpu::ShaderModule cutShaderModule = app->device.CreateShaderModule( &cutShaderDesc );
 
-            blendState.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
+            blendState.color.srcFactor = wgpu::BlendFactor::One;
             blendState.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
             blendState.color.operation = wgpu::BlendOperation::Add;
 
@@ -479,6 +475,66 @@ namespace mc
         }
     }
 
+    void initImageProcessingPipelines( mc::AppContext* app )
+    {
+
+        wgpu::BindGroupLayout readGroupLayout  = createReadTextureBindGroupLayout( app->device );
+        wgpu::BindGroupLayout writeGroupLayout = createWriteTextureBindGroupLayout( app->device );
+
+        wgpu::ShaderModuleWGSLDescriptor preAlphaShaderCodeDesc;
+        preAlphaShaderCodeDesc.code = b::embed<"./resources/shaders/prealpha.wgsl">().data();
+
+        wgpu::ShaderModuleDescriptor preAlphaShaderModuleDesc;
+        preAlphaShaderModuleDesc.nextInChain = &preAlphaShaderCodeDesc;
+
+        wgpu::ShaderModule preAlphaShaderModule = app->device.CreateShaderModule( &preAlphaShaderModuleDesc );
+
+        std::array<wgpu::BindGroupLayout, 2> readWriteBindGroupLayouts = { readGroupLayout, writeGroupLayout };
+
+        wgpu::PipelineLayoutDescriptor readWritePipelineLayoutDesc;
+        readWritePipelineLayoutDesc.bindGroupLayoutCount = static_cast<uint32_t>( readWriteBindGroupLayouts.size() );
+        readWritePipelineLayoutDesc.bindGroupLayouts     = readWriteBindGroupLayouts.data();
+
+        wgpu::PipelineLayout readWritePipelineLayout = app->device.CreatePipelineLayout( &readWritePipelineLayoutDesc );
+
+        wgpu::ComputePipelineDescriptor pipelineDesc;
+        pipelineDesc.label              = "Premultiplied Alpha";
+        pipelineDesc.layout             = readWritePipelineLayout;
+        pipelineDesc.compute.module     = preAlphaShaderModule;
+        pipelineDesc.compute.entryPoint = "pre_alpha";
+
+        app->preAlphaPipeline = app->device.CreateComputePipeline( &pipelineDesc );
+
+        wgpu::ShaderModuleWGSLDescriptor maskMutiplyShaderCodeDesc;
+        maskMutiplyShaderCodeDesc.code = b::embed<"./resources/shaders/mask_multiply.wgsl">().data();
+
+        wgpu::ShaderModuleDescriptor maskMutiplyShaderModuleDesc;
+        maskMutiplyShaderModuleDesc.nextInChain = &maskMutiplyShaderCodeDesc;
+
+        wgpu::ShaderModule maskMutiplyShaderModule = app->device.CreateShaderModule( &maskMutiplyShaderModuleDesc );
+
+        std::array<wgpu::BindGroupLayout, 3> readReadWriteBindGroupLayouts = { readGroupLayout, readGroupLayout, writeGroupLayout };
+
+        wgpu::PipelineLayoutDescriptor readReadWritePipelineLayoutDesc;
+        readReadWritePipelineLayoutDesc.bindGroupLayoutCount = static_cast<uint32_t>( readReadWriteBindGroupLayouts.size() );
+        readReadWritePipelineLayoutDesc.bindGroupLayouts     = readReadWriteBindGroupLayouts.data();
+
+        wgpu::PipelineLayout readReadWritePipelineLayout = app->device.CreatePipelineLayout( &readReadWritePipelineLayoutDesc );
+
+        wgpu::ComputePipelineDescriptor maskMultiplyPipelineDesc;
+        maskMultiplyPipelineDesc.label              = "Mask Mutiply";
+        maskMultiplyPipelineDesc.layout             = readReadWritePipelineLayout;
+        maskMultiplyPipelineDesc.compute.module     = maskMutiplyShaderModule;
+        maskMultiplyPipelineDesc.compute.entryPoint = "mask_multipy";
+
+        app->maskMultiplyPipeline = app->device.CreateComputePipeline( &maskMultiplyPipelineDesc );
+
+        maskMultiplyPipelineDesc.label              = "Inverse Mask Mutiply";
+        maskMultiplyPipelineDesc.compute.entryPoint = "inv_mask_multipy";
+
+        app->invMaskMultiplyPipeline = app->device.CreateComputePipeline( &maskMultiplyPipelineDesc );
+    }
+
     void configureSurface( mc::AppContext* app )
     {
         wgpu::SurfaceConfiguration config;
@@ -546,6 +602,62 @@ namespace mc
         groupLayoutDesc.entries    = groupLayoutEntries.data();
 
         return device.CreateBindGroupLayout( &groupLayoutDesc );
+    }
+
+    wgpu::BindGroupLayout createReadTextureBindGroupLayout( const wgpu::Device& device )
+    {
+        wgpu::BindGroupLayoutEntry readBindGroupLayoutEntry;
+        readBindGroupLayoutEntry.binding               = 0;
+        readBindGroupLayoutEntry.visibility            = wgpu::ShaderStage::Compute;
+        readBindGroupLayoutEntry.texture.sampleType    = wgpu::TextureSampleType::Float;
+        readBindGroupLayoutEntry.texture.viewDimension = wgpu::TextureViewDimension::e2D;
+
+        wgpu::BindGroupLayoutDescriptor readBindGroupLayoutDesc;
+        readBindGroupLayoutDesc.entryCount = 1;
+        readBindGroupLayoutDesc.entries    = &readBindGroupLayoutEntry;
+
+        return device.CreateBindGroupLayout( &readBindGroupLayoutDesc );
+    }
+
+    wgpu::BindGroupLayout createWriteTextureBindGroupLayout( const wgpu::Device& device )
+    {
+        wgpu::BindGroupLayoutEntry writeBindGroupLayoutEntry;
+        writeBindGroupLayoutEntry.binding                      = 0;
+        writeBindGroupLayoutEntry.visibility                   = wgpu::ShaderStage::Compute;
+        writeBindGroupLayoutEntry.storageTexture.access        = wgpu::StorageTextureAccess::WriteOnly;
+        writeBindGroupLayoutEntry.storageTexture.format        = wgpu::TextureFormat::RGBA8Unorm;
+        writeBindGroupLayoutEntry.storageTexture.viewDimension = wgpu::TextureViewDimension::e2D;
+
+        wgpu::BindGroupLayoutDescriptor writeBindGroupLayoutDesc;
+        writeBindGroupLayoutDesc.entryCount = 1;
+        writeBindGroupLayoutDesc.entries    = &writeBindGroupLayoutEntry;
+
+        return device.CreateBindGroupLayout( &writeBindGroupLayoutDesc );
+    }
+
+    wgpu::BindGroup createComputeTextureBindGroup( const wgpu::Device& device, const wgpu::Texture& texture, bool storage )
+    {
+        wgpu::TextureViewDescriptor textureViewDesc;
+        textureViewDesc.aspect          = wgpu::TextureAspect::All;
+        textureViewDesc.baseArrayLayer  = 0;
+        textureViewDesc.arrayLayerCount = 1;
+        textureViewDesc.baseMipLevel    = 0;
+        textureViewDesc.mipLevelCount   = texture.GetMipLevelCount();
+        textureViewDesc.dimension       = wgpu::TextureViewDimension::e2D;
+        textureViewDesc.format          = texture.GetFormat();
+
+        wgpu::TextureView textureView = texture.CreateView( &textureViewDesc );
+
+        wgpu::BindGroupEntry bindGroupEntry;
+        bindGroupEntry.binding     = 0;
+        bindGroupEntry.textureView = textureView;
+
+        wgpu::BindGroupDescriptor bindGroupDesc;
+        bindGroupDesc.layout     = storage ? createWriteTextureBindGroupLayout( device ) : createReadTextureBindGroupLayout( device );
+        bindGroupDesc.entryCount = 1;
+        bindGroupDesc.entries    = &bindGroupEntry;
+
+        return device.CreateBindGroup( &bindGroupDesc );
     }
 
     void uploadTexture( const wgpu::Queue& queue, const wgpu::Texture& texture, void* data, int width, int height, int channels )

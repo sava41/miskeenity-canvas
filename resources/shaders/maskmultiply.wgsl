@@ -47,8 +47,8 @@ fn fs_cut(@location(0) uv : vec2<f32>) ->  FragmentOutput {
     let mask: vec4<f32> = textureSample(inputMask, textureSamplerMask, uv);
     
     var out: FragmentOutput;
-    out.outputA = vec4<f32>(input.rgb, input.a * mask.r);
-    out.outputB = vec4<f32>(input.rgb, input.a * (1.0 - mask.r));
+    out.outputA = vec4<f32>(input.rgb * mask.r, input.a * mask.r);
+    out.outputB = vec4<f32>(input.rgb * (1.0 - mask.r), input.a * (1.0 - mask.r));
 
     return out;
 }

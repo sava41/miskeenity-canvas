@@ -55,6 +55,8 @@ b_embed(miskeenity-canvas ./resources/shaders/postprocess.wgsl)
 b_embed(miskeenity-canvas ./resources/shaders/selection.wgsl)
 b_embed(miskeenity-canvas ./resources/shaders/mesh.wgsl)
 b_embed(miskeenity-canvas ./resources/shaders/maskmultiply.wgsl)
+b_embed(miskeenity-canvas ./resources/shaders/mask_multiply.wgsl)
+b_embed(miskeenity-canvas ./resources/shaders/prealpha.wgsl)
 
 add_dependencies(miskeenity-canvas SDL3::SDL3 imgui glm::glm stb icon-font-headers)
 target_link_libraries(miskeenity-canvas PRIVATE SDL3::SDL3 imgui glm::glm stb icon-font-headers)
