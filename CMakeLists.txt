@@ -20,6 +20,7 @@ endif()
 # Add third party libs
 if (NOT CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     add_subdirectory(third_party/webgpu)
+    add_subdirectory(third_party/onnx)
 endif()
 add_subdirectory(third_party/iconfontheaders)
 add_subdirectory(third_party/sdl3)
@@ -42,6 +43,7 @@ add_executable(miskeenity-canvas
     source/image.cpp
     source/sdl_utils.cpp
     source/texture_manager.cpp
+    source/ml_inference.cpp
     source/webgpu_surface.c)
 
 # Add resources
@@ -90,8 +92,8 @@ if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     target_link_options(miskeenity-canvas PRIVATE -sNO_FILESYSTEM=1 -sASSERTIONS=0 -sMALLOC=emmalloc )#--closure=1)
 else()
     b_embed(miskeenity-canvas ./resources/textures/miskeen_128.png)
-    add_dependencies(miskeenity-canvas webgpu_cpp webgpu_dawn)
-    target_link_libraries(miskeenity-canvas PRIVATE webgpu_cpp webgpu_dawn)
+    add_dependencies(miskeenity-canvas webgpu_cpp webgpu_dawn onnxruntime_lib)
+    target_link_libraries(miskeenity-canvas PRIVATE webgpu_cpp webgpu_dawn onnxruntime_lib)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
