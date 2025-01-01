@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <glm/glm.hpp>
 #include <string>
+#include <thread>
 #include <webgpu/webgpu.h>
 #include <webgpu/webgpu_cpp.h>
 
@@ -110,6 +111,9 @@ SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
     app->updateView = true;
 
     app->fontManager.init( app->textureManager, app->device, app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex ) );
+
+    app->mlInference = std::make_unique<mc::MlInference>( "C:/Users/sava4/OneDrive/Desktop/miskeenity-canvas/build/Release/sam_preprocess.onnx",
+                                                          "sam_vit_h_4b8939.onnx", std::thread::hardware_concurrency() );
 
     SDL_Log( "Application started successfully!" );
 
@@ -322,7 +326,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         }
         else if( app->mode == mc::Mode::Cut )
         {
-            int index = app->layers.getSingleSelectedImage();
+            int index          = app->layers.getSingleSelectedImage();
             mc::Layer newLayer = app->layers.data()[index];
             newLayer.flags     = newLayer.flags & ~mc::LayerFlags::Selected;
 
@@ -448,7 +452,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
         app->layersModified = true;
     }
-        break;
+    break;
     }
 }
 
@@ -1093,8 +1097,8 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
     if( app->mode == mc::Mode::Cut && app->layers.length() > 0 )
     {
-        int index        = app->layers.getSingleSelectedImage();
-        mc::Layer layer  = app->layers.data()[index];
+        int index       = app->layers.getSingleSelectedImage();
+        mc::Layer layer = app->layers.data()[index];
 
         glm::vec2 scale = static_cast<float>( mc::UV_MAX_VALUE ) / glm::vec2( layer.uvBottom - layer.uvTop );
         layer.basisA *= scale.x;

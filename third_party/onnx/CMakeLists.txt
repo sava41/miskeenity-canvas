@@ -28,16 +28,12 @@ FetchContent_MakeAvailable(onnxruntime)
 
 add_library(onnxruntime_lib INTERFACE)
 
-target_include_directories(onnxruntime_lib INTERFACE 
-    ${onnxruntime_SOURCE_DIR}/include
-)
+target_include_directories(onnxruntime_lib INTERFACE ${onnxruntime_SOURCE_DIR}/include)
 
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-    target_link_libraries(onnxruntime_lib INTERFACE
-        ${onnxruntime_SOURCE_DIR}/lib/onnxruntime.lib
-    )
+    target_link_libraries(onnxruntime_lib INTERFACE ${onnxruntime_SOURCE_DIR}/lib/onnxruntime.lib)
+    file(COPY ${onnxruntime_SOURCE_DIR}/lib/onnxruntime.dll DESTINATION ${PROJECT_BINARY_DIR}/${CMAKE_BUILD_TYPE})
 else()
-    target_link_libraries(onnxruntime_lib INTERFACE
-        ${onnxruntime_SOURCE_DIR}/lib/libonnxruntime.a
-    )
+    target_link_libraries(onnxruntime_lib INTERFACE ${onnxruntime_SOURCE_DIR}/lib/onnxruntime.a)
+    file(COPY ${onnxruntime_SOURCE_DIR}/lib/onnxruntime.so DESTINATION ${PROJECT_BINARY_DIR}/${CMAKE_BUILD_TYPE})
 endif()
