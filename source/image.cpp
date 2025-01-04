@@ -108,7 +108,7 @@ namespace mc
                     addImageToLayer( app, imageData, width, height, 4 );
                 }
             },
-            app, nullptr, filters, 3, nullptr, SDL_FALSE );
+            app, nullptr, filters, 3, nullptr, false );
 
 #endif
     }
@@ -129,16 +129,16 @@ namespace mc
             {
                 AppContext* app = reinterpret_cast<mc::AppContext*>( userdata );
 #endif
-        int width  = app->textureManager.get( *app->copyTextureHandle.get() ).texture.GetWidth();
-        int height = app->textureManager.get( *app->copyTextureHandle.get() ).texture.GetHeight();
-        app->copyTextureHandle.reset();
+                int width  = app->textureManager.get( *app->copyTextureHandle.get() ).texture.GetWidth();
+                int height = app->textureManager.get( *app->copyTextureHandle.get() ).texture.GetHeight();
+                app->copyTextureHandle.reset();
 
-        const uint8_t* imageData = reinterpret_cast<const uint8_t*>( app->textureMapBuffer.GetConstMappedRange( 0, app->textureMapBuffer.GetSize() ) );
+                const uint8_t* imageData = reinterpret_cast<const uint8_t*>( app->textureMapBuffer.GetConstMappedRange( 0, app->textureMapBuffer.GetSize() ) );
 
-        if( imageData == nullptr )
-        {
-            app->textureMapBuffer.Unmap();
-            return;
+                if( imageData == nullptr )
+                {
+                    app->textureMapBuffer.Unmap();
+                    return;
                 }
 
                 // we need to find the stride since the buffer is padded to be a multiple of 256
@@ -165,7 +165,7 @@ namespace mc
             },
             app, nullptr, filters, 1, nullptr );
 #else
-                emscripten_browser_file::download( "miskeen.png", "image/png", data.get(), length );
+        emscripten_browser_file::download( "miskeen.png", "image/png", data.get(), length );
 #endif
     }
 } // namespace mc

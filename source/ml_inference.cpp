@@ -3,6 +3,7 @@
 #include "image.h"
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_filesystem.h>
 #define ORT_API_MANUAL_INIT
 #include <codecvt>
 #include <filesystem>
@@ -34,8 +35,13 @@ namespace mc
     MlInference::MlInference( const std::string& preModelPath, const std::string& samModelPath, int threadsNumber )
         : m_valid( true )
     {
-        if( !std::filesystem::exists( preModelPath ) || std::filesystem::exists( samModelPath ) )
+        const std::string fullModelPath    = std::string( SDL_GetBasePath() ) + preModelPath;
+        const std::string fullSamModelPath = std::string( SDL_GetBasePath() ) + samModelPath;
+
+
+        if( !SDL_GetPathInfo( fullModelPath.c_str(), nullptr ) || !SDL_GetPathInfo( fullSamModelPath.c_str(), nullptr ) )
         {
+            SDL_Log( "lel %s\n %s\n %s", fullModelPath.c_str(), fullSamModelPath.c_str(), SDL_GetError() );
             m_valid = false;
             return;
         }
@@ -84,14 +90,13 @@ namespace mc
         }
     }
 
-    bool MlInference::pipelineValid() const
+    MlInference::~MlInference()
     {
-        return m_valid;
     }
 
     bool MlInference::loadInput( const uint8_t* buffer, int len, int& width, int& height )
     {
-        if( !m_valid || width > m_onnxData->inputShapePre[3] || height > m_onnxData->inputShapePre[2] )
+        if( !m_valid || width > getMaxWidth() || height > getMaxHeight() )
         {
             return false;
         }
@@ -139,10 +144,6 @@ namespace mc
         m_imageSize = glm::vec2( width, height );
 
         return true;
-    }
-
-    MlInference::~MlInference()
-    {
     }
 
     bool MlInference::getMask( void* imageData, int width, int height, const std::vector<glm::vec2>& points )
@@ -198,6 +199,30 @@ namespace mc
         float iouValue = outputTensors[1].GetTensorMutableData<float>()[0];
 
         return true;
+    }
+
+    bool MlInference::pipelineValid() const
+    {
+        return m_valid;
+    }
+
+    int MlInference::getMaxWidth() const
+    {
+        if( m_valid )
+        {
+            return m_onnxData->inputShapePre[3];
+        }
+
+        return 0;
+    }
+    int MlInference::getMaxHeight() const
+    {
+        if( m_valid )
+        {
+            return m_onnxData->inputShapePre[2];
+        }
+
+        return 0;
     }
 
 } // namespace mc

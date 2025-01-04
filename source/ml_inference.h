@@ -20,6 +20,8 @@ namespace mc
         bool getMask( void* imageData, int width, int height, const std::vector<glm::vec2>& points );
 
         bool pipelineValid() const;
+        int getMaxWidth() const;
+        int getMaxHeight() const;
 
       private:
         std::unique_ptr<OnnxData> m_onnxData;

@@ -99,8 +99,7 @@ SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
     mc::initPipelines( app );
     mc::initImageProcessingPipelines( app );
 
-    // print some information about the window
-    SDL_ShowWindow( app->window );
+    if( SDL_ShowWindow( app->window ) )
     {
         SDL_Log( "Window size: %ix%i", app->width, app->height );
         SDL_Log( "Backbuffer size: %ix%i", app->bbwidth, app->bbheight );
@@ -112,8 +111,9 @@ SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
 
     app->fontManager.init( app->textureManager, app->device, app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex ) );
 
-    app->mlInference = std::make_unique<mc::MlInference>( "C:/Users/sava4/OneDrive/Desktop/miskeenity-canvas/build/Release/sam_preprocess.onnx",
-                                                          "sam_vit_h_4b8939.onnx", std::thread::hardware_concurrency() );
+#if !defined( SDL_PLATFORM_EMSCRIPTEN )
+    app->mlInference = std::make_unique<mc::MlInference>( "sam_preprocess.onnx", "sam_vit_h_4b8939.onnx", std::thread::hardware_concurrency() );
+#endif
 
     SDL_Log( "Application started successfully!" );
 
@@ -348,6 +348,13 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
                 app->layerEditStart += 1;
             }
         }
+        else if( app->mode == mc::Mode::SegmentCut )
+        {
+            app->editMaskTextureHandle.reset();
+            // app->editMaskTextureHandle = std::make_unique<mc::ResourceHandle>(
+            //     app->textureManager.add( nullptr, app->mlInference->getMaxWidth(), app->mlInference->getMaxHeight(), 4, app->device,
+            //                              wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::TextureBinding ) );
+        }
         else
         {
             app->layers.clearSelection();
@@ -456,7 +463,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
     }
 }
 
-SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
+SDL_AppResult SDL_AppEvent( void* appstate, SDL_Event* event )
 {
     mc::AppContext* app = reinterpret_cast<mc::AppContext*>( appstate );
 
@@ -1095,7 +1102,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         app->rasterizeSelection = false;
     }
 
-    if( app->mode == mc::Mode::Cut && app->layers.length() > 0 )
+    if( ( app->mode == mc::Mode::Cut ) && app->layers.length() > 0 )
     {
         int index       = app->layers.getSingleSelectedImage();
         mc::Layer layer = app->layers.data()[index];
@@ -1227,7 +1234,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     return app->appQuit ? SDL_APP_SUCCESS : SDL_APP_CONTINUE;
 }
 
-void SDL_AppQuit( void* appstate )
+void SDL_AppQuit( void* appstate, SDL_AppResult result )
 {
     mc::shutdownUI();
 

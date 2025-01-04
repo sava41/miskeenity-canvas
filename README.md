@@ -15,6 +15,9 @@ Cross platform 2d infinite canvas app inspired by [dingboard.com](https://dingbo
 **Add and Edit Images**
 ![Image Feature Gif](./resources/images/image.gif)
 
+**Auto Image Segmentation (Desktop Only)**
+![Segmentation Feature Gif](./resources/images/image.gif)
+
 ## Requirements:
 - CMake 3.28 or later
 - Python 3.8 or newer
@@ -48,7 +51,6 @@ https://emscripten.org/docs/getting_started/downloads.html#installation-instruct
 ```
 
 ## Planned Features
-- layer AI masking
 - canvas history (undo/redo)
 - copy/paste
 - keyboard shortcuts

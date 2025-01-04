@@ -4,7 +4,7 @@ include(FetchContent)
 FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/sava41/imgui.git
-    GIT_TAG 9907cf0f9cf377381b16200d1266467a81a5fbf4
+    GIT_TAG 2850877545261f070d445085e39721e66de1c732
 )
 FetchContent_GetProperties(imgui)
 
@@ -29,6 +29,9 @@ if(NOT imgui_POPULATED)
   target_link_libraries(imgui PUBLIC SDL3::SDL3)
 
   if (NOT CMAKE_SYSTEM_NAME STREQUAL Emscripten)
+    target_compile_definitions(imgui PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_WGPU)
     target_link_libraries(imgui PUBLIC webgpu_dawn)
+  else()
+    target_compile_definitions(imgui PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
   endif()
 endif()

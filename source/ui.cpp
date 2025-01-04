@@ -138,7 +138,7 @@ namespace mc
         ImGuiStyle& style = ImGui::GetStyle();
 
         style.Alpha                     = 1.0f;
-        style.DisabledAlpha             = 1.0f;
+        style.DisabledAlpha             = 0.5f;
         style.WindowPadding             = glm::vec2( 12.0f, 12.0f );
         style.WindowRounding            = 3.0f;
         style.WindowBorderSize          = 0.0f;
@@ -750,9 +750,13 @@ namespace mc
 
                 if( app->layers.getSingleSelectedImage() >= 0 )
                 {
-                    std::array<std::string, 3> imageTools    = { ICON_LC_CROP, ICON_LC_SQUARE_BOTTOM_DASHED_SCISSORS, ICON_LC_SQUARE_DASHED_MOUSE_POINTER };
-                    std::array<std::string, 3> imageTooltips = { "Crop", "Cut", "TODO: Segment Cut" };
-                    std::array<Mode, 4> imageToolModes       = { Mode::Crop, Mode::Cut, Mode::SegmentCut };
+                    std::array<std::string, 3> imageTools = { ICON_LC_CROP, ICON_LC_SQUARE_BOTTOM_DASHED_SCISSORS, ICON_LC_SQUARE_DASHED_MOUSE_POINTER };
+#if defined( SDL_PLATFORM_EMSCRIPTEN )
+                    std::array<std::string, 3> imageTooltips = { "Crop", "Cut", "Desktop Only" };
+#else
+                    std::array<std::string, 3> imageTooltips = { "Crop", "Cut", "Segment Cut" };
+#endif
+                    std::array<Mode, 3> imageToolModes = { Mode::Crop, Mode::Cut, Mode::SegmentCut };
 
                     for( size_t i = 0; i < imageTools.size(); i++ )
                     {
@@ -762,6 +766,13 @@ namespace mc
                             color = ImGui::ColorConvertU32ToFloat4( Spectrum::PURPLE400 );
                         }
 
+#if defined( SDL_PLATFORM_EMSCRIPTEN )
+                        if( i == 2 )
+                        {
+                            ImGui::BeginDisabled();
+                        }
+#endif
+
                         ImGui::PushStyleColor( ImGuiCol_Button, color );
                         if( ImGui::Button( imageTools[i].c_str(), buttonSize ) )
                         {
@@ -769,6 +780,15 @@ namespace mc
                         }
                         if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay | ImGuiHoveredFlags_Stationary ) )
                             ImGui::SetItemTooltip( imageTooltips[i].c_str() );
+
+#if defined( SDL_PLATFORM_EMSCRIPTEN )
+                        if( i == 2 )
+                        {
+                            ImGui::SetItemTooltip( imageTooltips[i].c_str() );
+                            ImGui::EndDisabled();
+                        }
+#endif
+
                         ImGui::SameLine( 0.0, buttonSpacing );
                         ImGui::PopStyleColor( 1 );
                     }
@@ -1016,6 +1036,54 @@ namespace mc
             }
             ImGui::End();
         }
+        else if( app->mode == Mode::SegmentCut )
+        {
+            ImGui::SetNextWindowPos( glm::vec2( buttonSpacing, app->height - 180.0 * g_uiScale - buttonSpacing ), ImGuiCond_Appearing );
+            ImGui::SetNextWindowSize( glm::vec2( 350.0, 180.0 ) * g_uiScale, ImGuiCond_FirstUseEver );
+
+            ImGui::Begin( "Cut Image Via Auto Segmentation", nullptr,
+                          ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
+            {
+
+                ImGui::PushItemWidth( ImGui::GetContentRegionAvail().x );
+                float width = ( ImGui::GetContentRegionAvail().x - 8 ) * 0.5;
+
+                if( app->mlInference.get() && app->mlInference->pipelineValid() )
+                {
+                    ImGui::Text( "Click image to select segmentation regions" );
+                }
+                else
+                {
+                    ImGui::TextColored( ImGui::ColorConvertU32ToFloat4( Spectrum::RED700 ), "Model files not found or are invalid" );
+                    ImGui::BeginDisabled();
+                }
+
+                if( ImGui::Button( "Reset Points", glm::vec2( width, 0.0 ) ) )
+                {
+                    // todo
+                }
+
+                ImGui::SeparatorText( "" );
+
+                if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
+                {
+                    // submitEvent( Events::Cut );
+                    submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
+                }
+
+                ImGui::EndDisabled();
+                if( !app->mlInference.get() && !app->mlInference->pipelineValid() )
+                {
+                }
+
+                ImGui::SameLine( 0.0, 8.0 );
+                if( ImGui::Button( "Cancel", glm::vec2( width, 0.0 ) ) )
+                {
+                    submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
+                }
+            }
+            ImGui::End();
+        }
 
 
         ImDrawList* drawList = ImGui::GetBackgroundDrawList();
@@ -1101,7 +1169,7 @@ namespace mc
             drawList->AddCircleFilled( g_transformBox.cornerHandleTL, HandleHalfSize * g_uiScale - ceilf( g_uiScale ), color );
         }
 
-        if( app->mode == Mode::Cut )
+        if( app->mode == Mode::Cut || app->mode == Mode::SegmentCut )
         {
             drawShadedRectangleMask(
                 app->width, app->height, app->selectionAabb * app->viewParams.scale + glm::vec4( app->viewParams.canvasPos, app->viewParams.canvasPos ),
@@ -1112,10 +1180,13 @@ namespace mc
             glm::vec2 uvTop    = glm::vec2( app->layers.data()[index].uvTop ) / float( UV_MAX_VALUE );
             glm::vec2 uvBottom = glm::vec2( app->layers.data()[index].uvBottom ) / float( UV_MAX_VALUE );
 
-            drawList->AddImageQuad( (ImTextureID)(intptr_t)app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView.Get(),
-                                    g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleBL,
-                                    uvTop, glm::vec2( uvBottom.x, uvTop.y ), uvBottom, glm::vec2( uvTop.x, uvBottom.y ),
-                                    Spectrum::ORANGE600 & 0x00FFFFFF | 0x55000000 );
+            if( app->editMaskTextureHandle.get() )
+            {
+                drawList->AddImageQuad( (ImTextureID)(intptr_t)app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView.Get(),
+                                        g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR,
+                                        g_transformBox.cornerHandleBL, uvTop, glm::vec2( uvBottom.x, uvTop.y ), uvBottom, glm::vec2( uvTop.x, uvBottom.y ),
+                                        Spectrum::ORANGE600 & 0x00FFFFFF | 0x55000000 );
+            }
 
             drawList->AddLine( g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
             drawList->AddLine( g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
