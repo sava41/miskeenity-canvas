@@ -1060,7 +1060,7 @@ namespace mc
 
                 if( ImGui::Button( "Reset Points", glm::vec2( width, 0.0 ) ) )
                 {
-                    // todo
+                    app->mlInference->resetPoints();
                 }
 
                 ImGui::SeparatorText( "" );
@@ -1071,14 +1071,15 @@ namespace mc
                     submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
 
-                ImGui::EndDisabled();
-                if( !app->mlInference.get() && !app->mlInference->pipelineValid() )
+                if( !app->mlInference.get() || !app->mlInference->pipelineValid() )
                 {
+                    ImGui::EndDisabled();
                 }
 
                 ImGui::SameLine( 0.0, 8.0 );
                 if( ImGui::Button( "Cancel", glm::vec2( width, 0.0 ) ) )
                 {
+                    submitEvent( Events::ResetEditLayers );
                     submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
             }
@@ -1192,6 +1193,29 @@ namespace mc
             drawList->AddLine( g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
             drawList->AddLine( g_transformBox.cornerHandleBR, g_transformBox.cornerHandleBL, Spectrum::PURPLE400, ceilf( g_uiScale ) );
             drawList->AddLine( g_transformBox.cornerHandleBL, g_transformBox.cornerHandleTL, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+        }
+
+        if( app->mode == Mode::SegmentCut )
+        {
+            int index = app->layers.getSingleSelectedImage();
+
+            for( const glm::vec2& point : app->mlInference->getPoints() )
+            {
+
+                Layer layer     = app->layers.data()[index];
+                glm::vec2 scale = static_cast<float>( mc::UV_MAX_VALUE ) / glm::vec2( layer.uvBottom - layer.uvTop );
+                layer.basisA *= scale.x;
+                layer.basisB *= scale.y;
+
+                glm::vec2 uvCenter = ( glm::vec2( layer.uvTop ) + glm::vec2( layer.uvBottom ) ) / static_cast<float>( mc::UV_MAX_VALUE ) * 0.5f;
+                layer.offset -= layer.basisA * ( uvCenter.x - 0.5f ) + layer.basisB * ( uvCenter.y - 0.5f );
+
+                glm::vec2 position = ( layer.offset + layer.basisA * ( point.x - 0.5f ) + layer.basisB * ( point.y - 0.5f ) ) * app->viewParams.scale +
+                                     app->viewParams.canvasPos;
+
+                drawList->AddCircleFilled( position, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
+                drawList->AddCircleFilled( position, ( HandleHalfSize * g_uiScale - ceilf( g_uiScale ) ), Spectrum::ORANGE600 );
+            }
         }
 
         if( app->layers.numSelected() > 0 && app->dragType == CursorDragType::Select && app->mode == Mode::Cursor )

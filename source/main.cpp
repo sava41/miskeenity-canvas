@@ -36,7 +36,7 @@ SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
     mc::AppContext* app = &appContext;
     *appstate           = app;
 
-    if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_GAMEPAD ) )
+    if( !SDL_Init( SDL_INIT_VIDEO | SDL_INIT_GAMEPAD ) )
     {
         return SDL_Fail();
     }
@@ -324,7 +324,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
                 app->mode = mc::Mode::Cursor;
             }
         }
-        else if( app->mode == mc::Mode::Cut )
+        else if( app->mode == mc::Mode::Cut || app->mode == mc::Mode::SegmentCut )
         {
             int index          = app->layers.getSingleSelectedImage();
             mc::Layer newLayer = app->layers.data()[index];
@@ -348,16 +348,39 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
                 app->layerEditStart += 1;
             }
         }
-        else if( app->mode == mc::Mode::SegmentCut )
-        {
-            app->editMaskTextureHandle.reset();
-            // app->editMaskTextureHandle = std::make_unique<mc::ResourceHandle>(
-            //     app->textureManager.add( nullptr, app->mlInference->getMaxWidth(), app->mlInference->getMaxHeight(), 4, app->device,
-            //                              wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::TextureBinding ) );
-        }
         else
         {
             app->layers.clearSelection();
+        }
+
+        if( app->mode == mc::Mode::SegmentCut )
+        {
+            app->mlInference->resetPoints();
+
+            int index = app->layers.getSingleSelectedImage();
+
+            if( app->textureMapBuffer )
+            {
+                app->textureMapBuffer.Destroy();
+            }
+
+            wgpu::CommandEncoderDescriptor commandEncoderDesc;
+            commandEncoderDesc.label     = "get image for SAM";
+            wgpu::CommandEncoder encoder = app->device.CreateCommandEncoder( &commandEncoderDesc );
+
+            app->textureMapBuffer = mc::downloadTexture( app->textureManager.get( app->layers.getTexture( index ) ).texture, app->device, encoder );
+
+            wgpu::CommandBuffer command = encoder.Finish();
+            app->device.GetQueue().Submit( 1, &command );
+
+            wgpu::BufferMapCallback callback = []( WGPUBufferMapAsyncStatus status, void* userData )
+            {
+                if( status == WGPUBufferMapAsyncStatus_Success )
+                {
+                    mc::submitEvent( mc::Events::SamLoadInput );
+                }
+            };
+            app->textureMapBuffer.MapAsync( wgpu::MapMode::Read, 0, app->textureMapBuffer.GetSize(), callback, nullptr );
         }
 
         app->layersModified = true;
@@ -415,10 +438,10 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         int width  = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth();
         int height = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight();
 
-        mc::ResourceHandle maskedTextureA =
-            app->textureManager.add( nullptr, width, height, 4, app->device, wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding );
-        mc::ResourceHandle maskedTextureB =
-            app->textureManager.add( nullptr, width, height, 4, app->device, wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding );
+        mc::ResourceHandle maskedTextureA = app->textureManager.add(
+            nullptr, width, height, 4, app->device, wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopySrc );
+        mc::ResourceHandle maskedTextureB = app->textureManager.add(
+            nullptr, width, height, 4, app->device, wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopySrc );
 
         wgpu::BindGroup inputBindGroup =
             mc::createComputeTextureBindGroup( app->device, app->textureManager.get( app->layers.getTexture( index ) ).texture, false );
@@ -458,6 +481,24 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         app->layers.move( index, app->layers.length() - 1 );
 
         app->layersModified = true;
+    }
+    break;
+    case mc::Events::SamLoadInput:
+    {
+        const uint8_t* imageData = reinterpret_cast<const uint8_t*>( app->textureMapBuffer.GetConstMappedRange( 0, app->textureMapBuffer.GetSize() ) );
+
+        if( imageData == nullptr )
+        {
+            app->textureMapBuffer.Unmap();
+            break;
+        }
+
+        int index = app->layers.getSingleSelectedImage();
+
+        app->mlInference->loadInput( imageData, app->textureMapBuffer.GetSize(), app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth(),
+                                     app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight() );
+
+        app->textureMapBuffer.Unmap();
     }
     break;
     }
@@ -567,6 +608,28 @@ SDL_AppResult SDL_AppEvent( void* appstate, SDL_Event* event )
         if( app->mode == mc::Mode::Save )
         {
             mc::submitEvent( mc::Events::SaveImageRequest );
+        }
+        else if( app->mode == mc::Mode::SegmentCut && mc::getMouseLocationUI() == mc::MouseLocationUI::MoveHandle )
+        {
+            int index       = app->layers.getSingleSelectedImage();
+            mc::Layer layer = app->layers.data()[index];
+
+            glm::vec2 scale = static_cast<float>( mc::UV_MAX_VALUE ) / glm::vec2( layer.uvBottom - layer.uvTop );
+            layer.basisA *= scale.x;
+            layer.basisB *= scale.y;
+
+            glm::vec2 uvCenter = ( glm::vec2( layer.uvTop ) + glm::vec2( layer.uvBottom ) ) / static_cast<float>( mc::UV_MAX_VALUE ) * 0.5f;
+            layer.offset -= layer.basisA * ( uvCenter.x - 0.5f ) + layer.basisB * ( uvCenter.y - 0.5f );
+
+            float width  = glm::length( layer.basisA );
+            float height = glm::length( layer.basisB );
+
+            glm::vec2 mouseLocal = app->viewParams.mousePos - layer.offset;
+            float u              = glm::dot( mouseLocal, layer.basisA ) / glm::dot( layer.basisA, layer.basisA ) + 0.5;
+            float v              = glm::dot( mouseLocal, layer.basisB ) / glm::dot( layer.basisB, layer.basisB ) + 0.5;
+
+            app->mlInference->addPoint( glm::vec2( u, v ) );
+            app->mlInference->genMask();
         }
 
         // click selection if the mouse hasnt moved since mouse down

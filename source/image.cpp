@@ -27,8 +27,9 @@ namespace mc
 
             ResourceHandle rawTextureHandle =
                 app->textureManager.add( imageData, width, height, channels, app->device, wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst );
-            ResourceHandle processedTextureHandle = app->textureManager.add( nullptr, width, height, channels, app->device,
-                                                                             wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::StorageBinding );
+            ResourceHandle processedTextureHandle =
+                app->textureManager.add( nullptr, width, height, channels, app->device,
+                                         wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::CopySrc );
 
             if( !rawTextureHandle.valid() || !processedTextureHandle.valid() )
             {

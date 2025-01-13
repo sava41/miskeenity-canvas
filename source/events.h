@@ -47,7 +47,8 @@ namespace mc
         AddMergedLayer,
         MergeAndRasterizeRequest,
         MergeAndRasterize,
-        DeleteEditLayers
+        DeleteEditLayers,
+        SamLoadInput
     };
 
     void submitEvent( const Events& event, const EventData& data = {} );
