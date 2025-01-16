@@ -111,10 +111,10 @@ namespace mc
         colors[ImGuiCol_ResizeGrip]           = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY400 );
         colors[ImGuiCol_ResizeGripHovered]    = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY600 );
         colors[ImGuiCol_ResizeGripActive]     = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY700 );
-        colors[ImGuiCol_PlotLines]            = ImGui::ColorConvertU32ToFloat4( Spectrum::BLUE400 );
-        colors[ImGuiCol_PlotLinesHovered]     = ImGui::ColorConvertU32ToFloat4( Spectrum::BLUE600 );
-        colors[ImGuiCol_PlotHistogram]        = ImGui::ColorConvertU32ToFloat4( Spectrum::BLUE400 );
-        colors[ImGuiCol_PlotHistogramHovered] = ImGui::ColorConvertU32ToFloat4( Spectrum::BLUE600 );
+        colors[ImGuiCol_PlotLines]            = ImGui::ColorConvertU32ToFloat4( Spectrum::PURPLE400 );
+        colors[ImGuiCol_PlotLinesHovered]     = ImGui::ColorConvertU32ToFloat4( Spectrum::PURPLE600 );
+        colors[ImGuiCol_PlotHistogram]        = ImGui::ColorConvertU32ToFloat4( Spectrum::PURPLE400 );
+        colors[ImGuiCol_PlotHistogramHovered] = ImGui::ColorConvertU32ToFloat4( Spectrum::PURPLE600 );
         colors[ImGuiCol_Tab]                  = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY50 );
         colors[ImGuiCol_TabActive]            = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY400 );
         colors[ImGuiCol_TabHovered]           = ImGui::ColorConvertU32ToFloat4( Spectrum::GRAY600 );
@@ -1048,7 +1048,13 @@ namespace mc
                 ImGui::PushItemWidth( ImGui::GetContentRegionAvail().x );
                 float width = ( ImGui::GetContentRegionAvail().x - 8 ) * 0.5;
 
-                if( app->mlInference.get() && app->mlInference->pipelineValid() )
+
+                if( !app->mlInference->inferenceReady() )
+                {
+                    ImGui::ProgressBar( -1.0f * (float)ImGui::GetTime(), ImVec2( 0.0f, 0.0f ), "Model Loading. Please Wait..." );
+                    ImGui::BeginDisabled();
+                }
+                else if( app->mlInference.get() && app->mlInference->pipelineValid() )
                 {
                     ImGui::Text( "Click image to select segmentation regions" );
                 }
@@ -1071,7 +1077,7 @@ namespace mc
                     submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
 
-                if( !app->mlInference.get() || !app->mlInference->pipelineValid() )
+                if( !app->mlInference.get() || !app->mlInference->pipelineValid() || !app->mlInference->inferenceReady() )
                 {
                     ImGui::EndDisabled();
                 }
@@ -1198,6 +1204,7 @@ namespace mc
         if( app->mode == Mode::SegmentCut )
         {
             int index = app->layers.getSingleSelectedImage();
+
 
             for( const glm::vec2& point : app->mlInference->getPoints() )
             {

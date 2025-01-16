@@ -48,7 +48,8 @@ namespace mc
         MergeAndRasterizeRequest,
         MergeAndRasterize,
         DeleteEditLayers,
-        SamLoadInput
+        SamLoadInput,
+        SamUploadMask
     };
 
     void submitEvent( const Events& event, const EventData& data = {} );

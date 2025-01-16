@@ -334,7 +334,8 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
             int height = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight();
 
             app->editMaskTextureHandle = std::make_unique<mc::ResourceHandle>(
-                app->textureManager.add( nullptr, width, height, 4, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
+                app->textureManager.add( nullptr, width, height, app->mode == mc::Mode::Cut ? 4 : 1, app->device,
+                                         wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst ) );
 
             // crop needs at least one free layer to for the dummy layer so we cancel if the layer array is full
             // probably should add some ui to tell the user how many layers are being used
@@ -501,6 +502,10 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         app->textureMapBuffer.Unmap();
     }
     break;
+    case mc::Events::SamUploadMask:
+        mc::uploadTexture( app->device.GetQueue(), app->textureManager.get( *app->editMaskTextureHandle.get() ).texture, app->mlInference->getMask(),
+                           app->mlInference->getMaskWidth(), app->mlInference->getMaskHeight(), 1 );
+        break;
     }
 }
 
@@ -609,7 +614,8 @@ SDL_AppResult SDL_AppEvent( void* appstate, SDL_Event* event )
         {
             mc::submitEvent( mc::Events::SaveImageRequest );
         }
-        else if( app->mode == mc::Mode::SegmentCut && mc::getMouseLocationUI() == mc::MouseLocationUI::MoveHandle )
+        else if( app->mode == mc::Mode::SegmentCut && mc::getMouseLocationUI() == mc::MouseLocationUI::MoveHandle && app->mlInference->pipelineValid() &&
+                 app->mlInference->inferenceReady() )
         {
             int index       = app->layers.getSingleSelectedImage();
             mc::Layer layer = app->layers.data()[index];
@@ -630,6 +636,7 @@ SDL_AppResult SDL_AppEvent( void* appstate, SDL_Event* event )
 
             app->mlInference->addPoint( glm::vec2( u, v ) );
             app->mlInference->genMask();
+            submitEvent( mc::Events::SamUploadMask );
         }
 
         // click selection if the mouse hasnt moved since mouse down

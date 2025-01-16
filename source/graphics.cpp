@@ -223,7 +223,7 @@ namespace mc
 
         // export pipeline is the exact same as canvas but we only need the main color render target
         fragmentState.targetCount = 1;
-        renderPipelineDesc.label = "Export";
+        renderPipelineDesc.label  = "Export";
 
         app->exportPipeline = app->device.CreateRenderPipeline( &renderPipelineDesc );
 
@@ -596,7 +596,7 @@ namespace mc
         return device.CreateBindGroup( &bindGroupDesc );
     }
 
-    void uploadTexture( const wgpu::Queue& queue, const wgpu::Texture& texture, void* data, int width, int height, int channels )
+    void uploadTexture( const wgpu::Queue& queue, const wgpu::Texture& texture, const void* data, int width, int height, int channels )
     {
         wgpu::ImageCopyTexture imageCopyTexture;
         imageCopyTexture.texture  = texture;

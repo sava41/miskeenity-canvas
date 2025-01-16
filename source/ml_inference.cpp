@@ -23,8 +23,11 @@ namespace mc
         std::vector<int64_t> inputShapePre;
         std::vector<int64_t> outputShapePre;
         std::vector<int64_t> outputShapeSam;
+        std::vector<uint8_t> inputTensorValuesPre;
         std::vector<float> outputTensorValuesPre;
         std::vector<float> outputTensorValuesSam;
+        std::unique_ptr<Ort::Value> inputTensorPre;
+        std::unique_ptr<Ort::Value> outputTensorPre;
 
         OnnxData() {};
     };
@@ -104,47 +107,46 @@ namespace mc
 
         m_imageReady = false;
 
-        std::vector<uint8_t> inputTensorValues( m_onnxData->inputShapePre[0] * m_onnxData->inputShapePre[1] * m_onnxData->inputShapePre[2] *
-                                                m_onnxData->inputShapePre[3] );
-
-        for( int i = 0; i < height; ++i )
-        {
-            for( int j = 0; j < width; ++j )
-            {
-                uint8_t r = 0;
-                uint8_t g = 0;
-                uint8_t b = 0;
-
-                r = buffer[i * width * 4 + j * 4 + 0];
-                g = buffer[i * width * 4 + j * 4 + 1];
-                b = buffer[i * width * 4 + j * 4 + 2];
-
-                inputTensorValues[0 * m_onnxData->inputShapePre[2] * m_onnxData->inputShapePre[3] + i * m_onnxData->inputShapePre[3] + j] = r;
-                inputTensorValues[1 * m_onnxData->inputShapePre[2] * m_onnxData->inputShapePre[3] + i * m_onnxData->inputShapePre[3] + j] = g;
-                inputTensorValues[2 * m_onnxData->inputShapePre[2] * m_onnxData->inputShapePre[3] + i * m_onnxData->inputShapePre[3] + j] = b;
-            }
-        }
-
-        Ort::Value inputTensor( Ort::Value::CreateTensor<uint8_t>( m_onnxData->memoryInfo, inputTensorValues.data(), inputTensorValues.size(),
-                                                                   m_onnxData->inputShapePre.data(), m_onnxData->inputShapePre.size() ) );
+        m_onnxData->inputTensorValuesPre.resize( m_onnxData->inputShapePre[0] * m_onnxData->inputShapePre[1] * m_onnxData->inputShapePre[2] *
+                                                 m_onnxData->inputShapePre[3] );
 
         m_onnxData->outputTensorValuesPre.resize( m_onnxData->outputShapePre[0] * m_onnxData->outputShapePre[1] * m_onnxData->outputShapePre[2] *
                                                   m_onnxData->outputShapePre[3] );
 
-        Ort::Value outputTensor( Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, m_onnxData->outputTensorValuesPre.data(),
-                                                                  m_onnxData->outputTensorValuesPre.size(), m_onnxData->outputShapePre.data(),
-                                                                  m_onnxData->outputShapePre.size() ) );
+        for( int i = 0; i < getMaxHeight(); ++i )
+        {
+            for( int j = 0; j < getMaxWidth(); ++j )
+            {
+                uint8_t r = i < height && j < width ? buffer[i * width * 4 + j * 4 + 0] : 0;
+                uint8_t g = i < height && j < width ? buffer[i * width * 4 + j * 4 + 1] : 0;
+                uint8_t b = i < height && j < width ? buffer[i * width * 4 + j * 4 + 2] : 0;
 
-        // m_onnxData->sessionPre->RunAsync(
-        //     Ort::RunOptions{ nullptr }, InputNamesPre.data(), &inputTensor, 1, OutputNamesPre.data(), &outputTensor, 1,
-        //     []( void* user_data, OrtValue** outputs, size_t num_outputs, OrtStatusPtr status ) { m_imageReady = true; }, nullptr );
+                m_onnxData->inputTensorValuesPre[0 * m_onnxData->inputShapePre[2] * m_onnxData->inputShapePre[3] + i * m_onnxData->inputShapePre[3] + j] = b;
+                m_onnxData->inputTensorValuesPre[1 * m_onnxData->inputShapePre[2] * m_onnxData->inputShapePre[3] + i * m_onnxData->inputShapePre[3] + j] = g;
+                m_onnxData->inputTensorValuesPre[2 * m_onnxData->inputShapePre[2] * m_onnxData->inputShapePre[3] + i * m_onnxData->inputShapePre[3] + j] = r;
+            }
+        }
 
-        m_onnxData->sessionPre->Run( Ort::RunOptions{ nullptr }, InputNamesPre.data(), &inputTensor, 1, OutputNamesPre.data(), &outputTensor, 1 );
+        m_onnxData->inputTensorPre = std::make_unique<Ort::Value>(
+            Ort::Value::CreateTensor<uint8_t>( m_onnxData->memoryInfo, m_onnxData->inputTensorValuesPre.data(), m_onnxData->inputTensorValuesPre.size(),
+                                               m_onnxData->inputShapePre.data(), m_onnxData->inputShapePre.size() ) );
+
+        m_onnxData->outputTensorPre = std::make_unique<Ort::Value>(
+            Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, m_onnxData->outputTensorValuesPre.data(), m_onnxData->outputTensorValuesPre.size(),
+                                             m_onnxData->outputShapePre.data(), m_onnxData->outputShapePre.size() ) );
+
+        m_onnxData->samRunOptions.UnsetTerminate();
+        m_onnxData->sessionPre->RunAsync(
+            m_onnxData->samRunOptions, InputNamesPre.data(), m_onnxData->inputTensorPre.get(), 1, OutputNamesPre.data(), m_onnxData->outputTensorPre.get(), 1,
+            []( void* user_data, OrtValue** outputs, size_t num_outputs, OrtStatusPtr status )
+            {
+                MlInference* mlinference  = reinterpret_cast<MlInference*>( user_data );
+                mlinference->m_imageReady = true;
+            },
+            this );
 
 
         m_imageSize = glm::vec2( width, height );
-
-        m_imageReady = true;
 
         return true;
     }
@@ -171,7 +173,7 @@ namespace mc
 
     bool MlInference::genMask()
     {
-        if( m_points.size() == 0 || !m_valid || !m_imageReady )
+        if( m_points.size() == 0 || !m_valid || !m_imageReady.load() )
         {
             return false;
         }
@@ -182,50 +184,77 @@ namespace mc
         std::vector<float> inputLabelValues( m_points.size(), 1 );
         for( int i = 0; i < m_points.size(); ++i )
         {
-            inputPointValues[i * 2]     = m_points[i].x;
-            inputPointValues[i * 2 + 1] = m_points[i].y;
+            inputPointValues[i * 2]     = m_points[i].x * m_imageSize.x;
+            inputPointValues[i * 2 + 1] = m_points[i].y * m_imageSize.y;
+            inputLabelValues[i]         = 1;
         }
 
-        std::vector<int64_t> inputPointShape  = { 1, static_cast<int64_t>( m_points.size() ), 2 };
-        std::vector<int64_t> pointLabelsShape = { 1, static_cast<int64_t>( m_points.size() ) };
-
-        std::vector<Ort::Value> inputTensorsSam;
-
-        // std::array<Ort::Value, 6> inputTensorsSam{};
-
-        inputTensorsSam.push_back( Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, m_onnxData->outputTensorValuesPre.data(),
-                                                                    m_onnxData->outputTensorValuesPre.size(), m_onnxData->outputShapePre.data(),
-                                                                    m_onnxData->outputShapePre.size() ) );
-
-        inputTensorsSam.push_back( Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, inputPointValues.data(), inputPointValues.size(),
-                                                                    inputPointShape.data(), inputPointShape.size() ) );
-        inputTensorsSam.push_back( Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, inputLabelValues.data(), inputLabelValues.size(),
-                                                                    pointLabelsShape.data(), pointLabelsShape.size() ) );
+        std::array<int64_t, 3> inputPointShape  = { 1, static_cast<int64_t>( m_points.size() ), 2 };
+        std::array<int64_t, 2> pointLabelsShape = { 1, static_cast<int64_t>( m_points.size() ) };
 
         std::array<float, 65536> maskInputValues;
-        inputTensorsSam.push_back( Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, maskInputValues.data(), maskInputValues.size(),
-                                                                    MaskInputShape.data(), MaskInputShape.size() ) );
-        inputTensorsSam.push_back( Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, const_cast<float*>( HasMaskValues.data() ), HasMaskValues.size(),
-                                                                    HasMaskInputShape.data(), HasMaskInputShape.size() ) );
+        maskInputValues.fill( 0 );
 
-        inputTensorsSam.push_back( Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, &m_imageSize.x, 2, ImageSizeShape.data(), ImageSizeShape.size() ) );
+        std::array<float, 2> inputImageSize{ static_cast<float>( m_onnxData->inputShapePre[2] ), static_cast<float>( m_onnxData->inputShapePre[3] ) };
 
-        m_onnxData->outputShapeSam = { 1, 4, static_cast<int>( m_imageSize.x ), static_cast<int>( m_imageSize.y ) };
+        std::array<Ort::Value, 6> inputTensorsSam{ Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, m_onnxData->outputTensorValuesPre.data(),
+                                                                                    m_onnxData->outputTensorValuesPre.size(), m_onnxData->outputShapePre.data(),
+                                                                                    m_onnxData->outputShapePre.size() ),
+                                                   Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, inputPointValues.data(), inputPointValues.size(),
+                                                                                    inputPointShape.data(), inputPointShape.size() ),
+                                                   Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, inputLabelValues.data(), inputLabelValues.size(),
+                                                                                    pointLabelsShape.data(), pointLabelsShape.size() ),
+                                                   Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, maskInputValues.data(), maskInputValues.size(),
+                                                                                    MaskInputShape.data(), MaskInputShape.size() ),
+                                                   Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, const_cast<float*>( HasMaskValues.data() ),
+                                                                                    HasMaskValues.size(), HasMaskInputShape.data(), HasMaskInputShape.size() ),
+                                                   Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, inputImageSize.data(), inputImageSize.size(),
+                                                                                    ImageSizeShape.data(), ImageSizeShape.size() ) };
 
+        m_onnxData->outputShapeSam = { 1, 4, getMaxHeight(), getMaxWidth() };
         m_onnxData->outputTensorValuesSam.resize( m_onnxData->outputShapeSam[0] * m_onnxData->outputShapeSam[1] * m_onnxData->outputShapeSam[2] *
                                                   m_onnxData->outputShapeSam[3] );
-
         Ort::Value outputTensor( Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, m_onnxData->outputTensorValuesSam.data(),
                                                                   m_onnxData->outputTensorValuesSam.size(), m_onnxData->outputShapeSam.data(),
                                                                   m_onnxData->outputShapeSam.size() ) );
 
-
         m_onnxData->samRunOptions.UnsetTerminate();
-
         m_onnxData->sessionSam->Run( m_onnxData->samRunOptions, InputNamesSam.data(), inputTensorsSam.data(), inputTensorsSam.size(), OutputNamesSam.data(),
                                      &outputTensor, 1 );
 
+
+        m_maskData.resize( m_imageSize.x * m_imageSize.y );
+
+        for( int i = 0; i < m_imageSize.y; ++i )
+        {
+            for( int j = 0; j < m_imageSize.x; ++j )
+            {
+                int index         = i * m_imageSize.x + j;
+                m_maskData[index] = m_onnxData->outputTensorValuesSam[i * getMaxWidth() + j] * 255.0;
+            }
+        }
+
         return true;
+    }
+
+    const uint8_t* MlInference::getMask() const
+    {
+        return m_maskData.data();
+    }
+
+    int MlInference::getMaskWidth() const
+    {
+        return m_imageSize.x;
+    }
+
+    int MlInference::getMaskHeight() const
+    {
+        return m_imageSize.y;
+    }
+
+    bool MlInference::inferenceReady() const
+    {
+        return m_imageReady.load();
     }
 
     bool MlInference::pipelineValid() const
