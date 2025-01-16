@@ -334,7 +334,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
             int height = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight();
 
             app->editMaskTextureHandle = std::make_unique<mc::ResourceHandle>(
-                app->textureManager.add( nullptr, width, height, app->mode == mc::Mode::Cut ? 4 : 1, app->device,
+                app->textureManager.add( nullptr, width, height, 4, app->device,
                                          wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst ) );
 
             // crop needs at least one free layer to for the dummy layer so we cancel if the layer array is full
@@ -496,15 +496,18 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
         int index = app->layers.getSingleSelectedImage();
 
+        // we need a width thats a multiple of 256
+        size_t textureWidthPadded = ( app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth() + 256 ) / 256 * 256;
+
         app->mlInference->loadInput( imageData, app->textureMapBuffer.GetSize(), app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth(),
-                                     app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight() );
+                                     app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight(), textureWidthPadded );
 
         app->textureMapBuffer.Unmap();
     }
     break;
     case mc::Events::SamUploadMask:
         mc::uploadTexture( app->device.GetQueue(), app->textureManager.get( *app->editMaskTextureHandle.get() ).texture, app->mlInference->getMask(),
-                           app->mlInference->getMaskWidth(), app->mlInference->getMaskHeight(), 1 );
+                           app->mlInference->getInputWidth(), app->mlInference->getInputHeight(), 4 );
         break;
     }
 }

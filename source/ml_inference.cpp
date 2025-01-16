@@ -42,6 +42,9 @@ namespace mc
     const std::array<int64_t, 1> HasMaskInputShape = { 1 };
     const std::array<int64_t, 1> ImageSizeShape    = { 2 };
 
+    // silly but idk an alternative
+    const std::array<float, 65536> MaskInputValues;
+
     MlInference::MlInference( const std::string& preModelPath, const std::string& samModelPath, int threadsNumber )
         : m_valid( true )
     {
@@ -98,7 +101,7 @@ namespace mc
     {
     }
 
-    bool MlInference::loadInput( const uint8_t* buffer, int len, int width, int height )
+    bool MlInference::loadInput( const uint8_t* buffer, int len, int width, int height, int stride )
     {
         if( !m_valid || width > getMaxWidth() || height > getMaxHeight() )
         {
@@ -117,13 +120,13 @@ namespace mc
         {
             for( int j = 0; j < getMaxWidth(); ++j )
             {
-                uint8_t r = i < height && j < width ? buffer[i * width * 4 + j * 4 + 0] : 0;
-                uint8_t g = i < height && j < width ? buffer[i * width * 4 + j * 4 + 1] : 0;
-                uint8_t b = i < height && j < width ? buffer[i * width * 4 + j * 4 + 2] : 0;
+                uint8_t r = i < height && j < width ? buffer[i * stride * 4 + j * 4 + 0] : 0;
+                uint8_t g = i < height && j < width ? buffer[i * stride * 4 + j * 4 + 1] : 0;
+                uint8_t b = i < height && j < width ? buffer[i * stride * 4 + j * 4 + 2] : 0;
 
-                m_onnxData->inputTensorValuesPre[0 * m_onnxData->inputShapePre[2] * m_onnxData->inputShapePre[3] + i * m_onnxData->inputShapePre[3] + j] = b;
-                m_onnxData->inputTensorValuesPre[1 * m_onnxData->inputShapePre[2] * m_onnxData->inputShapePre[3] + i * m_onnxData->inputShapePre[3] + j] = g;
-                m_onnxData->inputTensorValuesPre[2 * m_onnxData->inputShapePre[2] * m_onnxData->inputShapePre[3] + i * m_onnxData->inputShapePre[3] + j] = r;
+                m_onnxData->inputTensorValuesPre[0 * getMaxHeight() * getMaxWidth() + i * getMaxWidth() + j] = r;
+                m_onnxData->inputTensorValuesPre[1 * getMaxHeight() * getMaxWidth() + i * getMaxWidth() + j] = g;
+                m_onnxData->inputTensorValuesPre[2 * getMaxHeight() * getMaxWidth() + i * getMaxWidth() + j] = b;
             }
         }
 
@@ -192,10 +195,7 @@ namespace mc
         std::array<int64_t, 3> inputPointShape  = { 1, static_cast<int64_t>( m_points.size() ), 2 };
         std::array<int64_t, 2> pointLabelsShape = { 1, static_cast<int64_t>( m_points.size() ) };
 
-        std::array<float, 65536> maskInputValues;
-        maskInputValues.fill( 0 );
-
-        std::array<float, 2> inputImageSize{ static_cast<float>( m_onnxData->inputShapePre[2] ), static_cast<float>( m_onnxData->inputShapePre[3] ) };
+        std::array<float, 2> inputImageSize{ getMaxHeight(), getMaxWidth() };
 
         std::array<Ort::Value, 6> inputTensorsSam{ Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, m_onnxData->outputTensorValuesPre.data(),
                                                                                     m_onnxData->outputTensorValuesPre.size(), m_onnxData->outputShapePre.data(),
@@ -204,8 +204,8 @@ namespace mc
                                                                                     inputPointShape.data(), inputPointShape.size() ),
                                                    Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, inputLabelValues.data(), inputLabelValues.size(),
                                                                                     pointLabelsShape.data(), pointLabelsShape.size() ),
-                                                   Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, maskInputValues.data(), maskInputValues.size(),
-                                                                                    MaskInputShape.data(), MaskInputShape.size() ),
+                                                   Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, const_cast<float*>( MaskInputValues.data() ),
+                                                                                    MaskInputValues.size(), MaskInputShape.data(), MaskInputShape.size() ),
                                                    Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, const_cast<float*>( HasMaskValues.data() ),
                                                                                     HasMaskValues.size(), HasMaskInputShape.data(), HasMaskInputShape.size() ),
                                                    Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, inputImageSize.data(), inputImageSize.size(),
@@ -223,14 +223,17 @@ namespace mc
                                      &outputTensor, 1 );
 
 
-        m_maskData.resize( m_imageSize.x * m_imageSize.y );
+        m_maskData.resize( getInputWidth() * getInputHeight() * 4 );
 
-        for( int i = 0; i < m_imageSize.y; ++i )
+        for( int i = 0; i < getInputHeight(); ++i )
         {
-            for( int j = 0; j < m_imageSize.x; ++j )
+            for( int j = 0; j < getInputWidth(); ++j )
             {
-                int index         = i * m_imageSize.x + j;
-                m_maskData[index] = m_onnxData->outputTensorValuesSam[i * getMaxWidth() + j] * 255.0;
+                uint8_t maskValue = std::clamp<float>( m_onnxData->outputTensorValuesSam[i * getMaxWidth() + j] * 255, 0.0, 255.0 );
+                m_maskData[i * getInputWidth() * 4 + j * 4 + 0] = maskValue;
+                m_maskData[i * getInputWidth() * 4 + j * 4 + 1] = maskValue;
+                m_maskData[i * getInputWidth() * 4 + j * 4 + 2] = maskValue;
+                m_maskData[i * getInputWidth() * 4 + j * 4 + 3] = 255;
             }
         }
 
@@ -242,12 +245,12 @@ namespace mc
         return m_maskData.data();
     }
 
-    int MlInference::getMaskWidth() const
+    int MlInference::getInputWidth() const
     {
         return m_imageSize.x;
     }
 
-    int MlInference::getMaskHeight() const
+    int MlInference::getInputHeight() const
     {
         return m_imageSize.y;
     }

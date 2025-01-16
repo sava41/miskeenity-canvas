@@ -16,11 +16,11 @@ namespace mc
         MlInference( const std::string& preModelPath, const std::string& samModelPath, int threadsNumber );
         ~MlInference();
 
-        bool loadInput( const uint8_t* buffer, int len, int width, int height );
+        bool loadInput( const uint8_t* buffer, int len, int width, int height, int stride );
         bool genMask();
         const uint8_t* getMask() const;
-        int getMaskWidth() const;
-        int getMaskHeight() const;
+        int getInputWidth() const;
+        int getInputHeight() const;
         // void clearModel();
 
         void setPoints( const std::vector<glm::vec2>& points );

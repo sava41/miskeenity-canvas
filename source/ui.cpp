@@ -1187,7 +1187,7 @@ namespace mc
             glm::vec2 uvTop    = glm::vec2( app->layers.data()[index].uvTop ) / float( UV_MAX_VALUE );
             glm::vec2 uvBottom = glm::vec2( app->layers.data()[index].uvBottom ) / float( UV_MAX_VALUE );
 
-            if( app->editMaskTextureHandle.get() )
+            if( app->editMaskTextureHandle.get() && ( app->mode == Mode::Cut || ( app->mode == Mode::SegmentCut && app->mlInference->getPoints().size() ) ) )
             {
                 drawList->AddImageQuad( (ImTextureID)(intptr_t)app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView.Get(),
                                         g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR,
