@@ -42,12 +42,11 @@ namespace mc
 
             wgpu::CommandEncoder encoder = app->device.CreateCommandEncoder( &commandEncoderDesc );
 
-            wgpu::BindGroup inputBindGroup  = createComputeTextureBindGroup( app->device, app->textureManager.get( rawTextureHandle ).texture, false );
             wgpu::BindGroup outputBindGroup = createComputeTextureBindGroup( app->device, app->textureManager.get( processedTextureHandle ).texture, true );
 
             wgpu::ComputePassEncoder computePassEnc = encoder.BeginComputePass();
             computePassEnc.SetPipeline( app->preAlphaPipeline );
-            computePassEnc.SetBindGroup( 0, inputBindGroup );
+            computePassEnc.SetBindGroup( 0, app->textureManager.get( rawTextureHandle ).bindGroup );
             computePassEnc.SetBindGroup( 1, outputBindGroup );
 
             computePassEnc.DispatchWorkgroups( ( width + 8 - 1 ) / 8, ( height + 8 - 1 ) / 8, 1 );

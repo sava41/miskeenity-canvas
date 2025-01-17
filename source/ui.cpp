@@ -65,7 +65,7 @@ namespace mc
             submitEvent( Events::MergeEditLayers );
         }
 
-        if( currentMode == Mode::Cut )
+        if( currentMode == Mode::Cut || currentMode == Mode::SegmentCut )
         {
             submitEvent( Events::DeleteEditLayers );
             submitEvent( Events::Cut );
@@ -1023,8 +1023,14 @@ namespace mc
                 float width = ( ImGui::GetContentRegionAvail().x - 8 ) * 0.5;
                 if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
                 {
-                    submitEvent( Events::DeleteEditLayers );
-                    submitEvent( Events::Cut );
+                    if( app->layerEditStart < app->layers.length() )
+                    {
+                        acceptEditModeChanges( app->mode );
+                    }
+                    else
+                    {
+                        submitEvent( Events::ResetEditLayers );
+                    }
                     submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
                 ImGui::SameLine( 0.0, 8.0 );
@@ -1073,7 +1079,14 @@ namespace mc
 
                 if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
                 {
-                    // submitEvent( Events::Cut );
+                    if( app->mlInference->getPoints().size() > 0 )
+                    {
+                        acceptEditModeChanges( app->mode );
+                    }
+                    else
+                    {
+                        submitEvent( Events::ResetEditLayers );
+                    }
                     submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
 

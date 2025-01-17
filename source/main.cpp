@@ -444,10 +444,6 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         mc::ResourceHandle maskedTextureB = app->textureManager.add(
             nullptr, width, height, 4, app->device, wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopySrc );
 
-        wgpu::BindGroup inputBindGroup =
-            mc::createComputeTextureBindGroup( app->device, app->textureManager.get( app->layers.getTexture( index ) ).texture, false );
-        wgpu::BindGroup inputMaskBindGroup =
-            mc::createComputeTextureBindGroup( app->device, app->textureManager.get( *app->editMaskTextureHandle.get() ).texture, false );
         wgpu::BindGroup outputBindGroupA = mc::createComputeTextureBindGroup( app->device, app->textureManager.get( maskedTextureA ).texture, true );
         wgpu::BindGroup outputBindGroupB = mc::createComputeTextureBindGroup( app->device, app->textureManager.get( maskedTextureB ).texture, true );
 
@@ -458,8 +454,8 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         wgpu::ComputePassEncoder computePassEnc = cutEncoder.BeginComputePass();
 
         computePassEnc.SetPipeline( app->maskMultiplyPipeline );
-        computePassEnc.SetBindGroup( 0, inputBindGroup );
-        computePassEnc.SetBindGroup( 1, inputMaskBindGroup );
+        computePassEnc.SetBindGroup( 0, app->textureManager.get( app->layers.getTexture( index ) ).bindGroup );
+        computePassEnc.SetBindGroup( 1, app->textureManager.get( *app->editMaskTextureHandle.get() ).bindGroup );
         computePassEnc.SetBindGroup( 2, outputBindGroupA );
         computePassEnc.DispatchWorkgroups( ( width + 8 - 1 ) / 8, ( height + 8 - 1 ) / 8, 1 );
 
