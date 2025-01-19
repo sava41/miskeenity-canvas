@@ -333,6 +333,20 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
             int width  = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth();
             int height = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight();
 
+            if( app->mode == mc::Mode::SegmentCut )
+            {
+                for( int i = 0; i < app->textureManager.get( app->layers.getTexture( index ) ).texture.GetMipLevelCount(); ++i )
+                {
+                    if( width <= app->mlInference->getMaxWidth() && height <= app->mlInference->getMaxHeight() )
+                    {
+                        break;
+                    }
+
+                    width  = width / 2;
+                    height = height / 2;
+                }
+            }
+
             app->editMaskTextureHandle = std::make_unique<mc::ResourceHandle>(
                 app->textureManager.add( nullptr, width, height, 4, app->device,
                                          wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst ) );
@@ -360,6 +374,23 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
             int index = app->layers.getSingleSelectedImage();
 
+            int mipLevel = 0;
+            int width    = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth();
+            int height   = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight();
+
+            for( int i = 0; i < app->textureManager.get( app->layers.getTexture( index ) ).texture.GetMipLevelCount(); ++i )
+            {
+                if( width <= app->mlInference->getMaxWidth() && height <= app->mlInference->getMaxHeight() )
+                {
+                    break;
+                }
+
+                width  = width / 2;
+                height = height / 2;
+
+                ++mipLevel;
+            }
+
             if( app->textureMapBuffer )
             {
                 app->textureMapBuffer.Destroy();
@@ -369,19 +400,35 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
             commandEncoderDesc.label     = "get image for SAM";
             wgpu::CommandEncoder encoder = app->device.CreateCommandEncoder( &commandEncoderDesc );
 
-            app->textureMapBuffer = mc::downloadTexture( app->textureManager.get( app->layers.getTexture( index ) ).texture, app->device, encoder );
+            app->textureMapBuffer = mc::downloadTexture( app->textureManager.get( app->layers.getTexture( index ) ).texture, app->device, encoder, mipLevel );
 
             wgpu::CommandBuffer command = encoder.Finish();
             app->device.GetQueue().Submit( 1, &command );
 
-            wgpu::BufferMapCallback callback = []( WGPUBufferMapAsyncStatus status, void* userData )
-            {
-                if( status == WGPUBufferMapAsyncStatus_Success )
+            app->textureMapBuffer.MapAsync(
+                wgpu::MapMode::Read, 0, app->textureMapBuffer.GetSize(), wgpu::CallbackMode::AllowProcessEvents,
+                [width, height, app]( wgpu::MapAsyncStatus status, char const* message )
                 {
-                    mc::submitEvent( mc::Events::SamLoadInput );
-                }
-            };
-            app->textureMapBuffer.MapAsync( wgpu::MapMode::Read, 0, app->textureMapBuffer.GetSize(), callback, nullptr );
+                    if( status == wgpu::MapAsyncStatus::Success )
+                    {
+                        const uint8_t* imageData =
+                            reinterpret_cast<const uint8_t*>( app->textureMapBuffer.GetConstMappedRange( 0, app->textureMapBuffer.GetSize() ) );
+
+
+                        if( imageData == nullptr )
+                        {
+                            app->textureMapBuffer.Unmap();
+                            return;
+                        }
+
+                        // we need a width thats a multiple of 256
+                        size_t textureWidthPadded = ( width + 256 ) / 256 * 256;
+
+                        app->mlInference->loadInput( imageData, app->textureMapBuffer.GetSize(), width, height, textureWidthPadded );
+
+                        app->textureMapBuffer.Unmap();
+                    }
+                } );
         }
 
         app->layersModified = true;
@@ -488,27 +535,6 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         app->layers.move( index, app->layers.length() - 1 );
 
         app->layersModified = true;
-    }
-    break;
-    case mc::Events::SamLoadInput:
-    {
-        const uint8_t* imageData = reinterpret_cast<const uint8_t*>( app->textureMapBuffer.GetConstMappedRange( 0, app->textureMapBuffer.GetSize() ) );
-
-        if( imageData == nullptr )
-        {
-            app->textureMapBuffer.Unmap();
-            break;
-        }
-
-        int index = app->layers.getSingleSelectedImage();
-
-        // we need a width thats a multiple of 256
-        size_t textureWidthPadded = ( app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth() + 256 ) / 256 * 256;
-
-        app->mlInference->loadInput( imageData, app->textureMapBuffer.GetSize(), app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth(),
-                                     app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight(), textureWidthPadded );
-
-        app->textureMapBuffer.Unmap();
     }
     break;
     case mc::Events::SamUploadMask:
@@ -691,6 +717,10 @@ SDL_AppResult SDL_AppEvent( void* appstate, SDL_Event* event )
 SDL_AppResult SDL_AppIterate( void* appstate )
 {
     mc::AppContext* app = reinterpret_cast<mc::AppContext*>( appstate );
+
+#if !defined( SDL_PLATFORM_EMSCRIPTEN )
+    app->instance.ProcessEvents();
+#endif
 
     if( app->resetSurface && SDL_GetTicks() - app->resetSurfaceTime > mc::resetSurfaceDelayMs )
     {
@@ -1055,6 +1085,10 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
     app->device.GetQueue().Submit( 1, &command );
 
+#if !defined( SDL_PLATFORM_EMSCRIPTEN )
+    app->surface.Present();
+#endif
+
     commandEncoderDesc.label              = "Secondary Encoder";
     wgpu::CommandEncoder secondaryEncoder = app->device.CreateCommandEncoder( &commandEncoderDesc );
 
@@ -1318,7 +1352,6 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     }
 
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )
-    app->surface.Present();
     app->device.Tick();
 #endif
 

@@ -48,7 +48,6 @@ namespace mc
         MergeAndRasterizeRequest,
         MergeAndRasterize,
         DeleteEditLayers,
-        SamLoadInput,
         SamUploadMask
     };
 

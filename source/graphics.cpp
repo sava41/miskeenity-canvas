@@ -705,17 +705,20 @@ namespace mc
         device.GetQueue().Submit( 1, &mipmapCommands );
     }
 
-    wgpu::Buffer downloadTexture( const wgpu::Texture& texture, const wgpu::Device& device, const wgpu::CommandEncoder& encoder )
+    wgpu::Buffer downloadTexture( const wgpu::Texture& texture, const wgpu::Device& device, const wgpu::CommandEncoder& encoder, int mipLevel )
     {
         if( texture.GetFormat() != wgpu::TextureFormat::RGBA8Unorm )
         {
             return {};
         }
 
-        // we need a width thats a multiple of 256
-        size_t textureWidthPadded = ( texture.GetWidth() + 256 ) / 256 * 256;
+        int mipWidth  = std::max<int>( 1, texture.GetWidth() / std::pow( 2, mipLevel ) );
+        int mipHeight = std::max<int>( 1, texture.GetHeight() / std::pow( 2, mipLevel ) );
 
-        size_t textureSize = textureWidthPadded * texture.GetHeight() * 4;
+        // we need a width thats a multiple of 256
+        size_t textureWidthPadded = ( mipWidth + 256 ) / 256 * 256;
+
+        size_t textureSize = textureWidthPadded * mipHeight * 4;
 
         wgpu::BufferDescriptor layerBufDesc;
         layerBufDesc.mappedAtCreation = false;
@@ -725,19 +728,20 @@ namespace mc
         wgpu::Buffer copyBuffer = device.CreateBuffer( &layerBufDesc );
 
         wgpu::ImageCopyTexture copyTextureDescritor;
-        copyTextureDescritor.texture = texture;
-        copyTextureDescritor.origin  = { 0, 0 };
+        copyTextureDescritor.texture  = texture;
+        copyTextureDescritor.origin   = { 0, 0 };
+        copyTextureDescritor.mipLevel = mipLevel;
 
         wgpu::ImageCopyBuffer copyBufferDescriptor;
         copyBufferDescriptor.buffer = copyBuffer;
 
         // this needs to be multiple of 256
         copyBufferDescriptor.layout.bytesPerRow  = textureWidthPadded * 4;
-        copyBufferDescriptor.layout.rowsPerImage = texture.GetHeight();
+        copyBufferDescriptor.layout.rowsPerImage = mipHeight;
 
         wgpu::Extent3D copySize;
-        copySize.width  = texture.GetWidth();
-        copySize.height = texture.GetHeight();
+        copySize.width  = mipWidth;
+        copySize.height = mipHeight;
 
         encoder.CopyTextureToBuffer( &copyTextureDescritor, &copyBufferDescriptor, &copySize );
 
