@@ -29,7 +29,7 @@ namespace mc
                 app->textureManager.add( imageData, width, height, channels, app->device, wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst );
             ResourceHandle processedTextureHandle =
                 app->textureManager.add( nullptr, width, height, channels, app->device,
-                                         wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::CopySrc );
+                                         wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::CopySrc, true );
 
             if( !rawTextureHandle.valid() || !processedTextureHandle.valid() )
             {
@@ -42,11 +42,15 @@ namespace mc
 
             wgpu::CommandEncoder encoder = app->device.CreateCommandEncoder( &commandEncoderDesc );
 
-            wgpu::BindGroup outputBindGroup = createComputeTextureBindGroup( app->device, app->textureManager.get( processedTextureHandle ).texture, true );
+            wgpu::BindGroup inputBindGroup = createComputeTextureBindGroup( app->device, app->textureManager.get( rawTextureHandle ).texture,
+                                                                            createReadTextureBindGroupLayout( app->device ) );
+
+            wgpu::BindGroup outputBindGroup = createComputeTextureBindGroup( app->device, app->textureManager.get( processedTextureHandle ).texture,
+                                                                             createWriteTextureBindGroupLayout( app->device ) );
 
             wgpu::ComputePassEncoder computePassEnc = encoder.BeginComputePass();
             computePassEnc.SetPipeline( app->preAlphaPipeline );
-            computePassEnc.SetBindGroup( 0, app->textureManager.get( rawTextureHandle ).bindGroup );
+            computePassEnc.SetBindGroup( 0, inputBindGroup );
             computePassEnc.SetBindGroup( 1, outputBindGroup );
 
             computePassEnc.DispatchWorkgroups( ( width + 8 - 1 ) / 8, ( height + 8 - 1 ) / 8, 1 );
@@ -57,12 +61,15 @@ namespace mc
             wgpu::CommandBuffer imageCommands = encoder.Finish( &cmdBufferDescriptor );
             app->device.GetQueue().Submit( 1, &imageCommands );
 
+            genMipMaps( app->device, app->mipGenPipeline, app->textureManager.get( processedTextureHandle ).texture );
+
             glm::vec2 pos = ( glm::vec2( app->width / 2.0, app->height / 2.0 ) - app->viewParams.canvasPos ) / app->viewParams.scale;
 
-            mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
+            MeshInfo meshInfo = app->meshManager.getMeshInfo( UnitSquareMeshIndex );
 
             app->layers.add( pos, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( UV_MAX_VALUE ),
-                             glm::u8vec4( 255, 255, 255, 255 ), mc::HasColorTex, meshInfo, std::move( processedTextureHandle ) );
+                             glm::u8vec4( 255, 255, 255, 255 ), HasColorTex, meshInfo, std::move( processedTextureHandle ) );
+
 
             app->layersModified = true;
 

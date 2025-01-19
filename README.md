@@ -58,9 +58,9 @@ https://emscripten.org/docs/getting_started/downloads.html#installation-instruct
 
 ## Planned Features
 - canvas history (undo/redo)
-- copy/paste
+- copy/paste/clipboard
 - keyboard shortcuts
-- rendering improvements (anti-aliasing, mip-maps, better font rendering)
+- rendering improvements (anti-aliasing, better font rendering)
 
 <p align="center">
 	<img src="resources/textures/miskeen_256.png" height="256" alt="Miskeenity Canvas Logo (bald man)">

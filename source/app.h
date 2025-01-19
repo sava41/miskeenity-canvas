@@ -113,6 +113,7 @@ namespace mc
         wgpu::ComputePipeline preAlphaPipeline;
         wgpu::ComputePipeline maskMultiplyPipeline;
         wgpu::ComputePipeline invMaskMultiplyPipeline;
+        wgpu::ComputePipeline mipGenPipeline;
 
         wgpu::Buffer meshBuf;
         wgpu::Buffer vertexBuf;

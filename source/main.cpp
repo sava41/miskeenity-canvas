@@ -423,11 +423,14 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
         mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
+
         app->layers.add( app->selectionCenter, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( mc::UV_MAX_VALUE ),
                          glm::u8vec4( 255, 255, 255, 255 ), mc::HasColorTex, meshInfo, *app->copyTextureHandle.get() );
 
         app->layers.changeSelection( app->layers.length() - 1, true );
         app->layers.move( app->layers.length() - selectionTopLayerDelta - 1, app->layers.length() - 1 );
+
+        mc::genMipMaps( app->device, app->mipGenPipeline, app->textureManager.get( *app->copyTextureHandle.get() ).texture );
 
         app->layersModified = true;
     }
@@ -439,13 +442,17 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         int width  = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth();
         int height = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight();
 
-        mc::ResourceHandle maskedTextureA = app->textureManager.add(
-            nullptr, width, height, 4, app->device, wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopySrc );
-        mc::ResourceHandle maskedTextureB = app->textureManager.add(
-            nullptr, width, height, 4, app->device, wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopySrc );
+        mc::ResourceHandle maskedTextureA =
+            app->textureManager.add( nullptr, width, height, 4, app->device,
+                                     wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopySrc, true );
+        mc::ResourceHandle maskedTextureB =
+            app->textureManager.add( nullptr, width, height, 4, app->device,
+                                     wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopySrc, true );
 
-        wgpu::BindGroup outputBindGroupA = mc::createComputeTextureBindGroup( app->device, app->textureManager.get( maskedTextureA ).texture, true );
-        wgpu::BindGroup outputBindGroupB = mc::createComputeTextureBindGroup( app->device, app->textureManager.get( maskedTextureB ).texture, true );
+        const wgpu::BindGroupLayout layout = mc::createWriteTextureBindGroupLayout( app->device );
+
+        wgpu::BindGroup outputBindGroupA = mc::createComputeTextureBindGroup( app->device, app->textureManager.get( maskedTextureA ).texture, layout );
+        wgpu::BindGroup outputBindGroupB = mc::createComputeTextureBindGroup( app->device, app->textureManager.get( maskedTextureB ).texture, layout );
 
         wgpu::CommandEncoderDescriptor commandEncoderDesc;
         commandEncoderDesc.label        = "Cut Mask Encoder";
@@ -467,6 +474,9 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
         wgpu::CommandBuffer command = cutEncoder.Finish();
         app->device.GetQueue().Submit( 1, &command );
+
+        mc::genMipMaps( app->device, app->mipGenPipeline, app->textureManager.get( maskedTextureA ).texture );
+        mc::genMipMaps( app->device, app->mipGenPipeline, app->textureManager.get( maskedTextureB ).texture );
 
         app->layers.remove( app->layers.length() - 1 );
 
@@ -1125,9 +1135,10 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         int rasterWidth  = ( app->selectionAabb.x - app->selectionAabb.z ) * app->viewParams.scale;
         int rasterHeight = ( app->selectionAabb.y - app->selectionAabb.w ) * app->viewParams.scale;
 
-        app->copyTextureHandle = std::make_unique<mc::ResourceHandle>(
-            app->textureManager.add( nullptr, rasterWidth, rasterHeight, 4, app->device,
-                                     wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::TextureBinding ) );
+        app->copyTextureHandle = std::make_unique<mc::ResourceHandle>( app->textureManager.add(
+            nullptr, rasterWidth, rasterHeight, 4, app->device,
+            wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::StorageBinding,
+            true ) );
 
         if( app->copyTextureHandle->valid() && rasterWidth > 0 && rasterHeight > 0 )
         {
@@ -1144,8 +1155,19 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
             app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &outputViewParams, sizeof( mc::Uniforms ) );
 
-            wgpu::RenderPassEncoder outputRenderPassEnc = mc::createRenderPassEncoder<1>(
-                secondaryEncoder, { app->textureManager.get( *app->copyTextureHandle.get() ).textureView }, { wgpu::Color{ 0.0, 0.0, 0.0, 0.0f } } );
+            wgpu::TextureViewDescriptor textureViewDesc;
+            textureViewDesc.aspect          = wgpu::TextureAspect::All;
+            textureViewDesc.baseArrayLayer  = 0;
+            textureViewDesc.arrayLayerCount = 1;
+            textureViewDesc.baseMipLevel    = 0;
+            textureViewDesc.mipLevelCount   = 1;
+            textureViewDesc.dimension       = wgpu::TextureViewDimension::e2D;
+            textureViewDesc.format          = app->textureManager.get( *app->copyTextureHandle.get() ).texture.GetFormat();
+
+            wgpu::TextureView textureView = app->textureManager.get( *app->copyTextureHandle.get() ).texture.CreateView( &textureViewDesc );
+
+            wgpu::RenderPassEncoder outputRenderPassEnc =
+                mc::createRenderPassEncoder<1>( secondaryEncoder, { textureView }, { wgpu::Color{ 0.0, 0.0, 0.0, 0.0f } } );
 
             if( app->layers.length() > 0 )
             {

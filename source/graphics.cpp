@@ -413,8 +413,7 @@ namespace mc
 
     void initImageProcessingPipelines( mc::AppContext* app )
     {
-
-        wgpu::BindGroupLayout readGroupLayout  = createTextureBindGroupLayout( app->device );
+        wgpu::BindGroupLayout readGroupLayout  = createReadTextureBindGroupLayout( app->device );
         wgpu::BindGroupLayout writeGroupLayout = createWriteTextureBindGroupLayout( app->device );
 
         wgpu::ShaderModuleWGSLDescriptor preAlphaShaderCodeDesc;
@@ -441,6 +440,21 @@ namespace mc
 
         app->preAlphaPipeline = app->device.CreateComputePipeline( &pipelineDesc );
 
+        wgpu::ShaderModuleWGSLDescriptor mipGenShaderCodeDesc;
+        mipGenShaderCodeDesc.code = b::embed<"./resources/shaders/mipgen.wgsl">().data();
+
+        wgpu::ShaderModuleDescriptor mipGenShaderModuleDesc;
+        mipGenShaderModuleDesc.nextInChain = &mipGenShaderCodeDesc;
+
+        wgpu::ShaderModule mipGenShaderModule = app->device.CreateShaderModule( &mipGenShaderModuleDesc );
+
+        pipelineDesc.label              = "Compute Mip";
+        pipelineDesc.layout             = readWritePipelineLayout;
+        pipelineDesc.compute.module     = mipGenShaderModule;
+        pipelineDesc.compute.entryPoint = "compute_mip";
+
+        app->mipGenPipeline = app->device.CreateComputePipeline( &pipelineDesc );
+
         wgpu::ShaderModuleWGSLDescriptor maskMutiplyShaderCodeDesc;
         maskMutiplyShaderCodeDesc.code = b::embed<"./resources/shaders/maskmultiply.wgsl">().data();
 
@@ -449,7 +463,9 @@ namespace mc
 
         wgpu::ShaderModule maskMutiplyShaderModule = app->device.CreateShaderModule( &maskMutiplyShaderModuleDesc );
 
-        std::array<wgpu::BindGroupLayout, 3> readReadWriteBindGroupLayouts = { readGroupLayout, readGroupLayout, writeGroupLayout };
+        wgpu::BindGroupLayout readSamplerGroupLayout = createTextureBindGroupLayout( app->device );
+
+        std::array<wgpu::BindGroupLayout, 3> readReadWriteBindGroupLayouts = { readSamplerGroupLayout, readSamplerGroupLayout, writeGroupLayout };
 
         wgpu::PipelineLayoutDescriptor readReadWritePipelineLayoutDesc;
         readReadWritePipelineLayoutDesc.bindGroupLayoutCount = static_cast<uint32_t>( readReadWriteBindGroupLayouts.size() );
@@ -571,14 +587,14 @@ namespace mc
         return device.CreateBindGroupLayout( &writeBindGroupLayoutDesc );
     }
 
-    wgpu::BindGroup createComputeTextureBindGroup( const wgpu::Device& device, const wgpu::Texture& texture, bool storage )
+    wgpu::BindGroup createComputeTextureBindGroup( const wgpu::Device& device, const wgpu::Texture& texture, const wgpu::BindGroupLayout& layout )
     {
         wgpu::TextureViewDescriptor textureViewDesc;
         textureViewDesc.aspect          = wgpu::TextureAspect::All;
         textureViewDesc.baseArrayLayer  = 0;
         textureViewDesc.arrayLayerCount = 1;
         textureViewDesc.baseMipLevel    = 0;
-        textureViewDesc.mipLevelCount   = texture.GetMipLevelCount();
+        textureViewDesc.mipLevelCount   = 1;
         textureViewDesc.dimension       = wgpu::TextureViewDimension::e2D;
         textureViewDesc.format          = texture.GetFormat();
 
@@ -589,7 +605,7 @@ namespace mc
         bindGroupEntry.textureView = textureView;
 
         wgpu::BindGroupDescriptor bindGroupDesc;
-        bindGroupDesc.layout     = storage ? createWriteTextureBindGroupLayout( device ) : createReadTextureBindGroupLayout( device );
+        bindGroupDesc.layout     = layout;
         bindGroupDesc.entryCount = 1;
         bindGroupDesc.entries    = &bindGroupEntry;
 
@@ -615,6 +631,78 @@ namespace mc
         writeSize.depthOrArrayLayers = 1;
 
         queue.WriteTexture( &imageCopyTexture, data, width * height * channels, &textureDataLayout, &writeSize );
+    }
+
+    void genMipMaps( const wgpu::Device& device, const wgpu::ComputePipeline& pipeline, const wgpu::Texture& texture )
+    {
+        if( texture.GetMipLevelCount() == 1 )
+        {
+            return;
+        }
+
+        wgpu::TextureViewDescriptor textureViewDesc;
+        textureViewDesc.aspect          = wgpu::TextureAspect::All;
+        textureViewDesc.baseArrayLayer  = 0;
+        textureViewDesc.arrayLayerCount = 1;
+        textureViewDesc.dimension       = wgpu::TextureViewDimension::e2D;
+        textureViewDesc.format          = wgpu::TextureFormat::RGBA8Unorm;
+        textureViewDesc.mipLevelCount   = 1;
+        textureViewDesc.baseMipLevel    = 0;
+
+        wgpu::TextureView prevView = texture.CreateView( &textureViewDesc );
+
+        uint32_t prevWidth  = texture.GetWidth();
+        uint32_t prevHeight = texture.GetHeight();
+
+        wgpu::CommandEncoderDescriptor commandEncoderDesc;
+        commandEncoderDesc.label = "Mip Maps";
+
+        wgpu::CommandEncoder encoder = device.CreateCommandEncoder( &commandEncoderDesc );
+
+        wgpu::ComputePassEncoder computePassEnc = encoder.BeginComputePass();
+        computePassEnc.SetPipeline( pipeline );
+
+        for( int i = 1; i < texture.GetMipLevelCount(); ++i )
+        {
+            textureViewDesc.baseMipLevel = i;
+            wgpu::TextureView currView   = texture.CreateView( &textureViewDesc );
+
+            wgpu::BindGroupEntry bindGroupEntry;
+            bindGroupEntry.binding     = 0;
+            bindGroupEntry.textureView = prevView;
+
+            wgpu::BindGroupDescriptor bindGroupDesc;
+            bindGroupDesc.layout     = createReadTextureBindGroupLayout( device );
+            bindGroupDesc.entryCount = 1;
+            bindGroupDesc.entries    = &bindGroupEntry;
+
+            wgpu::BindGroup inputBindGroup = device.CreateBindGroup( &bindGroupDesc );
+
+            bindGroupEntry.textureView = currView;
+
+            bindGroupDesc.layout = createWriteTextureBindGroupLayout( device );
+
+            wgpu::BindGroup outputBindGroup = device.CreateBindGroup( &bindGroupDesc );
+
+            uint32_t currWidth  = prevWidth / 2;
+            uint32_t currHeight = prevHeight / 2;
+
+            computePassEnc.SetBindGroup( 0, inputBindGroup );
+            computePassEnc.SetBindGroup( 1, outputBindGroup );
+
+            computePassEnc.DispatchWorkgroups( ( currWidth + 8 - 1 ) / 8, ( currHeight + 8 - 1 ) / 8, 1 );
+
+            prevView   = currView;
+            prevWidth  = currWidth;
+            prevHeight = currHeight;
+        }
+
+        computePassEnc.End();
+
+        wgpu::CommandBufferDescriptor cmdBufferDescriptor;
+        cmdBufferDescriptor.label          = "Mip Map Command Buffer";
+        wgpu::CommandBuffer mipmapCommands = encoder.Finish( &cmdBufferDescriptor );
+        device.GetQueue().Submit( 1, &mipmapCommands );
     }
 
     wgpu::Buffer downloadTexture( const wgpu::Texture& texture, const wgpu::Device& device, const wgpu::CommandEncoder& encoder )

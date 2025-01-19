@@ -15,8 +15,9 @@ namespace mc
     wgpu::BindGroupLayout createTextureBindGroupLayout( const wgpu::Device& device );
     wgpu::BindGroupLayout createReadTextureBindGroupLayout( const wgpu::Device& device );
     wgpu::BindGroupLayout createWriteTextureBindGroupLayout( const wgpu::Device& device );
-    wgpu::BindGroup createComputeTextureBindGroup( const wgpu::Device& device, const wgpu::Texture& texture, bool storage );
+    wgpu::BindGroup createComputeTextureBindGroup( const wgpu::Device& device, const wgpu::Texture& texture, const wgpu::BindGroupLayout& layout );
     void uploadTexture( const wgpu::Queue& queue, const wgpu::Texture& texture, const void* data, int width, int height, int channels );
+    void genMipMaps( const wgpu::Device& device, const wgpu::ComputePipeline& pipeline, const wgpu::Texture& texture );
     wgpu::Buffer downloadTexture( const wgpu::Texture& texture, const wgpu::Device& device, const wgpu::CommandEncoder& encoder );
     wgpu::Device requestDevice( const wgpu::Adapter& adapter, const wgpu::DeviceDescriptor* descriptor );
     wgpu::Adapter requestAdapter( const wgpu::Instance& instance, const wgpu::RequestAdapterOptions* options );
