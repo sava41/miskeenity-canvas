@@ -14,7 +14,7 @@ jobs:
         steps:
           - uses: actions/checkout@v4
           - name: Configure
-            run: cmake -B build -DCMAKE_SYSTEM_NAME=${{ matrix.target }} -DCMAKE_SYSTEM_VERSION="10.0" -A${{ matrix.arch }}
+            run: cmake -B build -DCMAKE_SYSTEM_NAME=${{ matrix.target }} -DCMAKE_SYSTEM_VERSION="10.0" -A ${{ matrix.arch }}
           - name: Build
             run: cmake --build build --target miskeenity-canvas --config MinSizeRel --parallel
           - name: Upload Build

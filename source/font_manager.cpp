@@ -112,7 +112,8 @@ namespace mc
 
             m_fontTextures.push_back( textureManager.add( atlasData, AtlasWidth, AtlasWidth, 1, device ) );
 
-            device.GetQueue().OnSubmittedWorkDone( []( WGPUQueueWorkDoneStatus status, void* atlasData ) { delete atlasData; }, atlasData );
+            device.GetQueue().OnSubmittedWorkDone( []( WGPUQueueWorkDoneStatus status, void* userData )
+                                                   { delete reinterpret_cast<unsigned char*>( userData ); }, atlasData );
         }
     }
 

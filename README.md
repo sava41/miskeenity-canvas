@@ -15,6 +15,9 @@ Cross platform 2d infinite canvas app inspired by [dingboard.com](https://dingbo
 **Add and Edit Images**
 ![Image Feature Gif](./resources/images/image.gif)
 
+**AI Image Segmentation (Desktop Only)**
+![Segmentation Feature Gif](./resources/images/ai.gif)
+
 ## Requirements:
 - CMake 3.28 or later
 - Python 3.8 or newer
@@ -28,6 +31,12 @@ Cross platform 2d infinite canvas app inspired by [dingboard.com](https://dingbo
 ```
 
 currently there are issues building on macos
+
+### Using The SAM Model
+
+To you use the AI image segmentation you need to download the models and place them in the miskeenity canvas executable folder. `sam_vit_h_4b8939.onnx` can her exported using the official steps found here https://github.com/facebookresearch/segment-anything#onnx-export. The preprocess model `sam_preprocess.onnx` needs to be exported using an unofficial script such as the one found here (thank you dinglufe) https://github.com/dinglufe/segment-anything-cpp-wrapper/blob/main/export_pre_model.py
+
+Before using the models also make sure the ONNX runtime dynamic library is present in executable folder.
 
 ## Build WASM/HTML version via Emscripten (Linux, macOS)
 
@@ -48,11 +57,10 @@ https://emscripten.org/docs/getting_started/downloads.html#installation-instruct
 ```
 
 ## Planned Features
-- layer AI masking
 - canvas history (undo/redo)
-- copy/paste
+- copy/paste/clipboard
 - keyboard shortcuts
-- rendering improvements (anti-aliasing, mip-maps, better font rendering)
+- rendering improvements (anti-aliasing, better font rendering)
 
 <p align="center">
 	<img src="resources/textures/miskeen_256.png" height="256" alt="Miskeenity Canvas Logo (bald man)">

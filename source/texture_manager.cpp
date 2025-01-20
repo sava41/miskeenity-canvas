@@ -6,6 +6,7 @@
 
 namespace mc
 {
+    const int MaxMipLevels = 5;
 
     TextureManager::TextureManager( size_t maxTextures )
         : ResourceManager( maxTextures )
@@ -82,7 +83,8 @@ namespace mc
         uploadTexture( device.GetQueue(), m_defaultTexture, &white, 1, 1, 4 );
     };
 
-    ResourceHandle TextureManager::add( void* imageBuffer, int width, int height, int channels, const wgpu::Device& device, const wgpu::TextureUsage& usage )
+    ResourceHandle TextureManager::add( void* imageBuffer, int width, int height, int channels, const wgpu::Device& device, const wgpu::TextureUsage& usage,
+                                        bool hasMipMaps )
     {
         if( !m_defaultBindGroup )
         {
@@ -109,11 +111,32 @@ namespace mc
             }
         }
 
+        int mipCount = 1;
+
+        if( hasMipMaps )
+        {
+            int mipWidth  = width;
+            int mipHeight = height;
+
+            for( int i = 0; i < MaxMipLevels; ++i )
+            {
+                if( mipWidth <= 4 || mipHeight <= 4 )
+                {
+                    break;
+                }
+
+                mipWidth  = mipWidth / 2;
+                mipHeight = mipHeight / 2;
+
+                ++mipCount;
+            }
+        }
+
         wgpu::TextureDescriptor textureDesc;
         textureDesc.dimension         = wgpu::TextureDimension::e2D;
         textureDesc.format            = channels == 1 ? wgpu::TextureFormat::R8Unorm : wgpu::TextureFormat::RGBA8Unorm;
         textureDesc.size              = { (unsigned int)width, (unsigned int)height, 1 };
-        textureDesc.mipLevelCount     = 1;
+        textureDesc.mipLevelCount     = mipCount;
         textureDesc.sampleCount       = 1;
         textureDesc.usage             = usage;
         textureDesc.viewFormatCount   = 0;
@@ -125,7 +148,7 @@ namespace mc
         textureViewDesc.baseArrayLayer  = 0;
         textureViewDesc.arrayLayerCount = 1;
         textureViewDesc.baseMipLevel    = 0;
-        textureViewDesc.mipLevelCount   = textureDesc.mipLevelCount;
+        textureViewDesc.mipLevelCount   = mipCount;
         textureViewDesc.dimension       = wgpu::TextureViewDimension::e2D;
         textureViewDesc.format          = textureDesc.format;
 

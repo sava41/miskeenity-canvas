@@ -27,8 +27,9 @@ namespace mc
 
             ResourceHandle rawTextureHandle =
                 app->textureManager.add( imageData, width, height, channels, app->device, wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst );
-            ResourceHandle processedTextureHandle = app->textureManager.add( nullptr, width, height, channels, app->device,
-                                                                             wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::StorageBinding );
+            ResourceHandle processedTextureHandle =
+                app->textureManager.add( nullptr, width, height, channels, app->device,
+                                         wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::CopySrc, true );
 
             if( !rawTextureHandle.valid() || !processedTextureHandle.valid() )
             {
@@ -41,8 +42,11 @@ namespace mc
 
             wgpu::CommandEncoder encoder = app->device.CreateCommandEncoder( &commandEncoderDesc );
 
-            wgpu::BindGroup inputBindGroup  = createComputeTextureBindGroup( app->device, app->textureManager.get( rawTextureHandle ).texture, false );
-            wgpu::BindGroup outputBindGroup = createComputeTextureBindGroup( app->device, app->textureManager.get( processedTextureHandle ).texture, true );
+            wgpu::BindGroup inputBindGroup = createComputeTextureBindGroup( app->device, app->textureManager.get( rawTextureHandle ).texture,
+                                                                            createReadTextureBindGroupLayout( app->device ) );
+
+            wgpu::BindGroup outputBindGroup = createComputeTextureBindGroup( app->device, app->textureManager.get( processedTextureHandle ).texture,
+                                                                             createWriteTextureBindGroupLayout( app->device ) );
 
             wgpu::ComputePassEncoder computePassEnc = encoder.BeginComputePass();
             computePassEnc.SetPipeline( app->preAlphaPipeline );
@@ -57,12 +61,15 @@ namespace mc
             wgpu::CommandBuffer imageCommands = encoder.Finish( &cmdBufferDescriptor );
             app->device.GetQueue().Submit( 1, &imageCommands );
 
+            genMipMaps( app->device, app->mipGenPipeline, app->textureManager.get( processedTextureHandle ).texture );
+
             glm::vec2 pos = ( glm::vec2( app->width / 2.0, app->height / 2.0 ) - app->viewParams.canvasPos ) / app->viewParams.scale;
 
-            mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
+            MeshInfo meshInfo = app->meshManager.getMeshInfo( UnitSquareMeshIndex );
 
             app->layers.add( pos, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( UV_MAX_VALUE ),
-                             glm::u8vec4( 255, 255, 255, 255 ), mc::HasColorTex, meshInfo, std::move( processedTextureHandle ) );
+                             glm::u8vec4( 255, 255, 255, 255 ), HasColorTex, meshInfo, std::move( processedTextureHandle ) );
+
 
             app->layersModified = true;
 
@@ -108,7 +115,7 @@ namespace mc
                     addImageToLayer( app, imageData, width, height, 4 );
                 }
             },
-            app, nullptr, filters, 3, nullptr, SDL_FALSE );
+            app, nullptr, filters, 3, nullptr, false );
 
 #endif
     }
@@ -129,16 +136,16 @@ namespace mc
             {
                 AppContext* app = reinterpret_cast<mc::AppContext*>( userdata );
 #endif
-        int width  = app->textureManager.get( *app->copyTextureHandle.get() ).texture.GetWidth();
-        int height = app->textureManager.get( *app->copyTextureHandle.get() ).texture.GetHeight();
-        app->copyTextureHandle.reset();
+                int width  = app->textureManager.get( *app->copyTextureHandle.get() ).texture.GetWidth();
+                int height = app->textureManager.get( *app->copyTextureHandle.get() ).texture.GetHeight();
+                app->copyTextureHandle.reset();
 
-        const uint8_t* imageData = reinterpret_cast<const uint8_t*>( app->textureMapBuffer.GetConstMappedRange( 0, app->textureMapBuffer.GetSize() ) );
+                const uint8_t* imageData = reinterpret_cast<const uint8_t*>( app->textureMapBuffer.GetConstMappedRange( 0, app->textureMapBuffer.GetSize() ) );
 
-        if( imageData == nullptr )
-        {
-            app->textureMapBuffer.Unmap();
-            return;
+                if( imageData == nullptr )
+                {
+                    app->textureMapBuffer.Unmap();
+                    return;
                 }
 
                 // we need to find the stride since the buffer is padded to be a multiple of 256
@@ -165,7 +172,7 @@ namespace mc
             },
             app, nullptr, filters, 1, nullptr );
 #else
-                emscripten_browser_file::download( "miskeen.png", "image/png", data.get(), length );
+        emscripten_browser_file::download( "miskeen.png", "image/png", data.get(), length );
 #endif
     }
 } // namespace mc

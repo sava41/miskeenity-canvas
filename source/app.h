@@ -3,6 +3,7 @@
 #include "font_manager.h"
 #include "layer_manager.h"
 #include "mesh_manager.h"
+#include "ml_inference.h"
 #include "texture_manager.h"
 
 #include <SDL3/SDL.h>
@@ -112,6 +113,7 @@ namespace mc
         wgpu::ComputePipeline preAlphaPipeline;
         wgpu::ComputePipeline maskMultiplyPipeline;
         wgpu::ComputePipeline invMaskMultiplyPipeline;
+        wgpu::ComputePipeline mipGenPipeline;
 
         wgpu::Buffer meshBuf;
         wgpu::Buffer vertexBuf;
@@ -163,6 +165,8 @@ namespace mc
         int layerEditStart  = 0;
         int mergeLayerStart = 0;
         int newMeshSize     = 0;
+
+        std::unique_ptr<mc::MlInference> mlInference;
     };
 
 } // namespace mc

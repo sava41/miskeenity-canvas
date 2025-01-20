@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <glm/glm.hpp>
 #include <string>
+#include <thread>
 #include <webgpu/webgpu.h>
 #include <webgpu/webgpu_cpp.h>
 
@@ -35,7 +36,7 @@ SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
     mc::AppContext* app = &appContext;
     *appstate           = app;
 
-    if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_GAMEPAD ) )
+    if( !SDL_Init( SDL_INIT_VIDEO | SDL_INIT_GAMEPAD ) )
     {
         return SDL_Fail();
     }
@@ -98,8 +99,7 @@ SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
     mc::initPipelines( app );
     mc::initImageProcessingPipelines( app );
 
-    // print some information about the window
-    SDL_ShowWindow( app->window );
+    if( SDL_ShowWindow( app->window ) )
     {
         SDL_Log( "Window size: %ix%i", app->width, app->height );
         SDL_Log( "Backbuffer size: %ix%i", app->bbwidth, app->bbheight );
@@ -110,6 +110,8 @@ SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
     app->updateView = true;
 
     app->fontManager.init( app->textureManager, app->device, app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex ) );
+
+    app->mlInference = std::make_unique<mc::MlInference>( "sam_preprocess.onnx", "sam_vit_h_4b8939.onnx", std::thread::hardware_concurrency() );
 
     SDL_Log( "Application started successfully!" );
 
@@ -320,17 +322,32 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
                 app->mode = mc::Mode::Cursor;
             }
         }
-        else if( app->mode == mc::Mode::Cut )
+        else if( app->mode == mc::Mode::Cut || app->mode == mc::Mode::SegmentCut )
         {
-            int index = app->layers.getSingleSelectedImage();
+            int index          = app->layers.getSingleSelectedImage();
             mc::Layer newLayer = app->layers.data()[index];
             newLayer.flags     = newLayer.flags & ~mc::LayerFlags::Selected;
 
             int width  = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth();
             int height = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight();
 
+            if( app->mode == mc::Mode::SegmentCut )
+            {
+                for( int i = 0; i < app->textureManager.get( app->layers.getTexture( index ) ).texture.GetMipLevelCount(); ++i )
+                {
+                    if( width <= app->mlInference->getMaxWidth() && height <= app->mlInference->getMaxHeight() )
+                    {
+                        break;
+                    }
+
+                    width  = width / 2;
+                    height = height / 2;
+                }
+            }
+
             app->editMaskTextureHandle = std::make_unique<mc::ResourceHandle>(
-                app->textureManager.add( nullptr, width, height, 4, app->device, wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding ) );
+                app->textureManager.add( nullptr, width, height, 4, app->device,
+                                         wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst ) );
 
             // crop needs at least one free layer to for the dummy layer so we cancel if the layer array is full
             // probably should add some ui to tell the user how many layers are being used
@@ -347,6 +364,40 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         else
         {
             app->layers.clearSelection();
+        }
+
+        if( app->mode == mc::Mode::SegmentCut )
+        {
+            app->mlInference->resetPoints();
+
+            int index = app->layers.getSingleSelectedImage();
+
+            int width    = app->textureManager.get( *app->editMaskTextureHandle.get() ).texture.GetWidth();
+            int height   = app->textureManager.get( *app->editMaskTextureHandle.get() ).texture.GetHeight();
+            int mipLevel = std::log2( app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth() / width );
+
+            if( app->textureMapBuffer )
+            {
+                app->textureMapBuffer.Destroy();
+            }
+
+            wgpu::CommandEncoderDescriptor commandEncoderDesc;
+            commandEncoderDesc.label     = "get image for SAM";
+            wgpu::CommandEncoder encoder = app->device.CreateCommandEncoder( &commandEncoderDesc );
+
+            app->textureMapBuffer = mc::downloadTexture( app->textureManager.get( app->layers.getTexture( index ) ).texture, app->device, encoder, mipLevel );
+
+            wgpu::CommandBuffer command = encoder.Finish();
+            app->device.GetQueue().Submit( 1, &command );
+
+            wgpu::BufferMapCallback callback = []( WGPUBufferMapAsyncStatus status, void* userData )
+            {
+                if( status == WGPUBufferMapAsyncStatus_Success )
+                {
+                    mc::submitEvent( mc::Events::SamLoadInput );
+                }
+            };
+            app->textureMapBuffer.MapAsync( wgpu::MapMode::Read, 0, app->textureMapBuffer.GetSize(), callback, nullptr );
         }
 
         app->layersModified = true;
@@ -388,11 +439,14 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
         mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
+
         app->layers.add( app->selectionCenter, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( mc::UV_MAX_VALUE ),
                          glm::u8vec4( 255, 255, 255, 255 ), mc::HasColorTex, meshInfo, *app->copyTextureHandle.get() );
 
         app->layers.changeSelection( app->layers.length() - 1, true );
         app->layers.move( app->layers.length() - selectionTopLayerDelta - 1, app->layers.length() - 1 );
+
+        mc::genMipMaps( app->device, app->mipGenPipeline, app->textureManager.get( *app->copyTextureHandle.get() ).texture );
 
         app->layersModified = true;
     }
@@ -405,16 +459,16 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         int height = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight();
 
         mc::ResourceHandle maskedTextureA =
-            app->textureManager.add( nullptr, width, height, 4, app->device, wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding );
+            app->textureManager.add( nullptr, width, height, 4, app->device,
+                                     wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopySrc, true );
         mc::ResourceHandle maskedTextureB =
-            app->textureManager.add( nullptr, width, height, 4, app->device, wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding );
+            app->textureManager.add( nullptr, width, height, 4, app->device,
+                                     wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopySrc, true );
 
-        wgpu::BindGroup inputBindGroup =
-            mc::createComputeTextureBindGroup( app->device, app->textureManager.get( app->layers.getTexture( index ) ).texture, false );
-        wgpu::BindGroup inputMaskBindGroup =
-            mc::createComputeTextureBindGroup( app->device, app->textureManager.get( *app->editMaskTextureHandle.get() ).texture, false );
-        wgpu::BindGroup outputBindGroupA = mc::createComputeTextureBindGroup( app->device, app->textureManager.get( maskedTextureA ).texture, true );
-        wgpu::BindGroup outputBindGroupB = mc::createComputeTextureBindGroup( app->device, app->textureManager.get( maskedTextureB ).texture, true );
+        const wgpu::BindGroupLayout layout = mc::createWriteTextureBindGroupLayout( app->device );
+
+        wgpu::BindGroup outputBindGroupA = mc::createComputeTextureBindGroup( app->device, app->textureManager.get( maskedTextureA ).texture, layout );
+        wgpu::BindGroup outputBindGroupB = mc::createComputeTextureBindGroup( app->device, app->textureManager.get( maskedTextureB ).texture, layout );
 
         wgpu::CommandEncoderDescriptor commandEncoderDesc;
         commandEncoderDesc.label        = "Cut Mask Encoder";
@@ -423,8 +477,8 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         wgpu::ComputePassEncoder computePassEnc = cutEncoder.BeginComputePass();
 
         computePassEnc.SetPipeline( app->maskMultiplyPipeline );
-        computePassEnc.SetBindGroup( 0, inputBindGroup );
-        computePassEnc.SetBindGroup( 1, inputMaskBindGroup );
+        computePassEnc.SetBindGroup( 0, app->textureManager.get( app->layers.getTexture( index ) ).bindGroup );
+        computePassEnc.SetBindGroup( 1, app->textureManager.get( *app->editMaskTextureHandle.get() ).bindGroup );
         computePassEnc.SetBindGroup( 2, outputBindGroupA );
         computePassEnc.DispatchWorkgroups( ( width + 8 - 1 ) / 8, ( height + 8 - 1 ) / 8, 1 );
 
@@ -437,6 +491,9 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         wgpu::CommandBuffer command = cutEncoder.Finish();
         app->device.GetQueue().Submit( 1, &command );
 
+        mc::genMipMaps( app->device, app->mipGenPipeline, app->textureManager.get( maskedTextureA ).texture );
+        mc::genMipMaps( app->device, app->mipGenPipeline, app->textureManager.get( maskedTextureB ).texture );
+
         app->layers.remove( app->layers.length() - 1 );
 
         app->layers.add( app->layers.data()[index], maskedTextureA );
@@ -448,11 +505,36 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
         app->layersModified = true;
     }
+    break;
+    case mc::Events::SamLoadInput:
+    {
+        const uint8_t* imageData = reinterpret_cast<const uint8_t*>( app->textureMapBuffer.GetConstMappedRange( 0, app->textureMapBuffer.GetSize() ) );
+
+        if( imageData == nullptr )
+        {
+            app->textureMapBuffer.Unmap();
+            break;
+        }
+
+        int width  = app->textureManager.get( *app->editMaskTextureHandle.get() ).texture.GetWidth();
+        int height = app->textureManager.get( *app->editMaskTextureHandle.get() ).texture.GetHeight();
+
+        // we need a width thats a multiple of 256
+        size_t textureWidthPadded = ( width + 256 ) / 256 * 256;
+
+        app->mlInference->loadInput( imageData, app->textureMapBuffer.GetSize(), width, height, textureWidthPadded );
+
+        app->textureMapBuffer.Unmap();
+    }
+    break;
+    case mc::Events::SamUploadMask:
+        mc::uploadTexture( app->device.GetQueue(), app->textureManager.get( *app->editMaskTextureHandle.get() ).texture, app->mlInference->getMask(),
+                           app->mlInference->getInputWidth(), app->mlInference->getInputHeight(), 4 );
         break;
     }
 }
 
-SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
+SDL_AppResult SDL_AppEvent( void* appstate, SDL_Event* event )
 {
     mc::AppContext* app = reinterpret_cast<mc::AppContext*>( appstate );
 
@@ -557,6 +639,30 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
         {
             mc::submitEvent( mc::Events::SaveImageRequest );
         }
+        else if( app->mode == mc::Mode::SegmentCut && mc::getMouseLocationUI() == mc::MouseLocationUI::MoveHandle && app->mlInference->pipelineValid() &&
+                 app->mlInference->inferenceReady() )
+        {
+            int index       = app->layers.getSingleSelectedImage();
+            mc::Layer layer = app->layers.data()[index];
+
+            glm::vec2 scale = static_cast<float>( mc::UV_MAX_VALUE ) / glm::vec2( layer.uvBottom - layer.uvTop );
+            layer.basisA *= scale.x;
+            layer.basisB *= scale.y;
+
+            glm::vec2 uvCenter = ( glm::vec2( layer.uvTop ) + glm::vec2( layer.uvBottom ) ) / static_cast<float>( mc::UV_MAX_VALUE ) * 0.5f;
+            layer.offset -= layer.basisA * ( uvCenter.x - 0.5f ) + layer.basisB * ( uvCenter.y - 0.5f );
+
+            float width  = glm::length( layer.basisA );
+            float height = glm::length( layer.basisB );
+
+            glm::vec2 mouseLocal = app->viewParams.mousePos - layer.offset;
+            float u              = glm::dot( mouseLocal, layer.basisA ) / glm::dot( layer.basisA, layer.basisA ) + 0.5;
+            float v              = glm::dot( mouseLocal, layer.basisB ) / glm::dot( layer.basisB, layer.basisB ) + 0.5;
+
+            app->mlInference->addPoint( glm::vec2( u, v ) );
+            app->mlInference->genMask();
+            submitEvent( mc::Events::SamUploadMask );
+        }
 
         // click selection if the mouse hasnt moved since mouse down
         if( app->mouseWindowPos == app->mouseDragStart && app->mode == mc::Mode::Cursor )
@@ -601,6 +707,10 @@ SDL_AppResult SDL_AppEvent( void* appstate, const SDL_Event* event )
 SDL_AppResult SDL_AppIterate( void* appstate )
 {
     mc::AppContext* app = reinterpret_cast<mc::AppContext*>( appstate );
+
+#if !defined( SDL_PLATFORM_EMSCRIPTEN )
+    app->instance.ProcessEvents();
+#endif
 
     if( app->resetSurface && SDL_GetTicks() - app->resetSurfaceTime > mc::resetSurfaceDelayMs )
     {
@@ -965,6 +1075,10 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
     app->device.GetQueue().Submit( 1, &command );
 
+#if !defined( SDL_PLATFORM_EMSCRIPTEN )
+    app->surface.Present();
+#endif
+
     commandEncoderDesc.label              = "Secondary Encoder";
     wgpu::CommandEncoder secondaryEncoder = app->device.CreateCommandEncoder( &commandEncoderDesc );
 
@@ -1045,9 +1159,10 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         int rasterWidth  = ( app->selectionAabb.x - app->selectionAabb.z ) * app->viewParams.scale;
         int rasterHeight = ( app->selectionAabb.y - app->selectionAabb.w ) * app->viewParams.scale;
 
-        app->copyTextureHandle = std::make_unique<mc::ResourceHandle>(
-            app->textureManager.add( nullptr, rasterWidth, rasterHeight, 4, app->device,
-                                     wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::TextureBinding ) );
+        app->copyTextureHandle = std::make_unique<mc::ResourceHandle>( app->textureManager.add(
+            nullptr, rasterWidth, rasterHeight, 4, app->device,
+            wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::StorageBinding,
+            true ) );
 
         if( app->copyTextureHandle->valid() && rasterWidth > 0 && rasterHeight > 0 )
         {
@@ -1064,8 +1179,19 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
             app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &outputViewParams, sizeof( mc::Uniforms ) );
 
-            wgpu::RenderPassEncoder outputRenderPassEnc = mc::createRenderPassEncoder<1>(
-                secondaryEncoder, { app->textureManager.get( *app->copyTextureHandle.get() ).textureView }, { wgpu::Color{ 0.0, 0.0, 0.0, 0.0f } } );
+            wgpu::TextureViewDescriptor textureViewDesc;
+            textureViewDesc.aspect          = wgpu::TextureAspect::All;
+            textureViewDesc.baseArrayLayer  = 0;
+            textureViewDesc.arrayLayerCount = 1;
+            textureViewDesc.baseMipLevel    = 0;
+            textureViewDesc.mipLevelCount   = 1;
+            textureViewDesc.dimension       = wgpu::TextureViewDimension::e2D;
+            textureViewDesc.format          = app->textureManager.get( *app->copyTextureHandle.get() ).texture.GetFormat();
+
+            wgpu::TextureView textureView = app->textureManager.get( *app->copyTextureHandle.get() ).texture.CreateView( &textureViewDesc );
+
+            wgpu::RenderPassEncoder outputRenderPassEnc =
+                mc::createRenderPassEncoder<1>( secondaryEncoder, { textureView }, { wgpu::Color{ 0.0, 0.0, 0.0, 0.0f } } );
 
             if( app->layers.length() > 0 )
             {
@@ -1091,10 +1217,10 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         app->rasterizeSelection = false;
     }
 
-    if( app->mode == mc::Mode::Cut && app->layers.length() > 0 )
+    if( ( app->mode == mc::Mode::Cut ) && app->layers.length() > 0 )
     {
-        int index        = app->layers.getSingleSelectedImage();
-        mc::Layer layer  = app->layers.data()[index];
+        int index       = app->layers.getSingleSelectedImage();
+        mc::Layer layer = app->layers.data()[index];
 
         glm::vec2 scale = static_cast<float>( mc::UV_MAX_VALUE ) / glm::vec2( layer.uvBottom - layer.uvTop );
         layer.basisA *= scale.x;
@@ -1216,14 +1342,13 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     }
 
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )
-    app->surface.Present();
     app->device.Tick();
 #endif
 
     return app->appQuit ? SDL_APP_SUCCESS : SDL_APP_CONTINUE;
 }
 
-void SDL_AppQuit( void* appstate )
+void SDL_AppQuit( void* appstate, SDL_AppResult result )
 {
     mc::shutdownUI();
 
