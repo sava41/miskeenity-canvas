@@ -4,7 +4,7 @@ include(FetchContent)
 set(ONNX_VERSION 1.20.0)
 
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-    if(CMAKE_SYSTEM_PROCESSOR STREQUAL aarch64)
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL ARM64)
         set(ONNXRUNTIME_URL "https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-win-arm64-${ONNX_VERSION}.zip")
     elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(ONNXRUNTIME_URL "https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-win-x64-${ONNX_VERSION}.zip")
