@@ -42,4 +42,5 @@ namespace mc
         bool m_valid;
         std::atomic<bool> m_imageReady;
     };
+
 } // namespace mc

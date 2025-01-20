@@ -28,10 +28,9 @@ if(NOT imgui_POPULATED)
   target_include_directories(imgui PUBLIC ${IMGUI_INCLUDE_DIR})
   target_link_libraries(imgui PUBLIC SDL3::SDL3)
 
-  if (NOT CMAKE_SYSTEM_NAME STREQUAL Emscripten)
+  if(NOT CMAKE_SYSTEM_NAME STREQUAL Emscripten)
+    # this should be dawn but were using an old version of dawn right now so it wont compile if you change the definition
     target_compile_definitions(imgui PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_WGPU)
     target_link_libraries(imgui PUBLIC webgpu_dawn)
-  else()
-    target_compile_definitions(imgui PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
   endif()
 endif()

@@ -4,10 +4,13 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_filesystem.h>
-#define ORT_API_MANUAL_INIT
 #include <codecvt>
 #include <filesystem>
 #include <locale>
+
+#if !defined( SDL_PLATFORM_EMSCRIPTEN )
+
+#define ORT_API_MANUAL_INIT
 #include <onnxruntime_cxx_api.h>
 
 namespace mc
@@ -283,5 +286,85 @@ namespace mc
 
         return 0;
     }
-
 } // namespace mc
+
+#else
+
+namespace mc
+{
+    struct OnnxData
+    {
+        OnnxData() {};
+    };
+
+    MlInference::MlInference( const std::string& preModelPath, const std::string& samModelPath, int threadsNumber )
+    {
+    }
+
+    MlInference::~MlInference()
+    {
+    }
+
+    bool MlInference::loadInput( const uint8_t* buffer, int len, int width, int height, int stride )
+    {
+        return false;
+    }
+
+    void MlInference::setPoints( const std::vector<glm::vec2>& points )
+    {
+    }
+
+    void MlInference::addPoint( const glm::vec2& point )
+    {
+    }
+
+    void MlInference::resetPoints()
+    {
+    }
+
+    const std::vector<glm::vec2>& MlInference::getPoints() const
+    {
+        return m_points;
+    }
+
+    bool MlInference::genMask()
+    {
+        return false;
+    }
+
+    const uint8_t* MlInference::getMask() const
+    {
+        return nullptr;
+    }
+
+    int MlInference::getInputWidth() const
+    {
+        return 0;
+    }
+
+    int MlInference::getInputHeight() const
+    {
+        return 0;
+    }
+
+    bool MlInference::inferenceReady() const
+    {
+        return false;
+    }
+
+    bool MlInference::pipelineValid() const
+    {
+        return false;
+    }
+
+    int MlInference::getMaxWidth() const
+    {
+        return 0;
+    }
+    int MlInference::getMaxHeight() const
+    {
+        return 0;
+    }
+} // namespace mc
+
+#endif

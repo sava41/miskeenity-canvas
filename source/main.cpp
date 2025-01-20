@@ -111,9 +111,7 @@ SDL_AppResult SDL_AppInit( void** appstate, int argc, char* argv[] )
 
     app->fontManager.init( app->textureManager, app->device, app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex ) );
 
-#if !defined( SDL_PLATFORM_EMSCRIPTEN )
     app->mlInference = std::make_unique<mc::MlInference>( "sam_preprocess.onnx", "sam_vit_h_4b8939.onnx", std::thread::hardware_concurrency() );
-#endif
 
     SDL_Log( "Application started successfully!" );
 
@@ -374,22 +372,9 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
             int index = app->layers.getSingleSelectedImage();
 
-            int mipLevel = 0;
-            int width    = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth();
-            int height   = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight();
-
-            for( int i = 0; i < app->textureManager.get( app->layers.getTexture( index ) ).texture.GetMipLevelCount(); ++i )
-            {
-                if( width <= app->mlInference->getMaxWidth() && height <= app->mlInference->getMaxHeight() )
-                {
-                    break;
-                }
-
-                width  = width / 2;
-                height = height / 2;
-
-                ++mipLevel;
-            }
+            int width    = app->textureManager.get( *app->editMaskTextureHandle.get() ).texture.GetWidth();
+            int height   = app->textureManager.get( *app->editMaskTextureHandle.get() ).texture.GetHeight();
+            int mipLevel = std::log2( app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth() / width );
 
             if( app->textureMapBuffer )
             {
@@ -405,30 +390,14 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
             wgpu::CommandBuffer command = encoder.Finish();
             app->device.GetQueue().Submit( 1, &command );
 
-            app->textureMapBuffer.MapAsync(
-                wgpu::MapMode::Read, 0, app->textureMapBuffer.GetSize(), wgpu::CallbackMode::AllowProcessEvents,
-                [width, height, app]( wgpu::MapAsyncStatus status, char const* message )
+            wgpu::BufferMapCallback callback = []( WGPUBufferMapAsyncStatus status, void* userData )
+            {
+                if( status == WGPUBufferMapAsyncStatus_Success )
                 {
-                    if( status == wgpu::MapAsyncStatus::Success )
-                    {
-                        const uint8_t* imageData =
-                            reinterpret_cast<const uint8_t*>( app->textureMapBuffer.GetConstMappedRange( 0, app->textureMapBuffer.GetSize() ) );
-
-
-                        if( imageData == nullptr )
-                        {
-                            app->textureMapBuffer.Unmap();
-                            return;
-                        }
-
-                        // we need a width thats a multiple of 256
-                        size_t textureWidthPadded = ( width + 256 ) / 256 * 256;
-
-                        app->mlInference->loadInput( imageData, app->textureMapBuffer.GetSize(), width, height, textureWidthPadded );
-
-                        app->textureMapBuffer.Unmap();
-                    }
-                } );
+                    mc::submitEvent( mc::Events::SamLoadInput );
+                }
+            };
+            app->textureMapBuffer.MapAsync( wgpu::MapMode::Read, 0, app->textureMapBuffer.GetSize(), callback, nullptr );
         }
 
         app->layersModified = true;
@@ -535,6 +504,27 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         app->layers.move( index, app->layers.length() - 1 );
 
         app->layersModified = true;
+    }
+    break;
+    case mc::Events::SamLoadInput:
+    {
+        const uint8_t* imageData = reinterpret_cast<const uint8_t*>( app->textureMapBuffer.GetConstMappedRange( 0, app->textureMapBuffer.GetSize() ) );
+
+        if( imageData == nullptr )
+        {
+            app->textureMapBuffer.Unmap();
+            break;
+        }
+
+        int width  = app->textureManager.get( *app->editMaskTextureHandle.get() ).texture.GetWidth();
+        int height = app->textureManager.get( *app->editMaskTextureHandle.get() ).texture.GetHeight();
+
+        // we need a width thats a multiple of 256
+        size_t textureWidthPadded = ( width + 256 ) / 256 * 256;
+
+        app->mlInference->loadInput( imageData, app->textureMapBuffer.GetSize(), width, height, textureWidthPadded );
+
+        app->textureMapBuffer.Unmap();
     }
     break;
     case mc::Events::SamUploadMask:
