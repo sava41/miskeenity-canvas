@@ -49,9 +49,10 @@ namespace mc
         MergeAndRasterize,
         DeleteEditLayers,
         SamLoadInput,
-        SamUploadMask
+        SamUploadMask,
+        AddImageToLayer
     };
 
-    void submitEvent( const Events& event, const EventData& data = {} );
+    void submitEvent( const Events& event, const EventData& data = {}, void* ptrData = nullptr );
 
 } // namespace mc

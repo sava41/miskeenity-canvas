@@ -32,9 +32,9 @@ Cross platform 2d infinite canvas app inspired by [dingboard.com](https://dingbo
 
 currently there are issues building on macos
 
-### Using The SAM Model
+### Using SAM for Image Segmentation
 
-To you use the AI image segmentation you need to download the models and place them in the miskeenity canvas executable folder. `sam_vit_h_4b8939.onnx` can her exported using the official steps found here https://github.com/facebookresearch/segment-anything#onnx-export. The preprocess model `sam_preprocess.onnx` needs to be exported using an unofficial script such as the one found here (thank you dinglufe) https://github.com/dinglufe/segment-anything-cpp-wrapper/blob/main/export_pre_model.py
+To use AI image segmentation you need to download the models and place them in the miskeenity canvas executable folder. These are included in the release downloads or can be generated from the official SAM repository. `sam_vit_h_4b8939.onnx` can be exported using the steps found here https://github.com/facebookresearch/segment-anything#onnx-export. The preprocess model `sam_preprocess.onnx` needs to be exported using an unofficial script such as the one found here (thank you dinglufe) https://github.com/dinglufe/segment-anything-cpp-wrapper/blob/main/export_pre_model.py
 
 Before using the models also make sure the ONNX runtime dynamic library is present in executable folder.
 

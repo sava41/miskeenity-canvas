@@ -531,7 +531,12 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         mc::uploadTexture( app->device.GetQueue(), app->textureManager.get( *app->editMaskTextureHandle.get() ).texture, app->mlInference->getMask(),
                            app->mlInference->getInputWidth(), app->mlInference->getInputHeight(), 4 );
         break;
+    case mc::Events::AddImageToLayer:
+        mc::addImageLayerFromFile( app, std::string( reinterpret_cast<char*>( eventData->sdlUserEvent.data1 ) ) );
+        break;
     }
+
+    std::free( eventData->sdlUserEvent.data1 );
 }
 
 SDL_AppResult SDL_AppEvent( void* appstate, SDL_Event* event )

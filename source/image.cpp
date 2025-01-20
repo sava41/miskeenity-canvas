@@ -1,6 +1,7 @@
 #include "image.h"
 
 #include "app.h"
+#include "events.h"
 #include "graphics.h"
 
 #if defined( SDL_PLATFORM_EMSCRIPTEN )
@@ -79,6 +80,14 @@ namespace mc
         }
     }
 
+    void addImageLayerFromFile( AppContext* app, const std::string& filepath )
+    {
+        int width, height, channels;
+        unsigned char* imageData = stbi_load( filepath.c_str(), &width, &height, &channels, 4 );
+
+        addImageToLayer( app, imageData, width, height, 4 );
+    }
+
     void loadImageFromFileDialog( AppContext* app )
     {
 #if defined( SDL_PLATFORM_EMSCRIPTEN )
@@ -105,17 +114,13 @@ namespace mc
         SDL_ShowOpenFileDialog(
             []( void* userdata, const char* const* filelist, int filter )
             {
-                AppContext* app = reinterpret_cast<mc::AppContext*>( userdata );
-
                 if( filelist && filelist[0] )
                 {
-                    int width, height, channels;
-                    unsigned char* imageData = stbi_load( filelist[0], &width, &height, &channels, 4 );
-
-                    addImageToLayer( app, imageData, width, height, 4 );
+                    // This is called from another thread so we want to sync by deferring with an event
+                    submitEvent( Events::AddImageToLayer, {}, strdup( filelist[0] ) );
                 }
             },
-            app, nullptr, filters, 3, nullptr, false );
+            nullptr, nullptr, filters, 3, nullptr, false );
 
 #endif
     }
