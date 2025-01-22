@@ -262,22 +262,27 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
     break;
     case mc::Events::FlipHorizontal:
         app->layers.scaleSelection( app->selectionCenter, glm::vec2( -1.0, 1.0 ) );
+        app->layerHistory.push( app->layers.createShrunkCopy() );
         app->layersModified = true;
         break;
     case mc::Events::FlipVertical:
         app->layers.scaleSelection( app->selectionCenter, glm::vec2( 1.0, -1.0 ) );
+        app->layerHistory.push( app->layers.createShrunkCopy() );
         app->layersModified = true;
         break;
     case mc::Events::MoveFront:
         app->layers.bringFrontSelection();
+        app->layerHistory.push( app->layers.createShrunkCopy() );
         app->layersModified = true;
         break;
     case mc::Events::MoveBack:
         app->layers.bringFrontSelection( true );
+        app->layerHistory.push( app->layers.createShrunkCopy() );
         app->layersModified = true;
         break;
     case mc::Events::Delete:
         app->layers.removeSelection();
+        app->layerHistory.push( app->layers.createShrunkCopy() );
         app->layersModified = true;
         break;
     case mc::Events::ChangeMode:
@@ -288,8 +293,9 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
             return;
         }
 
+        app->layerHistory.setCheckpoint();
+
         app->layerEditStart = app->layers.length();
-        app->editBackup     = app->layers.createShrunkCopy();
 
         if( app->mergeTopLayers )
         {
@@ -413,7 +419,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         app->layersModified = true;
         break;
     case mc::Events::ResetEditLayers:
-        app->layers.copyContents( app->editBackup );
+        app->layers.copyContents( app->layerHistory.resetToCheckpoint() );
         app->layerEditStart = app->layers.length();
         app->layersModified = true;
         break;
@@ -448,6 +454,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
         mc::genMipMaps( app->device, app->mipGenPipeline, app->textureManager.get( *app->copyTextureHandle.get() ).texture );
 
+        app->layerHistory.push( app->layers.createShrunkCopy() );
         app->layersModified = true;
     }
     break;
@@ -503,6 +510,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         app->layers.move( index, app->layers.length() - 1 );
         app->layers.move( index, app->layers.length() - 1 );
 
+        app->layerHistory.push( app->layers.createShrunkCopy() );
         app->layersModified = true;
     }
     break;
@@ -534,6 +542,20 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
     case mc::Events::AddImageToLayer:
         mc::addImageLayerFromFile( app, std::string( reinterpret_cast<char*>( eventData->sdlUserEvent.data1 ) ) );
         break;
+    case mc::Events::Undo:
+    {
+        const mc::LayerManager& undoLayers = app->layerHistory.undo();
+        app->layers.copyContents( undoLayers );
+        app->layersModified = true;
+        break;
+    }
+    case mc::Events::Redo:
+    {
+        const mc::LayerManager& redoLayers = app->layerHistory.redo();
+        app->layers.copyContents( redoLayers );
+        app->layersModified = true;
+        break;
+    }
     }
 
     std::free( eventData->sdlUserEvent.data1 );
@@ -676,7 +698,8 @@ SDL_AppResult SDL_AppEvent( void* appstate, SDL_Event* event )
         }
         else if( app->dragType != mc::CursorDragType::Select )
         {
-            // dispatch selection compute after a tranform to recalculate bboxes without modyfying selection
+            // something was transformed so save the transform in history and recalculate bbox
+            app->layerHistory.push( app->layers.createShrunkCopy() );
             app->viewParams.selectDispatch = mc::SelectDispatch::ComputeBbox;
         }
         app->mouseDown = false;

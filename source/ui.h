@@ -41,9 +41,9 @@ namespace mc
         bool insideBox;
     };
 
-    constexpr float HandleHalfSize     = 7.0;
-    constexpr float HandleCornerRadius = 3.0;
-    constexpr float RotateHandleHeight = 40.0;
+    const float HandleHalfSize     = 7.0;
+    const float HandleCornerRadius = 3.0;
+    const float RotateHandleHeight = 40.0;
 
     void initUI( const AppContext* app );
     void setStylesUI( const AppContext* app );

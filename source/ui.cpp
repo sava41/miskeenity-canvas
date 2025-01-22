@@ -635,30 +635,49 @@ namespace mc
             }
             ImGui::End();
 
-            // ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
-            // ImGui::Begin( "Undo Redo", nullptr,
-            //               ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
-            // ImGui::PopStyleVar( 1 );
-            // {
-            //     ImGui::SetWindowPos( glm::vec2( ( app->width - ( buttonSize.x * 2 + buttonSpacing * 3 ) ), app->height - buttonSpacing * 2 - buttonSize.y )
-            //     ); ImGui::SetWindowSize( glm::vec2( buttonSize.x * 2 + buttonSpacing * 1, buttonSize.y ) );
+            ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
+            ImGui::Begin( "Undo Redo", nullptr,
+                          ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
+            ImGui::PopStyleVar( 1 );
+            {
+                ImGui::SetWindowPos( glm::vec2( ( app->width - ( buttonSize.x * 2 + buttonSpacing * 3 ) ), app->height - buttonSpacing * 2 - buttonSize.y ) );
+                ImGui::SetWindowSize( glm::vec2( buttonSize.x * 2 + buttonSpacing * 1, buttonSize.y ) );
 
-            //     ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
-            //     ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
-            //     if( ImGui::Button( ICON_LC_UNDO, buttonSize ) )
-            //     {
-            //     }
+                ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
+                ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
 
-            //     ImGui::SameLine( 0.0, buttonSpacing );
+                if( app->layerHistory.atBack() )
+                {
+                    ImGui::BeginDisabled();
+                }
+                if( ImGui::Button( ICON_LC_UNDO, buttonSize ) )
+                {
+                    submitEvent( Events::Undo );
+                }
+                if( app->layerHistory.atBack() )
+                {
+                    ImGui::EndDisabled();
+                }
 
-            //     if( ImGui::Button( ICON_LC_REDO, buttonSize ) )
-            //     {
-            //     }
+                ImGui::SameLine( 0.0, buttonSpacing );
 
-            //     ImGui::PopStyleColor( 1 );
-            //     ImGui::PopStyleVar( 1 );
-            // }
-            // ImGui::End();
+                if( app->layerHistory.atFront() )
+                {
+                    ImGui::BeginDisabled();
+                }
+                if( ImGui::Button( ICON_LC_REDO, buttonSize ) )
+                {
+                    submitEvent( Events::Redo );
+                }
+                if( app->layerHistory.atFront() )
+                {
+                    ImGui::EndDisabled();
+                }
+
+                ImGui::PopStyleColor( 1 );
+                ImGui::PopStyleVar( 1 );
+            }
+            ImGui::End();
 
             ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
             ImGui::Begin( "Toolbox", nullptr,

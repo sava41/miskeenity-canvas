@@ -1,6 +1,7 @@
 #pragma once
 
 #include "font_manager.h"
+#include "layer_history.h"
 #include "layer_manager.h"
 #include "mesh_manager.h"
 #include "ml_inference.h"
@@ -13,12 +14,13 @@
 namespace mc
 {
 
-    constexpr float ZoomScaleFactor             = 0.3;
-    constexpr size_t NumLayers                  = 2048;
-    constexpr unsigned long resetSurfaceDelayMs = 150;
+    const float ZoomScaleFactor             = 0.3;
+    const size_t NumLayers                  = 2048;
+    const size_t NumUndo                    = 100;
+    const unsigned long resetSurfaceDelayMs = 150;
 
-    constexpr size_t MaxMeshBufferTriangles = std::numeric_limits<uint16_t>::max();
-    constexpr size_t MaxMeshBufferSize      = MaxMeshBufferTriangles * sizeof( Triangle );
+    const size_t MaxMeshBufferTriangles = std::numeric_limits<uint16_t>::max();
+    constexpr size_t MaxMeshBufferSize  = MaxMeshBufferTriangles * sizeof( Triangle );
 
     enum class Mode
     {
@@ -151,14 +153,11 @@ namespace mc
         glm::vec4 selectionAabb   = glm::vec4( 0.0 );
         glm::vec2 selectionCenter = glm::vec2( 0.0 );
 
-        // we need this to store a backup in case the user cancels an edit op
-        // in the future this will be part of the undo stack
-        LayerManager editBackup = LayerManager( 0 );
-
         std::unique_ptr<mc::ResourceHandle> copyTextureHandle;
         std::unique_ptr<mc::ResourceHandle> editMaskTextureHandle;
 
         LayerManager layers           = LayerManager( NumLayers );
+        LayerHistory layerHistory     = LayerHistory( NumUndo );
         TextureManager textureManager = TextureManager( 100 );
         MeshManager meshManager       = MeshManager( MaxMeshBufferTriangles );
         FontManager fontManager;

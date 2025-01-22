@@ -8,7 +8,7 @@ namespace mc
 {
     // we need to store all our meshes in one array since webgpu doesnt have bind arrays right now.
     // for now only grow this array since our meshes are relatively small
-    constexpr int UnitSquareMeshIndex = 0;
+    const int UnitSquareMeshIndex = 0;
 
     struct MeshInfo
     {

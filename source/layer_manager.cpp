@@ -14,6 +14,13 @@ namespace mc
     {
     }
 
+    LayerManager::LayerManager()
+        : m_curLength( 0 )
+        , m_maxLength( 0 )
+        , m_array( std::make_unique<Layer[]>( 0 ) )
+    {
+    }
+
     LayerManager::LayerManager( LayerManager& source )
         : m_curLength( source.m_curLength )
         , m_maxLength( source.m_maxLength )
@@ -43,10 +50,10 @@ namespace mc
 
     LayerManager& LayerManager::operator=( LayerManager& source )
     {
-        m_curLength   = source.m_curLength;
-        m_maxLength   = source.m_maxLength;
-        m_numSelected = source.m_numSelected;
-        m_totalNumTri = source.m_totalNumTri;
+        m_curLength         = source.m_curLength;
+        m_maxLength         = source.m_maxLength;
+        m_numSelected       = source.m_numSelected;
+        m_totalNumTri       = source.m_totalNumTri;
         m_textureReferences = source.m_textureReferences;
 
         m_array = std::make_unique<Layer[]>( m_maxLength );
@@ -59,10 +66,10 @@ namespace mc
     }
     LayerManager& LayerManager::operator=( LayerManager&& source )
     {
-        m_curLength   = source.m_curLength;
-        m_maxLength   = source.m_maxLength;
-        m_numSelected = source.m_numSelected;
-        m_totalNumTri = source.m_totalNumTri;
+        m_curLength         = source.m_curLength;
+        m_maxLength         = source.m_maxLength;
+        m_numSelected       = source.m_numSelected;
+        m_totalNumTri       = source.m_totalNumTri;
         m_textureReferences = source.m_textureReferences;
 
         m_array          = std::move( source.m_array );
@@ -500,9 +507,9 @@ namespace mc
 
         std::memcpy( newManager.m_array.get(), m_array.get(), m_curLength * sizeof( Layer ) );
 
-        newManager.m_curLength   = m_curLength;
-        newManager.m_numSelected = m_numSelected;
-        newManager.m_totalNumTri = m_totalNumTri;
+        newManager.m_curLength         = m_curLength;
+        newManager.m_numSelected       = m_numSelected;
+        newManager.m_totalNumTri       = m_totalNumTri;
         newManager.m_textureReferences = m_textureReferences;
         newManager.m_textureHandles.insert( m_textureHandles.begin(), m_textureHandles.end() );
 

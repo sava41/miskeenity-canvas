@@ -71,6 +71,7 @@ namespace mc
             app->layers.add( pos, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( UV_MAX_VALUE ),
                              glm::u8vec4( 255, 255, 255, 255 ), HasColorTex, meshInfo, std::move( processedTextureHandle ) );
 
+            app->layerHistory.push( app->layers.createShrunkCopy() );
 
             app->layersModified = true;
 
