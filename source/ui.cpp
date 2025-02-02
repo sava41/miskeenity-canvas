@@ -1059,8 +1059,12 @@ namespace mc
                 ImGui::PushItemWidth( ImGui::GetContentRegionAvail().x );
                 float width = ( ImGui::GetContentRegionAvail().x - 8 ) * 0.5;
 
-
-                if( !app->mlInference->inferenceReady() )
+                if( !app->mlInference->pipelineValid() )
+                {
+                    ImGui::TextColored( ImGui::ColorConvertU32ToFloat4( Spectrum::RED700 ), "Model files not found or are invalid" );
+                    ImGui::BeginDisabled();
+                }
+                else if( !app->mlInference->inferenceReady() )
                 {
                     ImGui::ProgressBar( -1.0f * (float)ImGui::GetTime(), ImVec2( 0.0f, 0.0f ), "Model Loading. Please Wait..." );
                     ImGui::BeginDisabled();
@@ -1068,11 +1072,6 @@ namespace mc
                 else if( app->mlInference.get() && app->mlInference->pipelineValid() )
                 {
                     ImGui::Text( "Click image to select segmentation regions" );
-                }
-                else
-                {
-                    ImGui::TextColored( ImGui::ColorConvertU32ToFloat4( Spectrum::RED700 ), "Model files not found or are invalid" );
-                    ImGui::BeginDisabled();
                 }
 
                 if( ImGui::Button( "Reset Points", glm::vec2( width, 0.0 ) ) )

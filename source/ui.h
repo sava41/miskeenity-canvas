@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 #include <string>
 
-typedef union SDL_Event;
+union SDL_Event;
 
 namespace wgpu
 {

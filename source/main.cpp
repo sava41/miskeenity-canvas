@@ -212,7 +212,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
         app->selectionCenter = ( glm::vec2( app->selectionAabb.x, app->selectionAabb.y ) + glm::vec2( app->selectionAabb.z, app->selectionAabb.w ) ) * 0.5f;
 
-        if( app->viewParams.selectDispatch != mc::SelectDispatch::ComputeBbox )
+        if( app->viewParams.selectDispatch == mc::SelectDispatch::Point || ( app->viewParams.selectDispatch == mc::SelectDispatch::Box && !app->mouseDown ) )
         {
             app->layerHistory.push( app->layers.createShrunkCopy() );
         }
@@ -313,8 +313,9 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
             int width  = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth();
             int height = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight();
 
-            if( app->mode == mc::Mode::SegmentCut )
+            if( app->mode == mc::Mode::SegmentCut && app->mlInference->pipelineValid() )
             {
+
                 for( int i = 0; i < app->textureManager.get( app->layers.getTexture( index ) ).texture.GetMipLevelCount(); ++i )
                 {
                     if( width <= app->mlInference->getMaxWidth() && height <= app->mlInference->getMaxHeight() )
@@ -369,7 +370,8 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
             app->layerHistory.setCheckpoint();
         }
 
-        app->layersModified = true;
+        // todo remove this?
+        //  app->layersModified = true;
         mc::changeModeUI( app->mode );
     }
     break;
