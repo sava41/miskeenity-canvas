@@ -273,6 +273,11 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         mc::submitEvent( mc::Events::ComputeSelectionBbox );
 
         app->layerHistory.push( app->layers.createShrunkCopy() );
+
+        if( app->mode == mc::Mode::Paint || app->mode == mc::Mode::Text )
+        {
+            app->layerHistory.setCheckpoint();
+        }
     }
     break;
     case mc::Events::FlipHorizontal:
@@ -370,14 +375,16 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         }
 
         // save the state at the start of an edit operation
-        if( newMode == mc::Mode::Paint || newMode == mc::Mode::Text || newMode == mc::Mode::Crop || newMode == mc::Mode::Cut ||
-            newMode == mc::Mode::SegmentCut )
+        if( newMode == mc::Mode::Crop || newMode == mc::Mode::Cut || newMode == mc::Mode::SegmentCut )
         {
             app->layerHistory.setCheckpoint();
         }
+        else if( newMode == mc::Mode::Paint || newMode == mc::Mode::Text && !app->mergeTopLayers )
+        {
+            // if theres a pending merge request delay setting checkpoint for certain modes
+            app->layerHistory.setCheckpoint();
+        }
 
-        // todo remove this?
-        //  app->layersModified = true;
         mc::changeModeUI( app->mode );
     }
     break;
