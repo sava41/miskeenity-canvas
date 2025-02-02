@@ -223,6 +223,9 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         app->dragType                  = mc::CursorDragType::Select;
     }
     break;
+    case mc::Events::ComputeSelectionBbox:
+        app->viewParams.selectDispatch = mc::SelectDispatch::ComputeBbox;
+        break;
     case mc::Events::AddMergedLayer:
     {
         const mc::Triangle* meshData = reinterpret_cast<const mc::Triangle*>( app->vertexCopyBuf.GetConstMappedRange( 0, app->newMeshSize ) );
@@ -233,20 +236,22 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
             return;
         }
 
-        // take the flags and textures from the first mesh in the merge
-        uint32_t flags   = app->layers.data()[app->mergeLayerStart].flags;
-        uint16_t texture = app->layers.data()[app->mergeLayerStart].texture;
-        uint16_t mask    = app->layers.data()[app->mergeLayerStart].mask;
-        uint32_t extra0  = app->layers.data()[app->mergeLayerStart].extra0;
-        uint32_t extra1  = app->layers.data()[app->mergeLayerStart].extra1;
-        uint32_t extra2  = app->layers.data()[app->mergeLayerStart].extra2;
-        uint32_t extra3  = app->layers.data()[app->mergeLayerStart].extra3;
+        int mergeLayerStart = app->layerHistory.getCheckpoint().length();
 
-        mc::ResourceHandle textureHandle = app->layers.getTexture( app->mergeLayerStart );
-        mc::ResourceHandle maskHandle    = app->layers.getMask( app->mergeLayerStart );
+        // take the flags and textures from the first mesh in the merge
+        uint32_t flags   = app->layers.data()[mergeLayerStart].flags;
+        uint16_t texture = app->layers.data()[mergeLayerStart].texture;
+        uint16_t mask    = app->layers.data()[mergeLayerStart].mask;
+        uint32_t extra0  = app->layers.data()[mergeLayerStart].extra0;
+        uint32_t extra1  = app->layers.data()[mergeLayerStart].extra1;
+        uint32_t extra2  = app->layers.data()[mergeLayerStart].extra2;
+        uint32_t extra3  = app->layers.data()[mergeLayerStart].extra3;
+
+        mc::ResourceHandle textureHandle = app->layers.getTexture( mergeLayerStart );
+        mc::ResourceHandle maskHandle    = app->layers.getMask( mergeLayerStart );
 
         app->layerHistory.resetToCheckpoint();
-        app->layers.removeTop( app->mergeLayerStart );
+        app->layers.removeTop( mergeLayerStart );
         app->layersModified = true;
 
         bool ret = app->meshManager.add( meshData, app->newMeshSize / sizeof( mc::Triangle ) );
@@ -265,6 +270,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
         app->layers.clearSelection();
         app->layers.changeSelection( app->layers.length() - 1, true );
+        mc::submitEvent( mc::Events::ComputeSelectionBbox );
 
         app->layerHistory.push( app->layers.createShrunkCopy() );
     }
@@ -376,8 +382,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
     }
     break;
     case mc::Events::MergeEditLayers:
-        app->mergeLayerStart = app->layerHistory.getCheckpoint().length();
-        app->mergeTopLayers  = true;
+        app->mergeTopLayers = true;
         break;
     case mc::Events::ResetEditLayers:
         app->layers.copyContents( app->layerHistory.resetToCheckpoint() );
@@ -405,7 +410,6 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
         mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
-
         app->layers.add( app->selectionCenter, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( mc::UV_MAX_VALUE ),
                          glm::u8vec4( 255, 255, 255, 255 ), mc::HasColorTex, meshInfo, *app->copyTextureHandle.get() );
 
@@ -413,6 +417,9 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         app->layers.move( app->layers.length() - selectionTopLayerDelta - 1, app->layers.length() - 1 );
 
         mc::genMipMaps( app->device, app->mipGenPipeline, app->textureManager.get( *app->copyTextureHandle.get() ).texture );
+
+        app->layerHistory.push( app->layers.createShrunkCopy() );
+        mc::submitEvent( mc::Events::ComputeSelectionBbox );
 
         app->layersModified = true;
     }
@@ -476,6 +483,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
         app->layerHistory.resetToCheckpoint();
         app->layerHistory.push( app->layers.createShrunkCopy() );
+        mc::submitEvent( mc::Events::ComputeSelectionBbox );
 
         app->layersModified = true;
     }
@@ -669,7 +677,7 @@ SDL_AppResult SDL_AppEvent( void* appstate, SDL_Event* event )
         else if( app->dragType != mc::CursorDragType::Select )
         {
             // something was transformed so recalculate bbox
-            app->viewParams.selectDispatch = mc::SelectDispatch::ComputeBbox;
+            mc::submitEvent( mc::Events::ComputeSelectionBbox );
         }
         app->mouseDown = false;
         break;
@@ -989,7 +997,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         app->newMeshSize  = 0;
         for( int i = 0; i < app->layers.length(); ++i )
         {
-            if( i < app->mergeLayerStart )
+            if( i < app->layerHistory.getCheckpoint().length() )
             {
                 newMeshOffset += app->layers.data()[i].vertexBuffLength * sizeof( mc::Triangle );
             }

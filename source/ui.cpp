@@ -642,6 +642,7 @@ namespace mc
                 if( ImGui::Button( ICON_LC_UNDO, buttonSize ) )
                 {
                     submitEvent( Events::Undo );
+                    submitEvent( Events::ComputeSelectionBbox );
                 }
                 if( app->layerHistory.atBack() )
                 {
@@ -657,6 +658,7 @@ namespace mc
                 if( ImGui::Button( ICON_LC_REDO, buttonSize ) )
                 {
                     submitEvent( Events::Redo );
+                    submitEvent( Events::ComputeSelectionBbox );
                 }
                 if( app->layerHistory.atFront() )
                 {

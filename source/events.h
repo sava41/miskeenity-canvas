@@ -22,14 +22,12 @@ namespace mc
 
     enum class Events
     {
-        SelectionRequested,
         SelectionChanged,
-        SelectionReady,
+        ComputeSelectionBbox,
         FlipHorizontal,
         FlipVertical,
         MoveFront,
         MoveBack,
-        Cut,
         ApplyCut,
         Delete,
         Undo,
@@ -40,7 +38,6 @@ namespace mc
         AppQuit,
         OpenGithub,
         ChangeMode,
-        StartCrop,
         ApplyCrop,
         MergeEditLayers,
         ResetEditLayers,
@@ -49,7 +46,7 @@ namespace mc
         MergeAndRasterize,
         SamLoadInput,
         SamUploadMask,
-        AddImageToLayer
+        AddImageToLayer,
     };
 
     void submitEvent( const Events& event, const EventData& data = {}, void* ptrData = nullptr );

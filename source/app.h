@@ -161,8 +161,7 @@ namespace mc
         TextureManager textureManager = TextureManager( 100 );
         MeshManager meshManager       = MeshManager( MaxMeshBufferTriangles );
         FontManager fontManager;
-        int mergeLayerStart = 0;
-        int newMeshSize     = 0;
+        int newMeshSize = 0;
 
         std::unique_ptr<mc::MlInference> mlInference;
     };

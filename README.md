@@ -56,7 +56,7 @@ https://emscripten.org/docs/getting_started/downloads.html#installation-instruct
 ```
 
 ## Planned Features
-- canvas history (undo/redo)
+- pixel-perfect selection
 - copy/paste/clipboard
 - keyboard shortcuts
 - rendering improvements (anti-aliasing, better font rendering)
