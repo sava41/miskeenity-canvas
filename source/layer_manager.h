@@ -10,7 +10,7 @@
 namespace mc
 {
 
-    constexpr int UV_MAX_VALUE = std::numeric_limits<uint16_t>::max();
+    const int UV_MAX_VALUE = std::numeric_limits<uint16_t>::max();
 
     enum LayerFlags : uint32_t
     {
@@ -84,6 +84,7 @@ namespace mc
     {
       public:
         LayerManager( size_t maxLayers );
+        LayerManager();
         ~LayerManager() = default;
 
         LayerManager( LayerManager& source );
@@ -103,8 +104,9 @@ namespace mc
         size_t length() const;
         size_t getTotalTriCount() const;
         Layer* data() const;
-        ResourceHandle& getTexture( int index );
-        ResourceHandle& getMask( int index );
+        Layer getUncroppedLayer( int index ) const;
+        const ResourceHandle& getTexture( int index ) const;
+        const ResourceHandle& getMask( int index ) const;
 
         void changeSelection( int index, bool isSelected );
         void clearSelection();

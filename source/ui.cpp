@@ -57,7 +57,7 @@ namespace mc
     {
         if( currentMode == Mode::Crop )
         {
-            submitEvent( Events::DeleteEditLayers );
+            submitEvent( Events::ApplyCrop );
         }
 
         if( currentMode == Mode::Paint || currentMode == Mode::Text )
@@ -67,8 +67,7 @@ namespace mc
 
         if( currentMode == Mode::Cut || currentMode == Mode::SegmentCut )
         {
-            submitEvent( Events::DeleteEditLayers );
-            submitEvent( Events::Cut );
+            submitEvent( Events::ApplyCut );
         }
     }
 
@@ -303,34 +302,24 @@ namespace mc
         int imageSelection = app->layers.getSingleSelectedImage();
         if( imageSelection >= 0 )
         {
+            Layer layer = app->layers.data()[imageSelection];
+
             // see if the layer is mirrored
-            glm::vec3 cross =
-                glm::cross( glm::vec3( app->layers.data()[imageSelection].basisA, 0.0f ), glm::vec3( app->layers.data()[imageSelection].basisB, 0.0f ) );
-            float sign = glm::sign( cross ).z;
+            glm::vec3 cross = glm::cross( glm::vec3( layer.basisA, 0.0f ), glm::vec3( layer.basisB, 0.0f ) );
+            float sign      = glm::sign( cross ).z;
 
-            g_transformBox.cornerHandleTL = ( app->layers.data()[imageSelection].offset -
-                                              ( app->layers.data()[imageSelection].basisA * sign + app->layers.data()[imageSelection].basisB ) * 0.5f ) *
-                                                app->viewParams.scale +
-                                            app->viewParams.canvasPos;
-            g_transformBox.cornerHandleBR = ( app->layers.data()[imageSelection].offset +
-                                              ( app->layers.data()[imageSelection].basisA * sign + app->layers.data()[imageSelection].basisB ) * 0.5f ) *
-                                                app->viewParams.scale +
-                                            app->viewParams.canvasPos;
-            g_transformBox.cornerHandleTR = ( app->layers.data()[imageSelection].offset +
-                                              ( app->layers.data()[imageSelection].basisA * sign - app->layers.data()[imageSelection].basisB ) * 0.5f ) *
-                                                app->viewParams.scale +
-                                            app->viewParams.canvasPos;
-            g_transformBox.cornerHandleBL = ( app->layers.data()[imageSelection].offset -
-                                              ( app->layers.data()[imageSelection].basisA * sign - app->layers.data()[imageSelection].basisB ) * 0.5f ) *
-                                                app->viewParams.scale +
-                                            app->viewParams.canvasPos;
+            g_transformBox.cornerHandleTL =
+                ( layer.offset - ( layer.basisA * sign + layer.basisB ) * 0.5f ) * app->viewParams.scale + app->viewParams.canvasPos;
+            g_transformBox.cornerHandleBR =
+                ( layer.offset + ( layer.basisA * sign + layer.basisB ) * 0.5f ) * app->viewParams.scale + app->viewParams.canvasPos;
+            g_transformBox.cornerHandleTR =
+                ( layer.offset + ( layer.basisA * sign - layer.basisB ) * 0.5f ) * app->viewParams.scale + app->viewParams.canvasPos;
+            g_transformBox.cornerHandleBL =
+                ( layer.offset - ( layer.basisA * sign - layer.basisB ) * 0.5f ) * app->viewParams.scale + app->viewParams.canvasPos;
 
-            g_transformBox.rotationHandleBase =
-                ( app->layers.data()[imageSelection].offset - app->layers.data()[imageSelection].basisB * 0.5f ) * app->viewParams.scale +
-                app->viewParams.canvasPos;
+            g_transformBox.rotationHandleBase = ( layer.offset - layer.basisB * 0.5f ) * app->viewParams.scale + app->viewParams.canvasPos;
 
-            g_transformBox.rotationHandle =
-                g_transformBox.rotationHandleBase - glm::normalize( app->layers.data()[imageSelection].basisB ) * RotateHandleHeight;
+            g_transformBox.rotationHandle = g_transformBox.rotationHandleBase - glm::normalize( layer.basisB ) * RotateHandleHeight;
 
             auto isOnRightSide = []( const glm::vec2& p1, const glm::vec2& p2, const glm::vec2& mouse ) -> bool
             {
@@ -635,30 +624,51 @@ namespace mc
             }
             ImGui::End();
 
-            // ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
-            // ImGui::Begin( "Undo Redo", nullptr,
-            //               ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
-            // ImGui::PopStyleVar( 1 );
-            // {
-            //     ImGui::SetWindowPos( glm::vec2( ( app->width - ( buttonSize.x * 2 + buttonSpacing * 3 ) ), app->height - buttonSpacing * 2 - buttonSize.y )
-            //     ); ImGui::SetWindowSize( glm::vec2( buttonSize.x * 2 + buttonSpacing * 1, buttonSize.y ) );
+            ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
+            ImGui::Begin( "Undo Redo", nullptr,
+                          ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus );
+            ImGui::PopStyleVar( 1 );
+            {
+                ImGui::SetWindowPos( glm::vec2( ( app->width - ( buttonSize.x * 2 + buttonSpacing * 3 ) ), app->height - buttonSpacing * 2 - buttonSize.y ) );
+                ImGui::SetWindowSize( glm::vec2( buttonSize.x * 2 + buttonSpacing * 1, buttonSize.y ) );
 
-            //     ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
-            //     ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
-            //     if( ImGui::Button( ICON_LC_UNDO, buttonSize ) )
-            //     {
-            //     }
+                ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 0.0 );
+                ImGui::PushStyleColor( ImGuiCol_ButtonHovered, Spectrum::PURPLE700 );
 
-            //     ImGui::SameLine( 0.0, buttonSpacing );
+                if( app->layerHistory.atBack() )
+                {
+                    ImGui::BeginDisabled();
+                }
+                if( ImGui::Button( ICON_LC_UNDO, buttonSize ) )
+                {
+                    submitEvent( Events::Undo );
+                    submitEvent( Events::ComputeSelectionBbox );
+                }
+                if( app->layerHistory.atBack() )
+                {
+                    ImGui::EndDisabled();
+                }
 
-            //     if( ImGui::Button( ICON_LC_REDO, buttonSize ) )
-            //     {
-            //     }
+                ImGui::SameLine( 0.0, buttonSpacing );
 
-            //     ImGui::PopStyleColor( 1 );
-            //     ImGui::PopStyleVar( 1 );
-            // }
-            // ImGui::End();
+                if( app->layerHistory.atFront() )
+                {
+                    ImGui::BeginDisabled();
+                }
+                if( ImGui::Button( ICON_LC_REDO, buttonSize ) )
+                {
+                    submitEvent( Events::Redo );
+                    submitEvent( Events::ComputeSelectionBbox );
+                }
+                if( app->layerHistory.atFront() )
+                {
+                    ImGui::EndDisabled();
+                }
+
+                ImGui::PopStyleColor( 1 );
+                ImGui::PopStyleVar( 1 );
+            }
+            ImGui::End();
 
             ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, glm::vec2( 0.0 ) );
             ImGui::Begin( "Toolbox", nullptr,
@@ -879,7 +889,7 @@ namespace mc
                 float width = ( ImGui::GetContentRegionAvail().x - 8 ) * 0.5;
                 if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
                 {
-                    submitEvent( Events::MergeEditLayers );
+                    acceptEditModeChanges( app->mode );
                     submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
                 ImGui::SameLine( 0.0, 8.0 );
@@ -970,7 +980,7 @@ namespace mc
                 width = ( ImGui::GetContentRegionAvail().x - 8 ) / 2.0;
                 if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
                 {
-                    submitEvent( Events::MergeEditLayers );
+                    acceptEditModeChanges( app->mode );
                     submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
                 ImGui::SameLine( 0.0, 8.0 );
@@ -993,7 +1003,7 @@ namespace mc
                 float width = ( ImGui::GetContentRegionAvail().x - 8 ) * 0.5;
                 if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
                 {
-                    submitEvent( Events::DeleteEditLayers );
+                    acceptEditModeChanges( app->mode );
                     submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
                 ImGui::SameLine( 0.0, 8.0 );
@@ -1023,14 +1033,11 @@ namespace mc
                 float width = ( ImGui::GetContentRegionAvail().x - 8 ) * 0.5;
                 if( ImGui::Button( "Apply", glm::vec2( width, 0.0 ) ) )
                 {
-                    if( app->layerEditStart < app->layers.length() )
+                    if( app->layerHistory.getCheckpoint().length() < app->layers.length() )
                     {
                         acceptEditModeChanges( app->mode );
                     }
-                    else
-                    {
-                        submitEvent( Events::ResetEditLayers );
-                    }
+
                     submitEvent( Events::ChangeMode, { .mode = Mode::Cursor } );
                 }
                 ImGui::SameLine( 0.0, 8.0 );
@@ -1054,8 +1061,12 @@ namespace mc
                 ImGui::PushItemWidth( ImGui::GetContentRegionAvail().x );
                 float width = ( ImGui::GetContentRegionAvail().x - 8 ) * 0.5;
 
-
-                if( !app->mlInference->inferenceReady() )
+                if( !app->mlInference->pipelineValid() )
+                {
+                    ImGui::TextColored( ImGui::ColorConvertU32ToFloat4( Spectrum::RED700 ), "Model files not found or are invalid" );
+                    ImGui::BeginDisabled();
+                }
+                else if( !app->mlInference->inferenceReady() )
                 {
                     ImGui::ProgressBar( -1.0f * (float)ImGui::GetTime(), ImVec2( 0.0f, 0.0f ), "Model Loading. Please Wait..." );
                     ImGui::BeginDisabled();
@@ -1063,11 +1074,6 @@ namespace mc
                 else if( app->mlInference.get() && app->mlInference->pipelineValid() )
                 {
                     ImGui::Text( "Click image to select segmentation regions" );
-                }
-                else
-                {
-                    ImGui::TextColored( ImGui::ColorConvertU32ToFloat4( Spectrum::RED700 ), "Model files not found or are invalid" );
-                    ImGui::BeginDisabled();
                 }
 
                 if( ImGui::Button( "Reset Points", glm::vec2( width, 0.0 ) ) )
@@ -1160,8 +1166,25 @@ namespace mc
 
         if( app->mode == Mode::Crop )
         {
+            int index = app->layers.getSingleSelectedImage();
 
-            ImU32 color = Spectrum::PURPLE400;
+            Layer layer = app->layers.getUncroppedLayer( index );
+
+            glm::vec2 uvTop    = glm::vec2( layer.uvTop ) / float( UV_MAX_VALUE );
+            glm::vec2 uvBottom = glm::vec2( layer.uvBottom ) / float( UV_MAX_VALUE );
+
+            // see if the layer is mirrored
+            glm::vec3 cross = glm::cross( glm::vec3( layer.basisA, 0.0f ), glm::vec3( layer.basisB, 0.0f ) );
+            float sign      = glm::sign( cross ).z;
+
+            glm::vec2 uncroppedCornerTL = ( layer.offset - ( layer.basisA * sign + layer.basisB ) * 0.5f ) * app->viewParams.scale + app->viewParams.canvasPos;
+            glm::vec2 uncroppedCornerBR = ( layer.offset + ( layer.basisA * sign + layer.basisB ) * 0.5f ) * app->viewParams.scale + app->viewParams.canvasPos;
+            glm::vec2 uncroppedCornerTR = ( layer.offset + ( layer.basisA * sign - layer.basisB ) * 0.5f ) * app->viewParams.scale + app->viewParams.canvasPos;
+            glm::vec2 uncroppedCornerBL = ( layer.offset - ( layer.basisA * sign - layer.basisB ) * 0.5f ) * app->viewParams.scale + app->viewParams.canvasPos;
+
+            drawList->AddImageQuad( (ImTextureID)(intptr_t)app->textureManager.get( app->layers.getTexture( index ) ).textureView.Get(), uncroppedCornerTL,
+                                    uncroppedCornerTR, uncroppedCornerBR, uncroppedCornerBL, uvTop, glm::vec2( uvBottom.x, uvTop.y ), uvBottom,
+                                    glm::vec2( uvTop.x, uvBottom.y ) );
 
             drawShadedRectangleMask(
                 app->width, app->height, app->selectionAabb * app->viewParams.scale + glm::vec4( app->viewParams.canvasPos, app->viewParams.canvasPos ),
@@ -1171,6 +1194,8 @@ namespace mc
             drawList->AddLine( g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR, Spectrum::PURPLE400, ceilf( g_uiScale ) );
             drawList->AddLine( g_transformBox.cornerHandleBR, g_transformBox.cornerHandleBL, Spectrum::PURPLE400, ceilf( g_uiScale ) );
             drawList->AddLine( g_transformBox.cornerHandleBL, g_transformBox.cornerHandleTL, Spectrum::PURPLE400, ceilf( g_uiScale ) );
+
+            ImU32 color = Spectrum::PURPLE400;
 
             drawList->AddCircleFilled( g_transformBox.cornerHandleBR, HandleHalfSize * g_uiScale, Spectrum::PURPLE400 );
             color = g_mouseLocationUI == MouseLocationUI::ScaleHandleBR ? Spectrum::ORANGE600 : Spectrum::Static::BONE;
@@ -1191,14 +1216,18 @@ namespace mc
 
         if( app->mode == Mode::Cut || app->mode == Mode::SegmentCut )
         {
-            drawShadedRectangleMask(
-                app->width, app->height, app->selectionAabb * app->viewParams.scale + glm::vec4( app->viewParams.canvasPos, app->viewParams.canvasPos ),
-                { g_transformBox.cornerHandleTL, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBL }, drawList );
-
             int index = app->layers.getSingleSelectedImage();
 
             glm::vec2 uvTop    = glm::vec2( app->layers.data()[index].uvTop ) / float( UV_MAX_VALUE );
             glm::vec2 uvBottom = glm::vec2( app->layers.data()[index].uvBottom ) / float( UV_MAX_VALUE );
+
+            drawList->AddImageQuad( (ImTextureID)(intptr_t)app->textureManager.get( app->layers.getTexture( index ) ).textureView.Get(),
+                                    g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleBL,
+                                    uvTop, glm::vec2( uvBottom.x, uvTop.y ), uvBottom, glm::vec2( uvTop.x, uvBottom.y ) );
+
+            drawShadedRectangleMask(
+                app->width, app->height, app->selectionAabb * app->viewParams.scale + glm::vec4( app->viewParams.canvasPos, app->viewParams.canvasPos ),
+                { g_transformBox.cornerHandleTL, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBL }, drawList );
 
             if( app->editMaskTextureHandle.get() && ( app->mode == Mode::Cut || ( app->mode == Mode::SegmentCut && app->mlInference->getPoints().size() ) ) )
             {

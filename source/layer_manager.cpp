@@ -14,6 +14,13 @@ namespace mc
     {
     }
 
+    LayerManager::LayerManager()
+        : m_curLength( 0 )
+        , m_maxLength( 0 )
+        , m_array( std::make_unique<Layer[]>( 0 ) )
+    {
+    }
+
     LayerManager::LayerManager( LayerManager& source )
         : m_curLength( source.m_curLength )
         , m_maxLength( source.m_maxLength )
@@ -43,10 +50,10 @@ namespace mc
 
     LayerManager& LayerManager::operator=( LayerManager& source )
     {
-        m_curLength   = source.m_curLength;
-        m_maxLength   = source.m_maxLength;
-        m_numSelected = source.m_numSelected;
-        m_totalNumTri = source.m_totalNumTri;
+        m_curLength         = source.m_curLength;
+        m_maxLength         = source.m_maxLength;
+        m_numSelected       = source.m_numSelected;
+        m_totalNumTri       = source.m_totalNumTri;
         m_textureReferences = source.m_textureReferences;
 
         m_array = std::make_unique<Layer[]>( m_maxLength );
@@ -59,10 +66,10 @@ namespace mc
     }
     LayerManager& LayerManager::operator=( LayerManager&& source )
     {
-        m_curLength   = source.m_curLength;
-        m_maxLength   = source.m_maxLength;
-        m_numSelected = source.m_numSelected;
-        m_totalNumTri = source.m_totalNumTri;
+        m_curLength         = source.m_curLength;
+        m_maxLength         = source.m_maxLength;
+        m_numSelected       = source.m_numSelected;
+        m_totalNumTri       = source.m_totalNumTri;
         m_textureReferences = source.m_textureReferences;
 
         m_array          = std::move( source.m_array );
@@ -246,6 +253,28 @@ namespace mc
     Layer* LayerManager::data() const
     {
         return m_array.get();
+    }
+
+    Layer LayerManager::getUncroppedLayer( int index ) const
+    {
+        if( index < 0 || index >= m_curLength )
+        {
+            return {};
+        }
+
+        Layer uncroppedLayer = m_array[index];
+
+        glm::vec2 scale = static_cast<float>( mc::UV_MAX_VALUE ) / glm::vec2( uncroppedLayer.uvBottom - uncroppedLayer.uvTop );
+        uncroppedLayer.basisA *= scale.x;
+        uncroppedLayer.basisB *= scale.y;
+
+        glm::vec2 uvCenter = ( glm::vec2( uncroppedLayer.uvTop ) + glm::vec2( uncroppedLayer.uvBottom ) ) / static_cast<float>( mc::UV_MAX_VALUE ) * 0.5f;
+        uncroppedLayer.offset -= uncroppedLayer.basisA * ( uvCenter.x - 0.5f ) + uncroppedLayer.basisB * ( uvCenter.y - 0.5f );
+
+        uncroppedLayer.uvTop    = glm::u16vec2( 0 );
+        uncroppedLayer.uvBottom = glm::u16vec2( mc::UV_MAX_VALUE );
+
+        return uncroppedLayer;
     }
 
     void LayerManager::changeSelection( int index, bool isSelected )
@@ -472,7 +501,7 @@ namespace mc
         m_totalNumTri = count;
     }
 
-    ResourceHandle& LayerManager::getTexture( int index )
+    const ResourceHandle& LayerManager::getTexture( int index ) const
     {
         // were using an invalid resource handle for layers with no textures
         if( ( index < 0 || index >= m_curLength ) || !( m_array[index].flags & LayerFlags::HasColorTex ) )
@@ -483,7 +512,7 @@ namespace mc
         return m_textureHandles.at( m_array[index].texture );
     }
 
-    ResourceHandle& LayerManager::getMask( int index )
+    const ResourceHandle& LayerManager::getMask( int index ) const
     {
         // were using an invalid resource handle for layers with no textures
         if( ( index < 0 || index >= m_curLength ) || !( m_array[index].flags & LayerFlags::HasMaskTex || m_array[index].flags & LayerFlags::HasSdfMaskTex ) )
@@ -500,9 +529,9 @@ namespace mc
 
         std::memcpy( newManager.m_array.get(), m_array.get(), m_curLength * sizeof( Layer ) );
 
-        newManager.m_curLength   = m_curLength;
-        newManager.m_numSelected = m_numSelected;
-        newManager.m_totalNumTri = m_totalNumTri;
+        newManager.m_curLength         = m_curLength;
+        newManager.m_numSelected       = m_numSelected;
+        newManager.m_totalNumTri       = m_totalNumTri;
         newManager.m_textureReferences = m_textureReferences;
         newManager.m_textureHandles.insert( m_textureHandles.begin(), m_textureHandles.end() );
 

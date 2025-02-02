@@ -212,12 +212,20 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
         app->selectionCenter = ( glm::vec2( app->selectionAabb.x, app->selectionAabb.y ) + glm::vec2( app->selectionAabb.z, app->selectionAabb.w ) ) * 0.5f;
 
+        if( app->viewParams.selectDispatch == mc::SelectDispatch::Point || ( app->viewParams.selectDispatch == mc::SelectDispatch::Box && !app->mouseDown ) )
+        {
+            app->layerHistory.push( app->layers.createShrunkCopy() );
+        }
+
         app->selectionReady            = true;
         app->layersModified            = true;
         app->viewParams.selectDispatch = mc::SelectDispatch::None;
         app->dragType                  = mc::CursorDragType::Select;
     }
     break;
+    case mc::Events::ComputeSelectionBbox:
+        app->viewParams.selectDispatch = mc::SelectDispatch::ComputeBbox;
+        break;
     case mc::Events::AddMergedLayer:
     {
         const mc::Triangle* meshData = reinterpret_cast<const mc::Triangle*>( app->vertexCopyBuf.GetConstMappedRange( 0, app->newMeshSize ) );
@@ -228,19 +236,22 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
             return;
         }
 
+        int mergeLayerStart = app->layerHistory.getCheckpoint().length();
+
         // take the flags and textures from the first mesh in the merge
-        uint32_t flags   = app->layers.data()[app->mergeLayerStart].flags;
-        uint16_t texture = app->layers.data()[app->mergeLayerStart].texture;
-        uint16_t mask    = app->layers.data()[app->mergeLayerStart].mask;
-        uint32_t extra0  = app->layers.data()[app->mergeLayerStart].extra0;
-        uint32_t extra1  = app->layers.data()[app->mergeLayerStart].extra1;
-        uint32_t extra2  = app->layers.data()[app->mergeLayerStart].extra2;
-        uint32_t extra3  = app->layers.data()[app->mergeLayerStart].extra3;
+        uint32_t flags   = app->layers.data()[mergeLayerStart].flags;
+        uint16_t texture = app->layers.data()[mergeLayerStart].texture;
+        uint16_t mask    = app->layers.data()[mergeLayerStart].mask;
+        uint32_t extra0  = app->layers.data()[mergeLayerStart].extra0;
+        uint32_t extra1  = app->layers.data()[mergeLayerStart].extra1;
+        uint32_t extra2  = app->layers.data()[mergeLayerStart].extra2;
+        uint32_t extra3  = app->layers.data()[mergeLayerStart].extra3;
 
-        mc::ResourceHandle textureHandle = app->layers.getTexture( app->mergeLayerStart );
-        mc::ResourceHandle maskHandle    = app->layers.getMask( app->mergeLayerStart );
+        mc::ResourceHandle textureHandle = app->layers.getTexture( mergeLayerStart );
+        mc::ResourceHandle maskHandle    = app->layers.getMask( mergeLayerStart );
 
-        app->layers.removeTop( app->mergeLayerStart );
+        app->layerHistory.resetToCheckpoint();
+        app->layers.removeTop( mergeLayerStart );
         app->layersModified = true;
 
         bool ret = app->meshManager.add( meshData, app->newMeshSize / sizeof( mc::Triangle ) );
@@ -257,27 +268,41 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
                            glm::u8vec4( 255 ), flags, meshInfo.start, meshInfo.length, texture, mask, extra0, extra1, extra2, extra3 },
                          std::move( textureHandle ), std::move( maskHandle ) );
 
-        app->layerEditStart = app->layers.length();
+        app->layers.clearSelection();
+        app->layers.changeSelection( app->layers.length() - 1, true );
+        mc::submitEvent( mc::Events::ComputeSelectionBbox );
+
+        app->layerHistory.push( app->layers.createShrunkCopy() );
+
+        if( app->mode == mc::Mode::Paint || app->mode == mc::Mode::Text )
+        {
+            app->layerHistory.setCheckpoint();
+        }
     }
     break;
     case mc::Events::FlipHorizontal:
         app->layers.scaleSelection( app->selectionCenter, glm::vec2( -1.0, 1.0 ) );
+        app->layerHistory.push( app->layers.createShrunkCopy() );
         app->layersModified = true;
         break;
     case mc::Events::FlipVertical:
         app->layers.scaleSelection( app->selectionCenter, glm::vec2( 1.0, -1.0 ) );
+        app->layerHistory.push( app->layers.createShrunkCopy() );
         app->layersModified = true;
         break;
     case mc::Events::MoveFront:
         app->layers.bringFrontSelection();
+        app->layerHistory.push( app->layers.createShrunkCopy() );
         app->layersModified = true;
         break;
     case mc::Events::MoveBack:
         app->layers.bringFrontSelection( true );
+        app->layerHistory.push( app->layers.createShrunkCopy() );
         app->layersModified = true;
         break;
     case mc::Events::Delete:
         app->layers.removeSelection();
+        app->layerHistory.push( app->layers.createShrunkCopy() );
         app->layersModified = true;
         break;
     case mc::Events::ChangeMode:
@@ -288,41 +313,9 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
             return;
         }
 
-        app->layerEditStart = app->layers.length();
-        app->editBackup     = app->layers.createShrunkCopy();
-
-        if( app->mergeTopLayers )
-        {
-            app->layerEditStart = app->mergeLayerStart;
-        }
-
         app->mode = newMode;
 
-        if( app->mode == mc::Mode::Crop )
-        {
-            int index          = app->layers.getSingleSelectedImage();
-            mc::Layer newLayer = app->layers.data()[index];
-            newLayer.flags     = newLayer.flags & ~mc::LayerFlags::Selected;
-
-            glm::vec2 scale = static_cast<float>( mc::UV_MAX_VALUE ) / glm::vec2( newLayer.uvBottom - newLayer.uvTop );
-            newLayer.basisA *= scale.x;
-            newLayer.basisB *= scale.y;
-
-            glm::vec2 uvCenter = ( glm::vec2( newLayer.uvTop ) + glm::vec2( newLayer.uvBottom ) ) / static_cast<float>( mc::UV_MAX_VALUE ) * 0.5f;
-            newLayer.offset -= newLayer.basisA * ( uvCenter.x - 0.5f ) + newLayer.basisB * ( uvCenter.y - 0.5f );
-
-            newLayer.uvTop    = glm::u16vec2( 0 );
-            newLayer.uvBottom = glm::u16vec2( mc::UV_MAX_VALUE );
-
-            // crop needs at least one free layer to for the dummy layer so we cancel if the layer array is full
-            // probably should add some ui to tell the user how many layers are being used
-            if( !app->layers.add( newLayer, app->layers.getTexture( index ), app->layers.getMask( index ) ) )
-            {
-                submitEvent( mc::Events::ResetEditLayers );
-                app->mode = mc::Mode::Cursor;
-            }
-        }
-        else if( app->mode == mc::Mode::Cut || app->mode == mc::Mode::SegmentCut )
+        if( app->mode == mc::Mode::Cut || app->mode == mc::Mode::SegmentCut )
         {
             int index          = app->layers.getSingleSelectedImage();
             mc::Layer newLayer = app->layers.data()[index];
@@ -331,8 +324,9 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
             int width  = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth();
             int height = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetHeight();
 
-            if( app->mode == mc::Mode::SegmentCut )
+            if( app->mode == mc::Mode::SegmentCut && app->mlInference->pipelineValid() )
             {
+
                 for( int i = 0; i < app->textureManager.get( app->layers.getTexture( index ) ).texture.GetMipLevelCount(); ++i )
                 {
                     if( width <= app->mlInference->getMaxWidth() && height <= app->mlInference->getMaxHeight() )
@@ -343,78 +337,62 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
                     width  = width / 2;
                     height = height / 2;
                 }
+
+                app->mlInference->resetPoints();
+
+                int index = app->layers.getSingleSelectedImage();
+
+                int mipLevel = std::log2( app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth() / width );
+
+                if( app->textureMapBuffer )
+                {
+                    app->textureMapBuffer.Destroy();
+                }
+
+                wgpu::CommandEncoderDescriptor commandEncoderDesc;
+                commandEncoderDesc.label     = "get image for SAM";
+                wgpu::CommandEncoder encoder = app->device.CreateCommandEncoder( &commandEncoderDesc );
+
+                app->textureMapBuffer =
+                    mc::downloadTexture( app->textureManager.get( app->layers.getTexture( index ) ).texture, app->device, encoder, mipLevel );
+
+                wgpu::CommandBuffer command = encoder.Finish();
+                app->device.GetQueue().Submit( 1, &command );
+
+                wgpu::BufferMapCallback callback = []( WGPUBufferMapAsyncStatus status, void* userData )
+                {
+                    if( status == WGPUBufferMapAsyncStatus_Success )
+                    {
+                        mc::submitEvent( mc::Events::SamLoadInput );
+                    }
+                };
+                app->textureMapBuffer.MapAsync( wgpu::MapMode::Read, 0, app->textureMapBuffer.GetSize(), callback, nullptr );
             }
 
             app->editMaskTextureHandle = std::make_unique<mc::ResourceHandle>(
                 app->textureManager.add( nullptr, width, height, 4, app->device,
                                          wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst ) );
-
-            // crop needs at least one free layer to for the dummy layer so we cancel if the layer array is full
-            // probably should add some ui to tell the user how many layers are being used
-            if( !app->layers.add( newLayer, app->layers.getTexture( index ), app->layers.getMask( index ) ) )
-            {
-                submitEvent( mc::Events::ResetEditLayers );
-                app->mode = mc::Mode::Cursor;
-            }
-            else
-            {
-                app->layerEditStart += 1;
-            }
         }
-        else
+
+        // save the state at the start of an edit operation
+        if( newMode == mc::Mode::Crop || newMode == mc::Mode::Cut || newMode == mc::Mode::SegmentCut )
         {
-            app->layers.clearSelection();
+            app->layerHistory.setCheckpoint();
         }
-
-        if( app->mode == mc::Mode::SegmentCut )
+        else if( newMode == mc::Mode::Paint || newMode == mc::Mode::Text && !app->mergeTopLayers )
         {
-            app->mlInference->resetPoints();
-
-            int index = app->layers.getSingleSelectedImage();
-
-            int width    = app->textureManager.get( *app->editMaskTextureHandle.get() ).texture.GetWidth();
-            int height   = app->textureManager.get( *app->editMaskTextureHandle.get() ).texture.GetHeight();
-            int mipLevel = std::log2( app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth() / width );
-
-            if( app->textureMapBuffer )
-            {
-                app->textureMapBuffer.Destroy();
-            }
-
-            wgpu::CommandEncoderDescriptor commandEncoderDesc;
-            commandEncoderDesc.label     = "get image for SAM";
-            wgpu::CommandEncoder encoder = app->device.CreateCommandEncoder( &commandEncoderDesc );
-
-            app->textureMapBuffer = mc::downloadTexture( app->textureManager.get( app->layers.getTexture( index ) ).texture, app->device, encoder, mipLevel );
-
-            wgpu::CommandBuffer command = encoder.Finish();
-            app->device.GetQueue().Submit( 1, &command );
-
-            wgpu::BufferMapCallback callback = []( WGPUBufferMapAsyncStatus status, void* userData )
-            {
-                if( status == WGPUBufferMapAsyncStatus_Success )
-                {
-                    mc::submitEvent( mc::Events::SamLoadInput );
-                }
-            };
-            app->textureMapBuffer.MapAsync( wgpu::MapMode::Read, 0, app->textureMapBuffer.GetSize(), callback, nullptr );
+            // if theres a pending merge request delay setting checkpoint for certain modes
+            app->layerHistory.setCheckpoint();
         }
 
-        app->layersModified = true;
         mc::changeModeUI( app->mode );
     }
     break;
     case mc::Events::MergeEditLayers:
-        app->mergeLayerStart = app->layerEditStart;
-        app->mergeTopLayers  = true;
-        break;
-    case mc::Events::DeleteEditLayers:
-        app->layers.removeTop( app->layerEditStart );
-        app->layersModified = true;
+        app->mergeTopLayers = true;
         break;
     case mc::Events::ResetEditLayers:
-        app->layers.copyContents( app->editBackup );
-        app->layerEditStart = app->layers.length();
+        app->layers.copyContents( app->layerHistory.resetToCheckpoint() );
         app->layersModified = true;
         break;
     case mc::Events::MergeAndRasterizeRequest:
@@ -439,7 +417,6 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
         mc::MeshInfo meshInfo = app->meshManager.getMeshInfo( mc::UnitSquareMeshIndex );
 
-
         app->layers.add( app->selectionCenter, glm::vec2( width, 0 ), glm::vec2( 0, height ), glm::u16vec2( 0 ), glm::u16vec2( mc::UV_MAX_VALUE ),
                          glm::u8vec4( 255, 255, 255, 255 ), mc::HasColorTex, meshInfo, *app->copyTextureHandle.get() );
 
@@ -448,11 +425,20 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
 
         mc::genMipMaps( app->device, app->mipGenPipeline, app->textureManager.get( *app->copyTextureHandle.get() ).texture );
 
+        app->layerHistory.push( app->layers.createShrunkCopy() );
+        mc::submitEvent( mc::Events::ComputeSelectionBbox );
+
         app->layersModified = true;
     }
     break;
-    case mc::Events::Cut:
+    case mc::Events::ApplyCrop:
+        app->layerHistory.resetToCheckpoint();
+        app->layerHistory.push( app->layers.createShrunkCopy() );
+        break;
+    case mc::Events::ApplyCut:
     {
+        app->layers.removeTop( app->layerHistory.getCheckpoint().length() );
+
         int index = app->layers.getSingleSelectedImage();
 
         int width  = app->textureManager.get( app->layers.getTexture( index ) ).texture.GetWidth();
@@ -494,14 +480,17 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         mc::genMipMaps( app->device, app->mipGenPipeline, app->textureManager.get( maskedTextureA ).texture );
         mc::genMipMaps( app->device, app->mipGenPipeline, app->textureManager.get( maskedTextureB ).texture );
 
-        app->layers.remove( app->layers.length() - 1 );
-
         app->layers.add( app->layers.data()[index], maskedTextureA );
         app->layers.add( app->layers.data()[index], maskedTextureB );
 
         app->layers.remove( index );
         app->layers.move( index, app->layers.length() - 1 );
         app->layers.move( index, app->layers.length() - 1 );
+        app->layers.changeSelection( index, false );
+
+        app->layerHistory.resetToCheckpoint();
+        app->layerHistory.push( app->layers.createShrunkCopy() );
+        mc::submitEvent( mc::Events::ComputeSelectionBbox );
 
         app->layersModified = true;
     }
@@ -534,6 +523,20 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
     case mc::Events::AddImageToLayer:
         mc::addImageLayerFromFile( app, std::string( reinterpret_cast<char*>( eventData->sdlUserEvent.data1 ) ) );
         break;
+    case mc::Events::Undo:
+    {
+        const mc::LayerManager& undoLayers = app->layerHistory.undo();
+        app->layers.copyContents( undoLayers );
+        app->layersModified = true;
+        break;
+    }
+    case mc::Events::Redo:
+    {
+        const mc::LayerManager& redoLayers = app->layerHistory.redo();
+        app->layers.copyContents( redoLayers );
+        app->layersModified = true;
+        break;
+    }
     }
 
     std::free( eventData->sdlUserEvent.data1 );
@@ -668,6 +671,10 @@ SDL_AppResult SDL_AppEvent( void* appstate, SDL_Event* event )
             app->mlInference->genMask();
             submitEvent( mc::Events::SamUploadMask );
         }
+        else if( app->dragType != mc::CursorDragType::Select && app->mode != mc::Mode::Pan )
+        {
+            app->layerHistory.push( app->layers.createShrunkCopy() );
+        }
 
         // click selection if the mouse hasnt moved since mouse down
         if( app->mouseWindowPos == app->mouseDragStart && app->mode == mc::Mode::Cursor )
@@ -676,8 +683,8 @@ SDL_AppResult SDL_AppEvent( void* appstate, SDL_Event* event )
         }
         else if( app->dragType != mc::CursorDragType::Select )
         {
-            // dispatch selection compute after a tranform to recalculate bboxes without modyfying selection
-            app->viewParams.selectDispatch = mc::SelectDispatch::ComputeBbox;
+            // something was transformed so recalculate bbox
+            mc::submitEvent( mc::Events::ComputeSelectionBbox );
         }
         app->mouseDown = false;
         break;
@@ -841,19 +848,27 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     {
         // this might be easier to do if we construct the layer transform and inverse transform matricies but whatever
 
-        int layer = app->layers.getSingleSelectedImage();
+        int index       = app->layers.getSingleSelectedImage();
+        mc::Layer layer = app->layers.data()[index];
 
-        // see if the layer is mirrored
-        glm::vec3 cross = glm::cross( glm::vec3( app->layers.data()[layer].basisA, 0.0f ), glm::vec3( app->layers.data()[layer].basisB, 0.0f ) );
+        // check if the layer is mirrored
+        glm::vec3 cross = glm::cross( glm::vec3( layer.basisA, 0.0f ), glm::vec3( layer.basisB, 0.0f ) );
         bool mirrored   = glm::sign( cross ).z < 0.0f;
 
-        glm::vec2 basisA   = glm::normalize( app->layers.data()[layer].basisA );
-        glm::vec2 basisB   = glm::normalize( app->layers.data()[layer].basisB );
-        glm::vec2 offset   = app->layers.data()[layer].offset;
-        float width        = glm::length( app->layers.data()[layer].basisA );
-        float height       = glm::length( app->layers.data()[layer].basisB );
-        float offsetLocalx = glm::dot( offset, basisA ) / glm::dot( basisA, basisA );
-        float offsetLocaly = glm::dot( offset, basisB ) / glm::dot( basisB, basisB );
+        // set up all necessary data and calculate the "uncropped" layer data
+        glm::vec2 basisA   = glm::normalize( layer.basisA );
+        glm::vec2 basisB   = glm::normalize( layer.basisB );
+        float width        = glm::length( layer.basisA );
+        float height       = glm::length( layer.basisB );
+        float offsetLocalx = glm::dot( layer.offset, basisA ) / glm::dot( basisA, basisA );
+        float offsetLocaly = glm::dot( layer.offset, basisB ) / glm::dot( basisB, basisB );
+
+        mc::Layer uncroppedLayer = app->layers.getUncroppedLayer( index );
+
+        float uncroppedWidth        = glm::length( uncroppedLayer.basisA );
+        float uncroppedHeight       = glm::length( uncroppedLayer.basisB );
+        float uncroppedOffsetLocalx = glm::dot( uncroppedLayer.offset, basisA ) / glm::dot( basisA, basisA );
+        float uncroppedOffsetLocaly = glm::dot( uncroppedLayer.offset, basisB ) / glm::dot( basisA, basisA );
 
         // determine scaling factors along the basis vectors
         glm::vec2 mouseDeltaCanvas = app->mouseDelta / app->viewParams.scale;
@@ -878,14 +893,6 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         {
             orientation.x *= -1.0;
         }
-
-        // calculate uv coordinate offsets using uncropped layer
-        int uncroppedLayer          = app->layers.length() - 1;
-        float uncroppedWidth        = glm::length( app->layers.data()[uncroppedLayer].basisA );
-        float uncroppedHeight       = glm::length( app->layers.data()[uncroppedLayer].basisB );
-        glm::vec2 uncroppedOffset   = app->layers.data()[uncroppedLayer].offset;
-        float uncroppedOffsetLocalx = glm::dot( uncroppedOffset, basisA ) / glm::dot( basisA, basisA );
-        float uncroppedOffsetLocaly = glm::dot( uncroppedOffset, basisB ) / glm::dot( basisA, basisA );
 
         glm::vec2 uncroppedCornerTop    = glm::vec2( uncroppedOffsetLocalx, uncroppedOffsetLocaly ) - 0.5f * glm::vec2( uncroppedWidth, uncroppedHeight );
         glm::vec2 uncroppedCornerBottom = glm::vec2( uncroppedOffsetLocalx, uncroppedOffsetLocaly ) + 0.5f * glm::vec2( uncroppedWidth, uncroppedHeight );
@@ -925,16 +932,16 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         croppedCornerTop    = newCroppedCornerTop;
         croppedCornerBottom = newCroppedCornerBottom;
 
-        app->layers.data()[layer].uvTop =
+        app->layers.data()[index].uvTop =
             ( croppedCornerTop - uncroppedCornerTop ) / ( uncroppedCornerBottom - uncroppedCornerTop ) * static_cast<float>( mc::UV_MAX_VALUE );
-        app->layers.data()[layer].uvBottom =
+        app->layers.data()[index].uvBottom =
             ( croppedCornerBottom - uncroppedCornerTop ) / ( uncroppedCornerBottom - uncroppedCornerTop ) * static_cast<float>( mc::UV_MAX_VALUE );
 
-        app->layers.data()[layer].basisA = basisA * std::abs( croppedCornerBottom.x - croppedCornerTop.x );
-        app->layers.data()[layer].basisB = basisB * std::abs( croppedCornerBottom.y - croppedCornerTop.y );
+        app->layers.data()[index].basisA = basisA * std::abs( croppedCornerBottom.x - croppedCornerTop.x );
+        app->layers.data()[index].basisB = basisB * std::abs( croppedCornerBottom.y - croppedCornerTop.y );
 
         glm::vec2 localCenter            = ( croppedCornerTop + croppedCornerBottom ) * 0.5f;
-        app->layers.data()[layer].offset = basisA * localCenter.x + basisB * localCenter.y;
+        app->layers.data()[index].offset = basisA * localCenter.x + basisB * localCenter.y;
 
         app->layersModified = true;
     }
@@ -953,7 +960,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
     }
     else if( app->mode == mc::Mode::Text && !app->mergeTopLayers )
     {
-        app->layers.removeTop( app->layerEditStart );
+        app->layers.removeTop( app->layerHistory.getCheckpoint().length() );
 
         app->fontManager.buildText( mc::getInputTextString(), mc::getInputTextFont(), app->layers, mc::getInputTextAlignment(),
                                     ( glm::vec2( app->width, app->height ) * 0.5f - app->viewParams.canvasPos ) / app->viewParams.scale,
@@ -997,7 +1004,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         app->newMeshSize  = 0;
         for( int i = 0; i < app->layers.length(); ++i )
         {
-            if( i < app->mergeLayerStart )
+            if( i < app->layerHistory.getCheckpoint().length() )
             {
                 newMeshOffset += app->layers.data()[i].vertexBuffLength * sizeof( mc::Triangle );
             }
@@ -1039,7 +1046,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         int offset = 0;
         for( int i = 0; i < app->layers.length(); ++i )
         {
-            if( app->mode == mc::Mode::Cut && i == app->layerEditStart )
+            if( app->mode == mc::Mode::Cut && i == app->layerHistory.getCheckpoint().length() )
             {
                 break;
             }
@@ -1253,7 +1260,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         commandEncoderDesc.label = "Mask Render";
 
         wgpu::RenderPassEncoder maskRenderPassEnc = mc::createRenderPassEncoder<1>(
-            secondaryEncoder, { app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView }, { wgpu::Color{ 1.0, 1.0, 1.0, 1.0f } } );
+            secondaryEncoder, { app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView }, { wgpu::Color{ 1.0f, 1.0f, 1.0f, 1.0f } } );
 
         maskRenderPassEnc.SetPipeline( app->exportPipeline );
         maskRenderPassEnc.SetVertexBuffer( 0, app->vertexBuf );
@@ -1264,7 +1271,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         app->textureManager.bind( mc::ResourceHandle::invalidResource(), 2, maskRenderPassEnc );
 
         int firstTriangle = 0;
-        for( int i = 0; i < app->layerEditStart; ++i )
+        for( int i = 0; i < app->layerHistory.getCheckpoint().length(); ++i )
         {
             firstTriangle += app->layers.data()[i].vertexBuffLength;
         }
