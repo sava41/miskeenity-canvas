@@ -18,12 +18,15 @@ namespace mc
         const LayerManager& undo();
         const LayerManager& redo();
 
+        const LayerManager& getCurrent() const;
+
         bool atFront() const;
         bool atBack() const;
 
         void setCheckpoint();
         void removeCheckpoint();
         const LayerManager& resetToCheckpoint();
+        const LayerManager& getCheckpoint() const;
 
         size_t length() const;
 

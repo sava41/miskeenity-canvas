@@ -161,7 +161,6 @@ namespace mc
         TextureManager textureManager = TextureManager( 100 );
         MeshManager meshManager       = MeshManager( MaxMeshBufferTriangles );
         FontManager fontManager;
-        int layerEditStart  = 0;
         int mergeLayerStart = 0;
         int newMeshSize     = 0;
 

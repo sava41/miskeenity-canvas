@@ -104,8 +104,9 @@ namespace mc
         size_t length() const;
         size_t getTotalTriCount() const;
         Layer* data() const;
-        ResourceHandle& getTexture( int index );
-        ResourceHandle& getMask( int index );
+        Layer getUncroppedLayer( int index ) const;
+        const ResourceHandle& getTexture( int index ) const;
+        const ResourceHandle& getMask( int index ) const;
 
         void changeSelection( int index, bool isSelected );
         void clearSelection();

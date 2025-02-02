@@ -255,6 +255,28 @@ namespace mc
         return m_array.get();
     }
 
+    Layer LayerManager::getUncroppedLayer( int index ) const
+    {
+        if( index < 0 || index >= m_curLength )
+        {
+            return {};
+        }
+
+        Layer uncroppedLayer = m_array[index];
+
+        glm::vec2 scale = static_cast<float>( mc::UV_MAX_VALUE ) / glm::vec2( uncroppedLayer.uvBottom - uncroppedLayer.uvTop );
+        uncroppedLayer.basisA *= scale.x;
+        uncroppedLayer.basisB *= scale.y;
+
+        glm::vec2 uvCenter = ( glm::vec2( uncroppedLayer.uvTop ) + glm::vec2( uncroppedLayer.uvBottom ) ) / static_cast<float>( mc::UV_MAX_VALUE ) * 0.5f;
+        uncroppedLayer.offset -= uncroppedLayer.basisA * ( uvCenter.x - 0.5f ) + uncroppedLayer.basisB * ( uvCenter.y - 0.5f );
+
+        uncroppedLayer.uvTop    = glm::u16vec2( 0 );
+        uncroppedLayer.uvBottom = glm::u16vec2( mc::UV_MAX_VALUE );
+
+        return uncroppedLayer;
+    }
+
     void LayerManager::changeSelection( int index, bool isSelected )
     {
         if( index < 0 || index >= m_curLength )
@@ -479,7 +501,7 @@ namespace mc
         m_totalNumTri = count;
     }
 
-    ResourceHandle& LayerManager::getTexture( int index )
+    const ResourceHandle& LayerManager::getTexture( int index ) const
     {
         // were using an invalid resource handle for layers with no textures
         if( ( index < 0 || index >= m_curLength ) || !( m_array[index].flags & LayerFlags::HasColorTex ) )
@@ -490,7 +512,7 @@ namespace mc
         return m_textureHandles.at( m_array[index].texture );
     }
 
-    ResourceHandle& LayerManager::getMask( int index )
+    const ResourceHandle& LayerManager::getMask( int index ) const
     {
         // were using an invalid resource handle for layers with no textures
         if( ( index < 0 || index >= m_curLength ) || !( m_array[index].flags & LayerFlags::HasMaskTex || m_array[index].flags & LayerFlags::HasSdfMaskTex ) )

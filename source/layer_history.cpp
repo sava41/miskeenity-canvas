@@ -50,6 +50,11 @@ namespace mc
         return m_mementos[m_currentMemento];
     }
 
+    const LayerManager& LayerHistory::getCurrent() const
+    {
+        return m_mementos[m_currentMemento];
+    }
+
     bool LayerHistory::atFront() const
     {
         return m_front == ( m_currentMemento + 1 ) % m_maxLength;
@@ -84,6 +89,16 @@ namespace mc
             m_front          = ( m_currentMemento + 1 ) % m_maxLength;
 
             m_checkpoint = -1;
+        }
+
+        return m_mementos[m_currentMemento];
+    }
+
+    const LayerManager& LayerHistory::getCheckpoint() const
+    {
+        if( m_checkpoint != -1 )
+        {
+            return m_mementos[m_checkpoint];
         }
 
         return m_mementos[m_currentMemento];
