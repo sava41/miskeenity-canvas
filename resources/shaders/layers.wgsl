@@ -30,7 +30,7 @@ struct Uniforms {
     mousePos: vec2<f32>,
     mouseSelectPos: vec2<f32>,
     selectType: u32,
-    viewType: u32,
+    viewFlags: u32,
     windowWidth: u32,
     windowHeight: u32,
     scale: f32,
@@ -119,7 +119,7 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
     let masks: f32 = maskValue * sdfMask * pillMask * in.color.a;
 
     var out: FragmentOutput;
-    out.color = select(vec4<f32>(sdfColor * masks, masks), texColor, bool(in.flags & (1 << 1))) * select(1.0, f32(in.flags & 1), bool(uniforms.viewType == 2));
+    out.color = select(vec4<f32>(sdfColor * masks, masks), texColor, bool(in.flags & (1 << 1))) * select(1.0, f32(in.flags & 1), bool(uniforms.viewFlags & (1 << 0)));
     out.selectionOccludedMask = vec4<f32>(f32(in.flags & 1), 0.0, 0.0, out.color.a);
     out.selectionMask = vec4<f32>(1.0, 0.0, 0.0, out.color.a * f32(in.flags & 1));
 

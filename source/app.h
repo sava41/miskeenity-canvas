@@ -42,11 +42,10 @@ namespace mc
         None        = 3
     };
 
-    enum class ViewType : uint32_t
+    enum ViewFlags : uint32_t
     {
-        Canvas                = 0,
-        CaptureTarget         = 1,
-        SelectionRasterTarget = 2
+        SelectionRasterTarget  = 1 << 0,
+        RenderSelectionOutline = 1 << 1,
     };
 
     enum class CursorDragType
@@ -69,7 +68,7 @@ namespace mc
         glm::vec2 mousePos            = glm::vec2( 0.0 );
         glm::vec2 mouseSelectPos      = glm::vec2( 0.0 );
         SelectDispatch selectDispatch = SelectDispatch::None;
-        ViewType viewType             = ViewType::Canvas;
+        uint32_t viewFlags;
         uint32_t width;
         uint32_t height;
         float scale        = 1.0;

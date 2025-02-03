@@ -486,7 +486,7 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
         app->layers.remove( index );
         app->layers.move( index, app->layers.length() - 1 );
         app->layers.move( index, app->layers.length() - 1 );
-        app->layers.changeSelection( index, false );
+        app->layers.changeSelection( app->mode == mc::Mode::Cut ? index : index + 1, false );
 
         app->layerHistory.resetToCheckpoint();
         app->layerHistory.push( app->layers.createShrunkCopy() );
@@ -973,6 +973,15 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         app->viewParams.numLayers = static_cast<uint32_t>( app->layers.length() );
     }
 
+    if( app->mode == mc::Mode::Cursor || app->mode == mc::Mode::Pan )
+    {
+        app->viewParams.viewFlags = app->viewParams.viewFlags | mc::ViewFlags::RenderSelectionOutline;
+    }
+    else
+    {
+        app->viewParams.viewFlags = app->viewParams.viewFlags & ~mc::ViewFlags::RenderSelectionOutline;
+    }
+
     app->viewParams.ticks = static_cast<uint32_t>( SDL_GetTicks() );
     app->device.GetQueue().WriteBuffer( app->viewParamBuf, 0, &app->viewParams, sizeof( mc::Uniforms ) );
 
@@ -1116,7 +1125,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         if( app->copyTextureHandle->valid() && saveWidth > 0 && saveHeight > 0 )
         {
             mc::Uniforms outputViewParams = app->viewParams;
-            outputViewParams.viewType     = mc::ViewType::CaptureTarget;
+            outputViewParams.viewFlags    = 0;
 
             float l = ( saveMinX - app->viewParams.canvasPos.x ) * 1.0 / app->viewParams.scale;
             float r = ( saveWidth + saveMinX - app->viewParams.canvasPos.x ) * 1.0 / app->viewParams.scale;
@@ -1179,7 +1188,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
         if( app->copyTextureHandle->valid() && rasterWidth > 0 && rasterHeight > 0 )
         {
             mc::Uniforms outputViewParams = app->viewParams;
-            outputViewParams.viewType     = mc::ViewType::SelectionRasterTarget;
+            outputViewParams.viewFlags    = mc::ViewFlags::SelectionRasterTarget;
 
             float l = app->selectionAabb.z;
             float r = app->selectionAabb.x;

@@ -233,8 +233,6 @@ namespace mc
             for( int j = 0; j < getInputWidth(); ++j )
             {
                 uint8_t maskValue = std::clamp<float>( m_onnxData->outputTensorValuesSam[i * getMaxWidth() + j] * 255, 0.0, 255.0 );
-                // invert mask value because we expect black as the selection
-                maskValue                                       = 255 - maskValue;
                 m_maskData[i * getInputWidth() * 4 + j * 4 + 0] = maskValue;
                 m_maskData[i * getInputWidth() * 4 + j * 4 + 1] = maskValue;
                 m_maskData[i * getInputWidth() * 4 + j * 4 + 2] = maskValue;

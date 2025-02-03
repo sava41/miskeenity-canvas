@@ -4,7 +4,7 @@ struct Uniforms {
     mousePos: vec2<f32>,
     mouseSelectPos: vec2<f32>,
     selectType: u32,
-    viewType: u32,
+    viewFlags: u32,
     windowWidth: u32,
     windowHeight: u32,
     scale: f32,
@@ -74,8 +74,10 @@ fn fs_post(@location(0) uv : vec2<f32>) -> @location(0) vec4<f32> {
         onEdge = onEdge || (testValue.r < 1.0);
     }
 
+    let renderOutline: bool =  bool(uniforms.viewFlags & (1 << 1));
+
     let diagonals: u32 = (u32(uv.x * f32(uniforms.windowWidth)) - u32(uv.y * f32(uniforms.windowHeight)) + uniforms.ticks / 50) & 8;
     let diagonalsColored: vec4<f32> = mix(orange600, gray100, clamp(f32(diagonals), 0.0, 1.0));
 
-    return mix(textureSample(texture, textureSampler, uv), diagonalsColored, clamp(f32(onEdge) - (1.0 - textureSample(maskOccluded, maskOccludedSampler, uv).r), 0.0, 1.0));
+    return mix(textureSample(texture, textureSampler, uv), diagonalsColored, f32(renderOutline) * clamp(f32(onEdge) - (1.0 - textureSample(maskOccluded, maskOccludedSampler, uv).r), 0.0, 1.0));
 }
