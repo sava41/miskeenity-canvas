@@ -23,3 +23,23 @@ jobs:
                 name: miskeenity-canvas-${{ matrix.target }}-${{ matrix.arch }}
                 path: |
                     build/MinSizeRel/*.exe
+    build-mac:
+        name: Build for Apple
+        runs-on: macos-14
+        strategy:
+          fail-fast: false
+          matrix:
+              target: ['']
+
+        steps:
+          - uses: actions/checkout@v4
+            with:
+                submodules: recursive
+          - name: Setup Xcode version
+            uses: maxim-lobanov/setup-xcode@v1.6.0
+            with:
+                xcode-version: "16.1"
+          - name: Configure
+            run: cmake -G "Xcode" -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO -DCMAKE_SYSTEM_NAME=${{ matrix.target }} -DSDL_STATIC=ON -DSDL_SHARED=OFF -S . -B build
+          - name: Build
+            run: cmake --build build --target miskeenity-canvas --config Release
