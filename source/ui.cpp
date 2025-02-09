@@ -178,7 +178,7 @@ namespace mc
         configRoboto.FontDataOwnedByAtlas = false;
         configRoboto.OversampleH          = 2;
         configRoboto.OversampleV          = 2;
-        configRoboto.GlyphExtraSpacing    = glm::vec2( 1.0f, 0 );
+        configRoboto.GlyphExtraAdvanceX   = 1.0f;
         ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( b::embed<"./resources/fonts/Roboto.ttf">().data() ),
                                                     b::embed<"./resources/fonts/Roboto.ttf">().size(), 17.0f * g_uiScale, &configRoboto );
 

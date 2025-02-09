@@ -1,8 +1,12 @@
 cmake_minimum_required(VERSION 3.28)
 project(miskeenity-canvas LANGUAGES CXX C)
 
+if (APPLE)
+    enable_language(OBJC)
+endif()
+
 if (NOT CMAKE_SYSTEM_NAME STREQUAL Emscripten)
-find_package(Python COMPONENTS Interpreter Development REQUIRED)
+    find_package(Python COMPONENTS Interpreter Development REQUIRED)
 endif()
 
 include(FetchContent)
@@ -100,10 +104,11 @@ endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     set_source_files_properties(source/webgpu_surface.c PROPERTIES COMPILE_FLAGS "-x objective-c")
-    target_link_libraries(miskeenity-canvas
+    target_link_libraries(miskeenity-canvas PRIVATE
         "-framework QuartzCore"
+        "-framework CoreVideo"
+        "-framework IOKit"
         "-framework Cocoa"
-        "-framework Metal"
     )
 endif()
 

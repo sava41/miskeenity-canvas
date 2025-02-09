@@ -46,7 +46,7 @@ namespace mc
     const std::array<int64_t, 1> ImageSizeShape    = { 2 };
 
     // silly but idk an alternative
-    const std::array<float, 65536> MaskInputValues;
+    const std::array<float, 65536> MaskInputValues = {};
 
     MlInference::MlInference( const std::string& preModelPath, const std::string& samModelPath, int threadsNumber )
         : m_valid( true )
@@ -198,7 +198,7 @@ namespace mc
         std::array<int64_t, 3> inputPointShape  = { 1, static_cast<int64_t>( m_points.size() ), 2 };
         std::array<int64_t, 2> pointLabelsShape = { 1, static_cast<int64_t>( m_points.size() ) };
 
-        std::array<float, 2> inputImageSize{ getMaxHeight(), getMaxWidth() };
+        std::array<float, 2> inputImageSize{ static_cast<float>(getMaxHeight()), static_cast<float>(getMaxWidth()) };
 
         std::array<Ort::Value, 6> inputTensorsSam{ Ort::Value::CreateTensor<float>( m_onnxData->memoryInfo, m_onnxData->outputTensorValuesPre.data(),
                                                                                     m_onnxData->outputTensorValuesPre.size(), m_onnxData->outputShapePre.data(),
