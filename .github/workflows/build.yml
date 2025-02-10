@@ -40,7 +40,7 @@ jobs:
             with:
                 xcode-version: "16.1"
           - name: Configure
-            run: cmake -G "Xcode" -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO -DCMAKE_SYSTEM_NAME=${{ matrix.target }} -A ${{ matrix.arch }} -DSDL_STATIC=ON -DSDL_SHARED=OFF -S . -B build
+            run: cmake -G "Xcode" -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO -DCMAKE_SYSTEM_NAME=${{ matrix.target }} -DSDL_STATIC=ON -DSDL_SHARED=OFF -S . -B build
           - name: Build
             run: cmake --build build --target miskeenity-canvas --config MinSizeRel --parallel && cmake --install build --config MinSizeRel --component miskeenity-canvas
           - name: Upload Build
