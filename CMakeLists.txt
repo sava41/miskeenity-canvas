@@ -110,9 +110,33 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
         "-framework IOKit"
         "-framework Cocoa"
     )
+
+    # Make the executable look for dylibs in the same directory as the executable
+    set_target_properties(miskeenity-canvas PROPERTIES
+        BUILD_WITH_INSTALL_RPATH TRUE
+        INSTALL_RPATH "@executable_path"
+    )
+
+    #set_target_properties(miskeenity-canvas PROPERTIES
+    #    MACOSX_BUNDLE TRUE
+    #)
+    
+elseif(CMAKE_SYSTEM_NAME STREQUAL Windows)
+    #set_target_properties(miskeenity-canvas PROPERTIES
+    #    WIN32_EXECUTABLE TRUE
+    #)
 endif()
 
 # explicitly strip dead code
 if (CMAKE_C_COMPILER_ID MATCHES "Clang" AND NOT CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     target_link_options(miskeenity-canvas PRIVATE LINKER:-dead_strip)
 endif()
+
+# configure installation
+set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR})
+
+#if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+#    install(TARGETS miskeenity-canvas BUNDLE DESTINATION bin)
+#else()
+    install(TARGETS miskeenity-canvas RUNTIME DESTINATION bin)
+#endif()
