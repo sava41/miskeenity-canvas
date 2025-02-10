@@ -117,14 +117,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
         INSTALL_RPATH "@executable_path"
     )
 
-    #set_target_properties(miskeenity-canvas PROPERTIES
-    #    MACOSX_BUNDLE TRUE
-    #)
-    
-elseif(CMAKE_SYSTEM_NAME STREQUAL Windows)
-    #set_target_properties(miskeenity-canvas PROPERTIES
-    #    WIN32_EXECUTABLE TRUE
-    #)
 endif()
 
 # explicitly strip dead code
@@ -135,8 +127,4 @@ endif()
 # configure installation
 set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR})
 
-#if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-#    install(TARGETS miskeenity-canvas BUNDLE DESTINATION bin)
-#else()
-    install(TARGETS miskeenity-canvas RUNTIME DESTINATION bin)
-#endif()
+install(TARGETS miskeenity-canvas COMPONENT miskeenity-canvas RUNTIME DESTINATION bin)

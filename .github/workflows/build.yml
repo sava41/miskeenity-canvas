@@ -16,7 +16,7 @@ jobs:
           - name: Configure
             run: cmake -B build -DCMAKE_SYSTEM_NAME=${{ matrix.target }} -DCMAKE_SYSTEM_VERSION="10.0" -A ${{ matrix.arch }}
           - name: Build
-            run: cmake --build build --target miskeenity-canvas --config MinSizeRel --parallel && cmake --install build --config MinSizeRel
+            run: cmake --build build --target miskeenity-canvas --config MinSizeRel --parallel && cmake --install build --config MinSizeRel --component miskeenity-canvas
           - name: Upload Build
             uses: actions/upload-artifact@v4
             with: 
@@ -41,7 +41,7 @@ jobs:
           - name: Configure
             run: cmake -G "Xcode" -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO -DCMAKE_SYSTEM_NAME=${{ matrix.target }} -DSDL_STATIC=ON -DSDL_SHARED=OFF -S . -B build
           - name: Build
-            run: cmake --build build --target miskeenity-canvas --config MinSizeRel --parallel && cmake --install build --config MinSizeRel
+            run: cmake --build build --target miskeenity-canvas --config MinSizeRel --parallel && cmake --install build --config MinSizeRel --component miskeenity-canvas
           - name: Upload Build
             uses: actions/upload-artifact@v4
             with: 
