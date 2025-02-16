@@ -358,6 +358,12 @@ namespace mc
         {
             switch( g_mouseLocationUI )
             {
+            case MouseLocationUI::MoveHandle:
+            case MouseLocationUI::RotateHandle:
+            case MouseLocationUI::ScaleHandleTL:
+            case MouseLocationUI::ScaleHandleTR:
+            case MouseLocationUI::ScaleHandleBL:
+            case MouseLocationUI::ScaleHandleBR:
             case MouseLocationUI::None:
                 ImGui::SetMouseCursor( ImGuiMouseCursor_None );
                 drawList->AddCircle( mousePos, g_paintRadius * scale, Spectrum::Static::BLACK, 600, ceilf( g_uiScale ) );
@@ -1200,14 +1206,23 @@ namespace mc
 
         if( app->mode == Mode::Cut || app->mode == Mode::SegmentCut )
         {
-            int index = app->layers.getSingleSelectedImage();
+            int index   = app->layers.getSingleSelectedImage();
+            Layer layer = app->layers.data()[index];
 
-            glm::vec2 uvTop    = glm::vec2( app->layers.data()[index].uvTop ) / float( UV_MAX_VALUE );
-            glm::vec2 uvBottom = glm::vec2( app->layers.data()[index].uvBottom ) / float( UV_MAX_VALUE );
+            // see if the layer is mirrored
+            glm::vec3 cross = glm::cross( glm::vec3( layer.basisA, 0.0f ), glm::vec3( layer.basisB, 0.0f ) );
+            float sign      = glm::sign( cross ).z;
 
-            drawList->AddImageQuad( (ImTextureID)(intptr_t)app->textureManager.get( app->layers.getTexture( index ) ).textureView.Get(),
-                                    g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR, g_transformBox.cornerHandleBL,
-                                    uvTop, glm::vec2( uvBottom.x, uvTop.y ), uvBottom, glm::vec2( uvTop.x, uvBottom.y ) );
+            glm::vec2 cornerTL = sign > 0.0 ? g_transformBox.cornerHandleTL : g_transformBox.cornerHandleTR;
+            glm::vec2 cornerBR = sign > 0.0 ? g_transformBox.cornerHandleBR : g_transformBox.cornerHandleBL;
+            glm::vec2 cornerTR = sign > 0.0 ? g_transformBox.cornerHandleTR : g_transformBox.cornerHandleTL;
+            glm::vec2 cornerBL = sign > 0.0 ? g_transformBox.cornerHandleBL : g_transformBox.cornerHandleBR;
+
+            glm::vec2 uvTop    = glm::vec2( layer.uvTop ) / float( UV_MAX_VALUE );
+            glm::vec2 uvBottom = glm::vec2( layer.uvBottom ) / float( UV_MAX_VALUE );
+
+            drawList->AddImageQuad( (ImTextureID)(intptr_t)app->textureManager.get( app->layers.getTexture( index ) ).textureView.Get(), cornerTL, cornerTR,
+                                    cornerBR, cornerBL, uvTop, glm::vec2( uvBottom.x, uvTop.y ), uvBottom, glm::vec2( uvTop.x, uvBottom.y ) );
 
             drawShadedRectangleMask(
                 app->width, app->height, app->selectionAabb * app->viewParams.scale + glm::vec4( app->viewParams.canvasPos, app->viewParams.canvasPos ),
@@ -1215,9 +1230,8 @@ namespace mc
 
             if( app->editMaskTextureHandle.get() && ( app->mode == Mode::Cut || ( app->mode == Mode::SegmentCut && app->mlInference->getPoints().size() ) ) )
             {
-                drawList->AddImageQuad( (ImTextureID)(intptr_t)app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView.Get(),
-                                        g_transformBox.cornerHandleTL, g_transformBox.cornerHandleTR, g_transformBox.cornerHandleBR,
-                                        g_transformBox.cornerHandleBL, uvTop, glm::vec2( uvBottom.x, uvTop.y ), uvBottom, glm::vec2( uvTop.x, uvBottom.y ),
+                drawList->AddImageQuad( (ImTextureID)(intptr_t)app->textureManager.get( *app->editMaskTextureHandle.get() ).textureView.Get(), cornerTL,
+                                        cornerTR, cornerBR, cornerBL, uvTop, glm::vec2( uvBottom.x, uvTop.y ), uvBottom, glm::vec2( uvTop.x, uvBottom.y ),
                                         Spectrum::ORANGE600 & 0x00FFFFFF | 0x55000000 );
             }
             else
