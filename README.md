@@ -27,7 +27,8 @@ Cross platform 2d infinite canvas app inspired by [dingboard.com](https://dingbo
 
 ```bash
 > cmake -B build -DCMAKE_BUILD_TYPE=<type>
-> cmake --build build
+> cmake --build build --config <type>
+> cmake --install build --component miskeenity-canvas
 ```
 
 ### Using SAM for Image Segmentation
