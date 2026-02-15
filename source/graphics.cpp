@@ -22,44 +22,43 @@ namespace mc
             return false;
         }
 
-        wgpu::SupportedLimits supportedLimits;
+        wgpu::Limits supportedLimits;
         app->adapter.GetLimits( &supportedLimits );
 
-        app->maxBufferSize = std::min<uint64_t>( MaxMeshBufferSize, supportedLimits.limits.maxBufferSize );
+        app->maxBufferSize = std::min<uint64_t>( MaxMeshBufferSize, supportedLimits.maxBufferSize );
 
-        wgpu::RequiredLimits requiredLimits;
-        requiredLimits.limits.maxVertexAttributes = 6;
-        requiredLimits.limits.maxVertexBuffers    = 1;
-        requiredLimits.limits.maxBufferSize       = app->maxBufferSize;
-        // requiredLimits.limits.maxVertexBufferArrayStride = sizeof(WGPUVertexAttributes);
-        requiredLimits.limits.maxUniformBufferBindingSize     = mc::NumLayers * sizeof( mc::Layer );
-        requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
-        requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
-        requiredLimits.limits.maxInterStageShaderComponents   = 8;
-        requiredLimits.limits.maxBindGroups                   = 4;
-        requiredLimits.limits.maxUniformBuffersPerShaderStage = 1;
-        requiredLimits.limits.maxUniformBufferBindingSize     = 16 * 4 * sizeof( float );
+        wgpu::Limits requiredLimits;
+        requiredLimits.maxVertexAttributes = 6;
+        requiredLimits.maxVertexBuffers    = 1;
+        requiredLimits.maxBufferSize       = app->maxBufferSize;
+        // requiredLimits.maxVertexBufferArrayStride = sizeof(WGPUVertexAttributes);
+        requiredLimits.maxUniformBufferBindingSize     = mc::NumLayers * sizeof( mc::Layer );
+        requiredLimits.minStorageBufferOffsetAlignment = supportedLimits.minStorageBufferOffsetAlignment;
+        requiredLimits.minUniformBufferOffsetAlignment = supportedLimits.minUniformBufferOffsetAlignment;
+        requiredLimits.maxInterStageShaderVariables   = 8;
+        requiredLimits.maxBindGroups                   = 4;
+        requiredLimits.maxUniformBuffersPerShaderStage = 1;
+        requiredLimits.maxUniformBufferBindingSize     = 16 * 4 * sizeof( float );
         // Allow textures up to 2K
-        requiredLimits.limits.maxTextureDimension1D            = 2048;
-        requiredLimits.limits.maxTextureDimension2D            = 2048;
-        requiredLimits.limits.maxTextureArrayLayers            = 1;
-        requiredLimits.limits.maxSampledTexturesPerShaderStage = 1;
-        requiredLimits.limits.maxSamplersPerShaderStage        = 1;
+        requiredLimits.maxTextureDimension1D            = 2048;
+        requiredLimits.maxTextureDimension2D            = 2048;
+        requiredLimits.maxTextureArrayLayers            = 1;
+        requiredLimits.maxSampledTexturesPerShaderStage = 1;
+        requiredLimits.maxSamplersPerShaderStage        = 1;
 
         wgpu::DeviceDescriptor deviceDesc;
         deviceDesc.label              = "Device";
         deviceDesc.requiredLimits     = &requiredLimits;
         deviceDesc.defaultQueue.label = "Main Queue";
 #if !defined( SDL_PLATFORM_EMSCRIPTEN )
-        deviceDesc.uncapturedErrorCallbackInfo.callback = []( WGPUErrorType type, char const* message, void* userData )
-        {
-            SDL_Log( "Device error type: %d\n", type );
-            SDL_Log( "Device error message: %s\n", message );
-
-            mc::AppContext* app = static_cast<mc::AppContext*>( userData );
-            app->appQuit        = true;
-        };
-        deviceDesc.uncapturedErrorCallbackInfo.userdata = app;
+        deviceDesc.SetUncapturedErrorCallback(
+            []( const wgpu::Device&, wgpu::ErrorType type, wgpu::StringView message, mc::AppContext* ctx )
+            {
+                SDL_Log( "Device error type: %d\n", static_cast<int>( type ) );
+                SDL_Log( "Device error message: %.*s\n", static_cast<int>( message.length ), message.data );
+                ctx->appQuit = true;
+            },
+            app );
 #endif
         app->device = mc::requestDevice( app->adapter, &deviceDesc );
 
@@ -102,7 +101,7 @@ namespace mc
         vertexBufLayout[0].attributeCount = static_cast<uint32_t>( vertexAttr.size() );
         vertexBufLayout[0].attributes     = vertexAttr.data();
 
-        wgpu::ShaderModuleWGSLDescriptor shaderCodeDesc;
+        wgpu::ShaderSourceWGSL shaderCodeDesc;
         shaderCodeDesc.code = b::embed<"./resources/shaders/layers.wgsl">().data();
 
         wgpu::ShaderModuleDescriptor shaderDesc;
@@ -277,7 +276,7 @@ namespace mc
 
         // Set up post process pipeline
         {
-            wgpu::ShaderModuleWGSLDescriptor postShaderCodeDesc;
+            wgpu::ShaderSourceWGSL postShaderCodeDesc;
             postShaderCodeDesc.code = b::embed<"./resources/shaders/postprocess.wgsl">().data();
 
             wgpu::ShaderModuleDescriptor postShaderDesc;
@@ -328,7 +327,7 @@ namespace mc
 
         // Set up compute shader used to compute selection
         {
-            wgpu::ShaderModuleWGSLDescriptor selectionShaderCodeDesc;
+            wgpu::ShaderSourceWGSL selectionShaderCodeDesc;
             selectionShaderCodeDesc.code = b::embed<"./resources/shaders/selection.wgsl">().data();
 
             wgpu::ShaderModuleDescriptor selectionShaderModuleDesc;
@@ -384,7 +383,7 @@ namespace mc
         // Set up compute shader used to assemble the vertex buffer
         {
 
-            wgpu::ShaderModuleWGSLDescriptor meshShaderCodeDesc;
+            wgpu::ShaderSourceWGSL meshShaderCodeDesc;
             meshShaderCodeDesc.code = b::embed<"./resources/shaders/mesh.wgsl">().data();
 
             wgpu::ShaderModuleDescriptor meshShaderModuleDesc;
@@ -416,7 +415,7 @@ namespace mc
         wgpu::BindGroupLayout readGroupLayout  = createReadTextureBindGroupLayout( app->device );
         wgpu::BindGroupLayout writeGroupLayout = createWriteTextureBindGroupLayout( app->device );
 
-        wgpu::ShaderModuleWGSLDescriptor preAlphaShaderCodeDesc;
+        wgpu::ShaderSourceWGSL preAlphaShaderCodeDesc;
         preAlphaShaderCodeDesc.code = b::embed<"./resources/shaders/prealpha.wgsl">().data();
 
         wgpu::ShaderModuleDescriptor preAlphaShaderModuleDesc;
@@ -440,7 +439,7 @@ namespace mc
 
         app->preAlphaPipeline = app->device.CreateComputePipeline( &pipelineDesc );
 
-        wgpu::ShaderModuleWGSLDescriptor mipGenShaderCodeDesc;
+        wgpu::ShaderSourceWGSL mipGenShaderCodeDesc;
         mipGenShaderCodeDesc.code = b::embed<"./resources/shaders/mipgen.wgsl">().data();
 
         wgpu::ShaderModuleDescriptor mipGenShaderModuleDesc;
@@ -455,7 +454,7 @@ namespace mc
 
         app->mipGenPipeline = app->device.CreateComputePipeline( &pipelineDesc );
 
-        wgpu::ShaderModuleWGSLDescriptor maskMutiplyShaderCodeDesc;
+        wgpu::ShaderSourceWGSL maskMutiplyShaderCodeDesc;
         maskMutiplyShaderCodeDesc.code = b::embed<"./resources/shaders/maskmultiply.wgsl">().data();
 
         wgpu::ShaderModuleDescriptor maskMutiplyShaderModuleDesc;
@@ -614,13 +613,13 @@ namespace mc
 
     void uploadTexture( const wgpu::Queue& queue, const wgpu::Texture& texture, const void* data, int width, int height, int channels )
     {
-        wgpu::ImageCopyTexture imageCopyTexture;
+        wgpu::TexelCopyTextureInfo imageCopyTexture;
         imageCopyTexture.texture  = texture;
         imageCopyTexture.mipLevel = 0;
         imageCopyTexture.origin   = { 0, 0, 0 };
         imageCopyTexture.aspect   = wgpu::TextureAspect::All;
 
-        wgpu::TextureDataLayout textureDataLayout;
+        wgpu::TexelCopyBufferLayout textureDataLayout;
         textureDataLayout.offset       = 0;
         textureDataLayout.bytesPerRow  = width * channels;
         textureDataLayout.rowsPerImage = height;
@@ -727,12 +726,12 @@ namespace mc
 
         wgpu::Buffer copyBuffer = device.CreateBuffer( &layerBufDesc );
 
-        wgpu::ImageCopyTexture copyTextureDescritor;
+        wgpu::TexelCopyTextureInfo copyTextureDescritor;
         copyTextureDescritor.texture  = texture;
         copyTextureDescritor.origin   = { 0, 0 };
         copyTextureDescritor.mipLevel = mipLevel;
 
-        wgpu::ImageCopyBuffer copyBufferDescriptor;
+        wgpu::TexelCopyBufferInfo copyBufferDescriptor;
         copyBufferDescriptor.buffer = copyBuffer;
 
         // this needs to be multiple of 256
@@ -757,21 +756,20 @@ namespace mc
         };
         UserData userData;
 
-        auto onDeviceRequestEnded = []( WGPURequestDeviceStatus status, WGPUDevice device, char const* message, void* pUserData )
+        auto onDeviceRequestEnded = [&userData]( wgpu::RequestDeviceStatus status, wgpu::Device device, const char* message )
         {
-            UserData* userData = reinterpret_cast<UserData*>( pUserData );
-            if( status == WGPURequestDeviceStatus_Success )
+            if( status == wgpu::RequestDeviceStatus::Success )
             {
-                userData->device = wgpu::Device::Acquire( device );
+                userData.device = std::move( device );
             }
             else
             {
                 SDL_Log( "Could not get WebGPU device: %s", message );
             }
-            userData->requestEnded = true;
+            userData.requestEnded = true;
         };
 
-        adapter.RequestDevice( descriptor, onDeviceRequestEnded, reinterpret_cast<void*>( &userData ) );
+        adapter.RequestDevice( descriptor, wgpu::CallbackMode::AllowSpontaneous, onDeviceRequestEnded );
 
         // request device is async on web so hacky solution for now is to sleep
 #if defined( SDL_PLATFORM_EMSCRIPTEN )
@@ -793,21 +791,20 @@ namespace mc
         };
         UserData userData;
 
-        auto onAdapterRequestEnded = []( WGPURequestAdapterStatus status, WGPUAdapter adapter, char const* message, void* pUserData )
+        auto onAdapterRequestEnded = [&userData]( wgpu::RequestAdapterStatus status, wgpu::Adapter adapter, const char* message )
         {
-            UserData* userData = reinterpret_cast<UserData*>( pUserData );
-            if( status == WGPURequestAdapterStatus_Success )
+            if( status == wgpu::RequestAdapterStatus::Success )
             {
-                userData->adapter = wgpu::Adapter::Acquire( adapter );
+                userData.adapter = std::move( adapter );
             }
             else
             {
                 SDL_Log( "Could not get WebGPU adapter %s", message );
             }
-            userData->requestEnded = true;
+            userData.requestEnded = true;
         };
 
-        instance.RequestAdapter( options, onAdapterRequestEnded, (void*)&userData );
+        instance.RequestAdapter( options, wgpu::CallbackMode::AllowSpontaneous, onAdapterRequestEnded );
 
         // request adapter is async on web so hacky solution for now is to sleep
 #if defined( SDL_PLATFORM_EMSCRIPTEN )

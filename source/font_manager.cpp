@@ -112,8 +112,9 @@ namespace mc
 
             m_fontTextures.push_back( textureManager.add( atlasData, AtlasWidth, AtlasWidth, 1, device ) );
 
-            device.GetQueue().OnSubmittedWorkDone( []( WGPUQueueWorkDoneStatus status, void* userData )
-                                                   { delete reinterpret_cast<unsigned char*>( userData ); }, atlasData );
+            device.GetQueue().OnSubmittedWorkDone( wgpu::CallbackMode::AllowProcessEvents,
+                []( wgpu::QueueWorkDoneStatus, const char*, unsigned char* data )
+                { delete data; }, atlasData );
         }
     }
 

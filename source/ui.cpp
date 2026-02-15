@@ -163,7 +163,7 @@ namespace mc
         style.TabRounding               = 3.0f;
         style.TabBorderSize             = 0.0f;
         style.TabBarBorderSize          = 2.0f;
-        style.TabMinWidthForCloseButton = 0.0f;
+        style.TabCloseButtonMinWidthUnselected = 0.0f;
         style.ColorButtonPosition       = ImGuiDir_Right;
         style.ButtonTextAlign           = glm::vec2( 0.5f, 0.5f );
         style.SelectableTextAlign       = glm::vec2( 0.0f, 0.0f );
@@ -412,7 +412,7 @@ namespace mc
                     glm::vec2 p4 = mousePos + glm::vec2( 1.0f, -1.0f ) * 12.0f * g_uiScale;
 
                     // No idea how we associate g_cursorIconRanges to their respective icon so I'm just going to hardcode for now
-                    const ImFontGlyph* glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[0] );
+                    const ImFontGlyph* glyph = ImGui::GetFontBaked()->FindGlyph( g_cursorIconRanges[0] );
                     drawList->AddImageQuad( ImGui::GetIO().Fonts->TexID, p1, p2, p3, p4, glm::vec2( glyph->U1, glyph->V1 ), glm::vec2( glyph->U0, glyph->V1 ),
                                             glm::vec2( glyph->U0, glyph->V0 ), glm::vec2( glyph->U1, glyph->V0 ), Spectrum::Static::BLACK );
                 }
@@ -437,26 +437,26 @@ namespace mc
                 case MouseLocationUI::RotateHandle:
                 {
                     // No idea how we associate g_cursorIconRanges to their respective icon so I'm just going to hardcode for now
-                    glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[2] );
+                    glyph = ImGui::GetFontBaked()->FindGlyph( g_cursorIconRanges[2] );
                     angle = glm::vec2( 1.0, 0.0 );
                 }
                 break;
                 case MouseLocationUI::ScaleHandleTL:
                 case MouseLocationUI::ScaleHandleBR:
                 {
-                    glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[4] );
+                    glyph = ImGui::GetFontBaked()->FindGlyph( g_cursorIconRanges[4] );
                     angle = glm::vec2( -angle.y, angle.x );
                 }
                 break;
                 case MouseLocationUI::ScaleHandleTR:
                 case MouseLocationUI::ScaleHandleBL:
                 {
-                    glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[4] );
+                    glyph = ImGui::GetFontBaked()->FindGlyph( g_cursorIconRanges[4] );
                 }
                 break;
                 case MouseLocationUI::MoveHandle:
                 {
-                    glyph = ImGui::GetIO().Fonts->Fonts[0]->FindGlyph( g_cursorIconRanges[0] );
+                    glyph = ImGui::GetFontBaked()->FindGlyph( g_cursorIconRanges[0] );
                     angle = glm::vec2( 1.0, 0.0 );
                 }
                 break;

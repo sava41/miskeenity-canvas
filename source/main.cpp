@@ -359,14 +359,14 @@ void proccessUserEvent( const SDL_Event* sdlEvent, mc::AppContext* app )
                 wgpu::CommandBuffer command = encoder.Finish();
                 app->device.GetQueue().Submit( 1, &command );
 
-                wgpu::BufferMapCallback callback = []( WGPUBufferMapAsyncStatus status, void* userData )
+                auto callback = []( wgpu::MapAsyncStatus status, const char* )
                 {
-                    if( status == WGPUBufferMapAsyncStatus_Success )
+                    if( status == wgpu::MapAsyncStatus::Success )
                     {
                         mc::submitEvent( mc::Events::SamLoadInput );
                     }
                 };
-                app->textureMapBuffer.MapAsync( wgpu::MapMode::Read, 0, app->textureMapBuffer.GetSize(), callback, nullptr );
+                app->textureMapBuffer.MapAsync( wgpu::MapMode::Read, 0, app->textureMapBuffer.GetSize(), wgpu::CallbackMode::AllowProcessEvents, callback );
             }
 
             app->editMaskTextureHandle = std::make_unique<mc::ResourceHandle>(
@@ -1318,9 +1318,9 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 
     if( app->mergeTopLayers )
     {
-        wgpu::BufferMapCallback callback = []( WGPUBufferMapAsyncStatus status, void* userData )
+        auto callback = []( wgpu::MapAsyncStatus status, const char* )
         {
-            if( status == WGPUBufferMapAsyncStatus_Success )
+            if( status == wgpu::MapAsyncStatus::Success )
             {
                 submitEvent( mc::Events::AddMergedLayer );
             }
@@ -1329,35 +1329,35 @@ SDL_AppResult SDL_AppIterate( void* appstate )
                 submitEvent( mc::Events::ResetEditLayers );
             }
         };
-        app->vertexCopyBuf.MapAsync( wgpu::MapMode::Read, 0, app->newMeshSize, callback, nullptr );
+        app->vertexCopyBuf.MapAsync( wgpu::MapMode::Read, 0, app->newMeshSize, wgpu::CallbackMode::AllowProcessEvents, callback );
 
         app->mergeTopLayers = false;
     }
 
     if( computeSelection )
     {
-        wgpu::BufferMapCallback callback = []( WGPUBufferMapAsyncStatus status, void* userData )
+        auto callback = []( wgpu::MapAsyncStatus status, const char* )
         {
-            if( status == WGPUBufferMapAsyncStatus_Success )
+            if( status == wgpu::MapAsyncStatus::Success )
             {
                 submitEvent( mc::Events::SelectionChanged );
             }
         };
-        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, app->layers.getTotalTriCount() * sizeof( mc::Selection ), callback, nullptr );
+        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, app->layers.getTotalTriCount() * sizeof( mc::Selection ), wgpu::CallbackMode::AllowProcessEvents, callback );
 
         app->selectionReady = false;
     }
 
     if( app->saveImage && app->textureMapBuffer.GetMapState() == wgpu::BufferMapState::Unmapped )
     {
-        wgpu::BufferMapCallback callback = []( WGPUBufferMapAsyncStatus status, void* userData )
+        auto callback = []( wgpu::MapAsyncStatus status, const char* )
         {
-            if( status == WGPUBufferMapAsyncStatus_Success )
+            if( status == wgpu::MapAsyncStatus::Success )
             {
                 submitEvent( mc::Events::SaveImage );
             }
         };
-        app->textureMapBuffer.MapAsync( wgpu::MapMode::Read, 0, app->textureMapBuffer.GetSize(), callback, nullptr );
+        app->textureMapBuffer.MapAsync( wgpu::MapMode::Read, 0, app->textureMapBuffer.GetSize(), wgpu::CallbackMode::AllowProcessEvents, callback );
 
         app->saveImage = false;
     }

@@ -30,11 +30,11 @@ WGPUSurface SDL_GetWGPUSurface( WGPUInstance instance, SDL_Window* window )
         return wgpuInstanceCreateSurface( instance, &( WGPUSurfaceDescriptor ){
                                                         .label = NULL,
                                                         .nextInChain =
-                                                            (const WGPUChainedStruct*)&( WGPUSurfaceDescriptorFromMetalLayer ){
+                                                            (const WGPUChainedStruct*)&( WGPUSurfaceSourceMetalLayer ){
                                                                 .chain =
                                                                     ( WGPUChainedStruct ){
                                                                         .next  = NULL,
-                                                                        .sType = WGPUSType_SurfaceDescriptorFromMetalLayer,
+                                                                        .sType = WGPUSType_SurfaceSourceMetalLayer,
                                                                     },
                                                                 .layer = metal_layer,
                                                             },
@@ -48,11 +48,11 @@ WGPUSurface SDL_GetWGPUSurface( WGPUInstance instance, SDL_Window* window )
                 instance, &( WGPUSurfaceDescriptor ){
                               .label = NULL,
                               .nextInChain =
-                                  (const WGPUChainedStruct*)&( WGPUSurfaceDescriptorFromXlibWindow ){
+                                  (const WGPUChainedStruct*)&( WGPUSurfaceSourceXlibWindow ){
                                       .chain =
                                           ( WGPUChainedStruct ){
                                               .next  = NULL,
-                                              .sType = WGPUSType_SurfaceDescriptorFromXlibWindow,
+                                              .sType = WGPUSType_SurfaceSourceXlibWindow,
                                           },
                                       .display = SDL_GetPointerProperty( props, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, NULL ),
                                       .window  = SDL_GetNumberProperty( props, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0 ),
@@ -65,11 +65,11 @@ WGPUSurface SDL_GetWGPUSurface( WGPUInstance instance, SDL_Window* window )
                 instance, &( WGPUSurfaceDescriptor ){
                               .label = NULL,
                               .nextInChain =
-                                  (const WGPUChainedStruct*)&( WGPUSurfaceDescriptorFromWaylandSurface ){
+                                  (const WGPUChainedStruct*)&( WGPUSurfaceSourceWaylandSurface ){
                                       .chain =
                                           ( WGPUChainedStruct ){
                                               .next  = NULL,
-                                              .sType = WGPUSType_SurfaceDescriptorFromWaylandSurface,
+                                              .sType = WGPUSType_SurfaceSourceWaylandSurface,
                                           },
                                       .display = SDL_GetPointerProperty( props, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, NULL ),
                                       .surface = SDL_GetPointerProperty( props, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, NULL ),
@@ -83,11 +83,11 @@ WGPUSurface SDL_GetWGPUSurface( WGPUInstance instance, SDL_Window* window )
             instance, &( WGPUSurfaceDescriptor ){
                           .label = NULL,
                           .nextInChain =
-                              (const WGPUChainedStruct*)&( WGPUSurfaceDescriptorFromWindowsHWND ){
+                              (const WGPUChainedStruct*)&( WGPUSurfaceSourceWindowsHWND ){
                                   .chain =
                                       ( WGPUChainedStruct ){
                                           .next  = NULL,
-                                          .sType = WGPUSType_SurfaceDescriptorFromWindowsHWND,
+                                          .sType = WGPUSType_SurfaceSourceWindowsHWND,
                                       },
                                   .hinstance = SDL_GetPointerProperty( props, SDL_PROP_WINDOW_WIN32_INSTANCE_POINTER, NULL ),
                                   .hwnd      = SDL_GetPointerProperty( props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL ),
@@ -99,11 +99,11 @@ WGPUSurface SDL_GetWGPUSurface( WGPUInstance instance, SDL_Window* window )
     return wgpuInstanceCreateSurface( instance, &( WGPUSurfaceDescriptor ){
                                                     .label = NULL,
                                                     .nextInChain =
-                                                        (const WGPUChainedStruct*)&( WGPUSurfaceDescriptorFromCanvasHTMLSelector ){
+                                                        (const WGPUChainedStruct*)&( WGPUEmscriptenSurfaceSourceCanvasHTMLSelector ){
                                                             .chain =
                                                                 ( WGPUChainedStruct ){
                                                                     .next  = NULL,
-                                                                    .sType = WGPUSType_SurfaceDescriptorFromCanvasHTMLSelector,
+                                                                    .sType = WGPUSType_EmscriptenSurfaceSourceCanvasHTMLSelector,
                                                                 },
                                                             .selector = HTML_CANVAS_ID,
                                                         },
