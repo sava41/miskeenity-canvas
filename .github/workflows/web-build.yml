@@ -5,7 +5,6 @@ jobs:
   build-web:
     name: Build for Web
     runs-on: ubuntu-latest
-    timeout-minutes: 120
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -15,17 +14,10 @@ jobs:
           cd emsdk
           ./emsdk install 5.0.1
           ./emsdk activate 5.0.1
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: build/third_party
-          key: web-deps-em5.0.1-${{ hashFiles('CMakeLists.txt', 'third_party/**') }}
-          restore-keys: |
-            web-deps-em5.0.1-
       - name: Build for web
         run: |
           source emsdk/emsdk_env.sh
-          emcmake cmake -B build -DCMAKE_BUILD_TYPE=MinSizeRel -DFETCHCONTENT_UPDATES_DISCONNECTED=ON
+          emcmake cmake -B build -DCMAKE_BUILD_TYPE=MinSizeRel
           cmake --build build --parallel
       - name: Prepare for upload
         run: |
