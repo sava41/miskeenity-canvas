@@ -5,7 +5,6 @@
 #include <array>
 #if defined( SDL_PLATFORM_EMSCRIPTEN )
 #include <emscripten/emscripten.h>
-#include <emscripten/html5_webgpu.h>
 #endif
 
 namespace mc
@@ -35,7 +34,7 @@ namespace mc
         requiredLimits.maxUniformBufferBindingSize     = mc::NumLayers * sizeof( mc::Layer );
         requiredLimits.minStorageBufferOffsetAlignment = supportedLimits.minStorageBufferOffsetAlignment;
         requiredLimits.minUniformBufferOffsetAlignment = supportedLimits.minUniformBufferOffsetAlignment;
-        requiredLimits.maxInterStageShaderVariables   = 8;
+        requiredLimits.maxInterStageShaderVariables    = 8;
         requiredLimits.maxBindGroups                   = 4;
         requiredLimits.maxUniformBuffersPerShaderStage = 1;
         requiredLimits.maxUniformBufferBindingSize     = 16 * 4 * sizeof( float );

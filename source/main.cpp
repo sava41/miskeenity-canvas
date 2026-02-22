@@ -11,7 +11,6 @@
 #if defined( SDL_PLATFORM_EMSCRIPTEN )
 #include <emscripten/emscripten.h>
 #include <emscripten/html5.h>
-#include <emscripten/html5_webgpu.h>
 #endif
 
 #include "app.h"
@@ -1343,7 +1342,8 @@ SDL_AppResult SDL_AppIterate( void* appstate )
                 submitEvent( mc::Events::SelectionChanged );
             }
         };
-        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, app->layers.getTotalTriCount() * sizeof( mc::Selection ), wgpu::CallbackMode::AllowProcessEvents, callback );
+        app->selectionMapBuf.MapAsync( wgpu::MapMode::Read, 0, app->layers.getTotalTriCount() * sizeof( mc::Selection ), wgpu::CallbackMode::AllowProcessEvents,
+                                       callback );
 
         app->selectionReady = false;
     }

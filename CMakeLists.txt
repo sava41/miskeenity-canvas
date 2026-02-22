@@ -23,9 +23,9 @@ endif()
 
 # Add third party libs
 if (NOT CMAKE_SYSTEM_NAME STREQUAL Emscripten)
-    add_subdirectory(third_party/webgpu)
     add_subdirectory(third_party/onnx)
 endif()
+add_subdirectory(third_party/webgpu)
 add_subdirectory(third_party/iconfontheaders)
 add_subdirectory(third_party/sdl3)
 add_subdirectory(third_party/imgui)
@@ -88,7 +88,7 @@ target_compile_definitions(miskeenity-canvas PRIVATE MC_GIT_HASH="${GIT_HASH_VAL
 if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
     add_dependencies(miskeenity-canvas emscripten-browser-file)
-    target_link_libraries(miskeenity-canvas PRIVATE emscripten-browser-file)
+    target_link_libraries(miskeenity-canvas PRIVATE emdawnwebgpu_cpp emscripten-browser-file)
     target_compile_definitions(miskeenity-canvas PRIVATE B_OS_WEB)
     # use minimal shell.html
     target_link_options(miskeenity-canvas PRIVATE --shell-file ${PROJECT_SOURCE_DIR}/resources/shell/shell.html)
@@ -96,6 +96,12 @@ if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     target_link_options(miskeenity-canvas PRIVATE -sEXPORTED_RUNTIME_METHODS=[ccall] -sEXPORTED_FUNCTIONS=[_main,_malloc,_free] -sALLOW_MEMORY_GROWTH=1 -sASYNCIFY)
     # WASM+JS size optimizations
     target_link_options(miskeenity-canvas PRIVATE -sASSERTIONS=0 -sMALLOC=emmalloc )#--closure=1)
+
+    target_compile_options(miskeenity-canvas PRIVATE
+        -Wall
+        -Wextra
+        #-Weverything
+    )
 else()
     b_embed(miskeenity-canvas ./resources/textures/miskeen_128.png)
     add_dependencies(miskeenity-canvas webgpu_cpp webgpu_dawn onnxruntime_lib)
