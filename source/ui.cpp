@@ -236,7 +236,6 @@ namespace mc
                                                     b::embed<"./resources/fonts/Lucide_compact.ttf">().size(), 24.0f * g_uiScale, &configLucide,
                                                     g_cursorIconRanges.Data );
 
-        ImGui::GetIO().Fonts->Build();
     }
 
     void initUI( const AppContext* app )

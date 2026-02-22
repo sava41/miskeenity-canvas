@@ -719,9 +719,7 @@ SDL_AppResult SDL_AppIterate( void* appstate )
 {
     mc::AppContext* app = reinterpret_cast<mc::AppContext*>( appstate );
 
-#if !defined( SDL_PLATFORM_EMSCRIPTEN )
     app->instance.ProcessEvents();
-#endif
 
     if( app->resetSurface && SDL_GetTicks() - app->resetSurfaceTime > mc::resetSurfaceDelayMs )
     {
