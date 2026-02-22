@@ -37,9 +37,7 @@ if (NOT dawn_POPULATED)
     set(DAWN_ENABLE_DESKTOP_GL OFF)
     set(DAWN_ENABLE_OPENGLES OFF)
     set(DAWN_ENABLE_VULKAN ${USE_VULKAN})
-    if(NOT CMAKE_SYSTEM_NAME STREQUAL Emscripten)
-        set(TINT_BUILD_SPV_READER ON)
-    endif()
+    set(TINT_BUILD_SPV_READER OFF)
 
     # Disable unneeded parts
     set(DAWN_BUILD_SAMPLES OFF)
