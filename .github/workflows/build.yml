@@ -40,7 +40,7 @@ jobs:
           - name: Setup Xcode version
             uses: maxim-lobanov/setup-xcode@master
             with:
-                xcode-version: "26.0.1"
+                xcode-version: "16.2.0"
           - name: Configure
             run: cmake -G Ninja -DCMAKE_SYSTEM_NAME=${{ matrix.target }}  -DCMAKE_BUILD_TYPE=MinSizeRel -S . -B build
           - name: Build
