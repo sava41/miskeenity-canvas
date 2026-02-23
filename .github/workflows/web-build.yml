@@ -14,17 +14,11 @@ jobs:
           cd emsdk
           ./emsdk install 5.0.1
           ./emsdk activate 5.0.1
-      - name: Create swap space
-        run: |
-          sudo fallocate -l 8G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
       - name: Build for web
         run: |
           source emsdk/emsdk_env.sh
           emcmake cmake -B build -DCMAKE_BUILD_TYPE=MinSizeRel
-          cmake --build build --parallel 2
+          cmake --build build --parallel
       - name: Prepare for upload
         run: |
            mkdir _site
